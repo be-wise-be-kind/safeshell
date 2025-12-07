@@ -1,0 +1,81 @@
+[tool.poetry]
+name = "safeshell"
+version = "0.1.0"
+description = "A command-line safety layer for AI coding assistants"
+authors = ["Steve Jackson"]
+readme = "README.md"
+packages = [{include = "safeshell", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+typer = {extras = ["all"], version = "^0.15.0"}
+rich = "^13.9.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.0"
+pytest-cov = "^6.0.0"
+pytest-xdist = "^3.5.0"
+ruff = "^0.8.0"
+pylint = "^3.3.0"
+mypy = "^1.13.0"
+bandit = "^1.8.0"
+pre-commit = "^4.0.0"
+thailint = "^0.4.6"
+radon = "^6.0.0"
+
+[tool.poetry.scripts]
+safeshell = "safeshell.cli:app"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+# Ruff configuration
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "RET", "S"]
+ignore = ["S101"]  # Allow assert in tests
+
+[tool.ruff.lint.per-file-ignores]
+"src/safeshell/cli.py" = ["F401"]  # Allow unused imports for side-effect registration
+
+# Pylint configuration
+[tool.pylint.main]
+max-line-length = 100
+disable = [
+    "R0903",  # too-few-public-methods
+    "C0415",  # import-outside-toplevel: Intentional for CLI lazy loading
+]
+
+# MyPy configuration
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+# Pytest configuration
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = ["-v", "--strict-markers", "--tb=short"]
+markers = [
+    "integration: marks tests as integration tests",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
+# Bandit configuration
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101"]  # Allow assert
+
+# Radon configuration
+[tool.radon]
+cc_min = "B"  # Report functions with complexity B or worse
+show_complexity = true
+average = true

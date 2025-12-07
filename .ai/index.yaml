@@ -32,6 +32,7 @@ documentation:
   location: .ai/docs/
   files:
     - PROJECT_CONTEXT.md
+    - PYTHON_STANDARDS.md
 
 howtos:
   location: .ai/howtos/
