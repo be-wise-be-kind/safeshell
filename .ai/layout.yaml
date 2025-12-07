@@ -1,0 +1,80 @@
+# Purpose: Directory layout mapping for SafeShell repository
+# Scope: File organization, directory structure, and placement rules
+# Overview: Provides AI agents with a clear map of SafeShell repository structure
+#     including source code, tests, documentation, and configuration locations.
+
+version: "1.0"
+
+directories:
+  source: src/
+  tests: tests/
+  docs: docs/
+  config: config/
+  scripts: scripts/
+
+ai_navigation:
+  index: .ai/index.yaml
+  layout: .ai/layout.yaml
+  docs: .ai/docs/
+  howtos: .ai/howtos/
+  templates: .ai/templates/
+  features: .ai/features/
+
+# Python-specific directories
+python:
+  source: src/
+  tests: tests/
+  pyproject: pyproject.toml
+  venv: .venv/
+
+# SafeShell-specific directories
+safeshell:
+  plugins: src/plugins/
+  daemon: src/daemon/
+  monitor: src/monitor/
+  wrapper: src/wrapper/
+  config: ~/.safeshell/
+
+# Infrastructure directories (will be added in later PRs)
+# docker:
+#   location: ./
+#   compose: docker-compose.yml
+#   dockerfile: Dockerfile
+
+# ci_cd:
+#   location: .github/workflows/
+
+file_patterns:
+  source_files:
+    - "src/**/*.py"
+  test_files:
+    - "tests/**/*.py"
+  config_files:
+    - "*.json"
+    - "*.yaml"
+    - "*.yml"
+    - "*.toml"
+  documentation:
+    - "*.md"
+    - "docs/**/*"
+
+ignore_patterns:
+  - .venv/
+  - venv/
+  - __pycache__/
+  - "*.pyc"
+  - .git/
+  - dist/
+  - build/
+  - "*.log"
+  - .mypy_cache/
+  - .ruff_cache/
+  - .pytest_cache/
+  - htmlcov/
+  - .coverage
+
+notes_for_agents:
+  - SafeShell uses Poetry for dependency management
+  - Build system uses justfile (not Makefile)
+  - Plugin system uses Python modules in src/plugins/
+  - User configuration stored in ~/.safeshell/

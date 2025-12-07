@@ -1,0 +1,70 @@
+# Purpose: AI navigation index for SafeShell repository
+# Scope: Repository structure, available resources, commands, and documentation
+# Overview: Provides AI agents with a quick reference to navigate the SafeShell repository,
+#     locate key files, understand available commands, and access documentation.
+
+version: "1.0"
+project:
+  name: safeshell
+  type: python-cli
+  purpose: Command-line safety layer for AI coding assistants that intercepts shell commands and enforces configurable policies
+  status: in-development
+  version: "0.1.0"
+
+structure:
+  source:
+    location: src/
+    description: Main source code for SafeShell CLI and daemon
+
+  tests:
+    location: tests/
+    description: Test files
+
+  docs:
+    location: docs/
+    description: User-facing documentation
+
+  ai_navigation:
+    location: .ai/
+    description: AI agent navigation and context
+
+documentation:
+  location: .ai/docs/
+  files:
+    - PROJECT_CONTEXT.md
+
+howtos:
+  location: .ai/howtos/
+  files: []
+
+templates:
+  location: .ai/templates/
+  files: []
+
+commands:
+  # Commands will be added as plugins are installed
+  # Using justfile (not Makefile)
+  init: just init
+  test: just test
+  lint: just lint
+  format: just format
+
+key_files:
+  readme: README.md
+  gitignore: .gitignore
+  agents: AGENTS.md
+
+architecture:
+  pattern: cli-daemon
+  components:
+    - shell_wrapper: Intercepts commands from AI tools
+    - daemon: Loads plugins and evaluates policy
+    - monitor: TUI for real-time visibility and approval
+    - plugins: Policy logic (rm-protect, path-protect, etc.)
+
+notes_for_agents:
+  - SafeShell operates as a shell wrapper, not command shims
+  - All policy logic resides in plugins - core is policy-agnostic
+  - Uses Typer CLI framework with Rich for TUI
+  - Build system uses justfile (not Makefile)
+  - Thai-lint integrated for code quality checks

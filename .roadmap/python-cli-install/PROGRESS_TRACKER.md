@@ -36,7 +36,7 @@
 
 ## Current Status
 
-**Current PR**: PR0 (Planning) - Complete
+**Current PR**: PR1 (Foundation) - Complete
 **Installation Target**: /home/stevejackson/Projects/safeshell
 **Project Name**: safeshell
 
@@ -57,14 +57,14 @@
 
 ## Next PR to Implement
 
-### START HERE: PR1 - Install foundation/ai-folder plugin
+### START HERE: PR2 - Install Python plugin
 
-**What this PR does**: Creates .ai/ directory structure for AI navigation
+**What this PR does**: Creates pyproject.toml with Poetry, configures Typer, Ruff, pytest, mypy
 
 **Pre-flight Checklist**:
-- [x] PR0 is marked complete in this document
-- [x] Repository initialized and pushed to GitHub
-- [ ] Git branch created for this PR: `feature/pr1-foundation`
+- [x] PR1 is marked complete in this document
+- [x] .ai/ folder structure exists
+- [ ] Git branch created for this PR: `feature/pr2-python`
 
 **After completing this PR**:
 1. Run validation commands listed in PR instructions
@@ -78,10 +78,10 @@
 
 ## Overall Progress
 
-**Total Completion**: 14% (1/7 PRs completed)
+**Total Completion**: 29% (2/7 PRs completed)
 
 ```
-[#-----] 14%
+[##----] 29%
 ```
 
 ---
@@ -91,7 +91,7 @@
 | PR | Phase | Title | Status | Dependencies | Notes |
 |----|-------|-------|--------|--------------|-------|
 | PR0 | Planning | Create roadmap | ✅ Complete | None | Initial setup complete |
-| PR1 | Foundation | Install foundation/ai-folder plugin | 🔴 Not Started | PR0 complete | Creates .ai/ structure |
+| PR1 | Foundation | Install foundation/ai-folder plugin | ✅ Complete | PR0 complete | .ai/ structure created |
 | PR2 | Languages | Install Python plugin | 🔴 Not Started | PR1 complete | Creates pyproject.toml |
 | PR3 | Infrastructure | Install Docker + CI/CD plugins | 🔴 Not Started | PR2 complete | Creates docker-compose.yml |
 | PR4 | Standards | Install security, docs, pre-commit plugins | 🔴 Not Started | PR3 complete | Sets up quality gates |
