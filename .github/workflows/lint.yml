@@ -1,0 +1,82 @@
+# ==============================================================================
+# File: .github/workflows/lint.yml
+#
+# Purpose: Run code quality checks on pull requests and manual triggers
+#
+# Triggers: pull_request to main, workflow_dispatch
+#
+# Jobs:
+#   - lint: Run ruff, pylint, mypy, bandit, and thailint checks
+#
+# Tools:
+#   - ruff: Fast linting and formatting
+#   - pylint: Comprehensive Python linting
+#   - mypy: Static type checking
+#   - bandit: Security vulnerability scanning
+#   - thailint: Custom checks (magic-numbers, nesting, srp)
+# ==============================================================================
+
+name: Lint
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+
+      - name: Install project
+        run: poetry install --no-interaction
+
+      - name: Run Ruff
+        run: poetry run ruff check src/ tests/
+
+      - name: Run Ruff Format Check
+        run: poetry run ruff format --check src/ tests/
+
+      - name: Run Pylint
+        run: poetry run pylint src/safeshell
+
+      - name: Run MyPy
+        run: poetry run mypy src/safeshell
+
+      - name: Run Bandit
+        run: poetry run bandit -r src/safeshell -c pyproject.toml
+
+      - name: Run thailint magic-numbers
+        run: poetry run thailint magic-numbers src/
+
+      - name: Run thailint nesting
+        run: poetry run thailint nesting src/
+
+      - name: Run thailint srp
+        run: poetry run thailint srp src/

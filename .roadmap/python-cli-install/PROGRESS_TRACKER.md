@@ -36,7 +36,7 @@
 
 ## Current Status
 
-**Current PR**: PR2 (Python) - Complete
+**Current PR**: PR3 (Infrastructure) - Complete
 **Installation Target**: /home/stevejackson/Projects/safeshell
 **Project Name**: safeshell
 
@@ -57,20 +57,21 @@
 
 ## Next PR to Implement
 
-### START HERE: PR3 - Install Docker + CI/CD Infrastructure
+### START HERE: PR4 - Install Standards Plugins
 
-**What this PR does**: Creates Docker containerization and GitHub Actions workflows
+**What this PR does**: Installs security, documentation, and pre-commit hook plugins
 
 **Pre-flight Checklist**:
-- [x] PR2 is marked complete in this document
-- [x] pyproject.toml exists with Python tooling
-- [ ] Git branch created for this PR: `feature/pr3-infrastructure`
+- [x] PR3 is marked complete in this document
+- [x] Dockerfile and docker-compose.yml exist
+- [x] GitHub Actions workflows exist
+- [ ] Git branch created for this PR: `feature/pr4-standards`
 
 **After completing this PR**:
 1. Run validation commands listed in PR instructions
 2. Mark PR as Complete in "PR Status Dashboard" below
 3. Add commit hash to Notes column
-4. Update "Current PR" to PR3
+4. Update "Current PR" to PR4
 5. Commit this updated PROGRESS_TRACKER.md
 6. Merge PR branch to main
 
@@ -78,10 +79,10 @@
 
 ## Overall Progress
 
-**Total Completion**: 43% (3/7 PRs completed)
+**Total Completion**: 57% (4/7 PRs completed)
 
 ```
-[###---] 43%
+[####--] 57%
 ```
 
 ---
@@ -93,7 +94,7 @@
 | PR0 | Planning | Create roadmap | ✅ Complete | None | Initial setup complete |
 | PR1 | Foundation | Install foundation/ai-folder plugin | ✅ Complete | PR0 complete | .ai/ structure created |
 | PR2 | Languages | Install Python plugin | ✅ Complete | PR1 complete | 8c38cfe |
-| PR3 | Infrastructure | Install Docker + CI/CD plugins | 🔴 Not Started | PR2 complete | Creates docker-compose.yml |
+| PR3 | Infrastructure | Install Docker + CI/CD plugins | ✅ Complete | PR2 complete | Dockerfile, docker-compose.yml, workflows |
 | PR4 | Standards | Install security, docs, pre-commit plugins | 🔴 Not Started | PR3 complete | Sets up quality gates |
 | PR5 | Application | Copy CLI code, configure, install deps | 🔴 Not Started | PR4 complete | Installs app code + justfile |
 | PR6 | Finalization | Validate setup, create AGENTS.md | 🔴 Not Started | PR5 complete | Final validation |
