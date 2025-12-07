@@ -36,7 +36,7 @@
 
 ## Current Status
 
-**Current PR**: PR3 (Infrastructure) - Complete
+**Current PR**: PR4 (Standards) - Complete
 **Installation Target**: /home/stevejackson/Projects/safeshell
 **Project Name**: safeshell
 
@@ -57,21 +57,21 @@
 
 ## Next PR to Implement
 
-### START HERE: PR4 - Install Standards Plugins
+### START HERE: PR5 - Install Application Code
 
-**What this PR does**: Installs security, documentation, and pre-commit hook plugins
+**What this PR does**: Copy CLI starter code, create justfile, configure for safeshell
 
 **Pre-flight Checklist**:
-- [x] PR3 is marked complete in this document
-- [x] Dockerfile and docker-compose.yml exist
-- [x] GitHub Actions workflows exist
-- [ ] Git branch created for this PR: `feature/pr4-standards`
+- [x] PR4 is marked complete in this document
+- [x] .pre-commit-config.yaml exists
+- [x] .gitignore exists with security patterns
+- [ ] Git branch created for this PR: `feature/pr5-application`
 
 **After completing this PR**:
 1. Run validation commands listed in PR instructions
 2. Mark PR as Complete in "PR Status Dashboard" below
 3. Add commit hash to Notes column
-4. Update "Current PR" to PR4
+4. Update "Current PR" to PR5
 5. Commit this updated PROGRESS_TRACKER.md
 6. Merge PR branch to main
 
@@ -79,10 +79,10 @@
 
 ## Overall Progress
 
-**Total Completion**: 57% (4/7 PRs completed)
+**Total Completion**: 71% (5/7 PRs completed)
 
 ```
-[####--] 57%
+[#####-] 71%
 ```
 
 ---
@@ -95,7 +95,7 @@
 | PR1 | Foundation | Install foundation/ai-folder plugin | ✅ Complete | PR0 complete | .ai/ structure created |
 | PR2 | Languages | Install Python plugin | ✅ Complete | PR1 complete | 8c38cfe |
 | PR3 | Infrastructure | Install Docker + CI/CD plugins | ✅ Complete | PR2 complete | Dockerfile, docker-compose.yml, workflows |
-| PR4 | Standards | Install security, docs, pre-commit plugins | 🔴 Not Started | PR3 complete | Sets up quality gates |
+| PR4 | Standards | Install security, docs, pre-commit plugins | ✅ Complete | PR3 complete | .gitignore, .pre-commit-config.yaml |
 | PR5 | Application | Copy CLI code, configure, install deps | 🔴 Not Started | PR4 complete | Installs app code + justfile |
 | PR6 | Finalization | Validate setup, create AGENTS.md | 🔴 Not Started | PR5 complete | Final validation |
 
