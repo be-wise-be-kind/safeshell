@@ -10,11 +10,16 @@ packages = [{include = "safeshell", from = "src"}]
 python = "^3.11"
 typer = {extras = ["all"], version = "^0.15.0"}
 rich = "^13.9.0"
+pydantic = "^2.0.0"
+loguru = "^0.7.0"
+pyyaml = "^6.0.0"
+plumbum = "^1.9.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
 pytest-cov = "^6.0.0"
 pytest-xdist = "^3.5.0"
+pytest-asyncio = "^0.24.0"
 ruff = "^0.8.0"
 pylint = "^3.3.0"
 mypy = "^1.13.0"
@@ -25,6 +30,7 @@ radon = "^6.0.0"
 
 [tool.poetry.scripts]
 safeshell = "safeshell.cli:app"
+safeshell-wrapper = "safeshell.wrapper.shell:main"
 
 [build-system]
 requires = ["poetry-core"]

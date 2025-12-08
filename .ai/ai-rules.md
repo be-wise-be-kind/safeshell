@@ -37,10 +37,11 @@ All code must pass before push:
 
 1. **NO print statements** - Use Rich console or Loguru for all output
 2. **Type hints everywhere** - MyPy strict mode must pass
-3. **Pydantic for data models** - No plain dicts for structured data
-4. **Proper file headers** - See [howtos/how-to-write-file-headers.md](./howtos/how-to-write-file-headers.md)
-5. **No method-level noqa comments** - If a linting rule needs to be suppressed, prefer file-level (`# ruff: noqa: RULE`) or project-level (in pyproject.toml) configuration
-6. **Standalone repository** - SafeShell must be completely self-contained
+3. **Pydantic for ALL models** - All data classes, configs, and API types must be Pydantic `BaseModel`. No `@dataclass` or plain dicts.
+4. **NO subprocess module** - Use `plumbum` for all shell/command execution. Cross-platform and safer API.
+5. **Proper file headers** - See [howtos/how-to-write-file-headers.md](./howtos/how-to-write-file-headers.md)
+6. **No method-level noqa comments** - If a linting rule needs to be suppressed, prefer file-level (`# ruff: noqa: RULE`) or project-level (in pyproject.toml) configuration
+7. **Standalone repository** - SafeShell must be completely self-contained
 
 ---
 
