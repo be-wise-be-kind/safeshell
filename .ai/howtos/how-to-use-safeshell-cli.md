@@ -49,6 +49,7 @@ safeshell --help
 
 Shows all available commands:
 - `version` - Show the SafeShell version
+- `init` - Initialize SafeShell configuration and rules
 - `check` - Check if a command is safe to execute
 - `status` - Show SafeShell daemon status
 
@@ -83,6 +84,21 @@ Output:
 SafeShell v0.1.0
 ```
 
+### init
+
+Initialize SafeShell configuration and rules:
+
+```bash
+safeshell init
+```
+
+This creates:
+- `~/.safeshell/config.yaml` - SafeShell configuration
+- `~/.safeshell/rules.yaml` - Default rules for git protection
+
+Run this once after installation to set up SafeShell. If files already exist,
+you'll be prompted before overwriting.
+
 ### check
 
 Check if a command is safe to execute:
@@ -93,11 +109,11 @@ safeshell check "git push --force"
 safeshell check "cat ~/.ssh/id_rsa"
 ```
 
-This evaluates the command against loaded plugins without executing it.
+This evaluates the command against loaded rules without executing it.
 
 ### status
 
-Show the daemon status and loaded plugins:
+Show the daemon status and loaded rules:
 
 ```bash
 safeshell status
@@ -105,17 +121,24 @@ safeshell status
 
 Output shows:
 - Daemon running state
-- Loaded plugins
+- Number of loaded rules
 - Configuration path
 
 ---
 
 ## Common Workflows
 
+### Initial Setup
+
+```bash
+safeshell init                      # Create config and rules files
+safeshell status                    # Verify daemon is running
+```
+
 ### Check System Status
 
 ```bash
-safeshell status                    # Show daemon and plugin status
+safeshell status                    # Show daemon and rules status
 safeshell version                   # Show version
 ```
 

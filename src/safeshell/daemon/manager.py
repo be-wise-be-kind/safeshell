@@ -1,9 +1,9 @@
 """
 File: src/safeshell/daemon/manager.py
-Purpose: Plugin management and command evaluation
-Exports: PluginManager
-Depends: safeshell.plugins, safeshell.models, safeshell.daemon.events, loguru
-Overview: Loads plugins and evaluates commands against all loaded plugins, emitting events
+Purpose: Rule management and command evaluation
+Exports: RuleManager
+Depends: safeshell.rules, safeshell.models, safeshell.daemon.events, loguru
+Overview: Loads rules and evaluates commands against all loaded rules, emitting events
 """
 
 from loguru import logger
@@ -17,35 +17,37 @@ from safeshell.models import (
     EvaluationResult,
     RequestType,
 )
-from safeshell.plugins.base import Plugin
-from safeshell.plugins.git_protect import GitProtectPlugin
+from safeshell.rules import RuleEvaluator, load_rules
 
 
-class PluginManager:
-    """Manages plugin loading and command evaluation.
+class RuleManager:
+    """Manages rule loading and command evaluation.
 
-    Loads built-in plugins on initialization and provides
-    command evaluation against all loaded plugins. Optionally
-    publishes events during evaluation for monitor visibility.
+    Loads rules from global and repo configuration files and provides
+    command evaluation against all loaded rules. Optionally publishes
+    events during evaluation for monitor visibility.
     """
 
-    def __init__(self, event_publisher: DaemonEventPublisher | None = None) -> None:
-        """Initialize plugin manager with built-in plugins.
+    def __init__(
+        self,
+        event_publisher: DaemonEventPublisher | None = None,
+        condition_timeout_ms: int = 100,
+    ) -> None:
+        """Initialize rule manager.
 
         Args:
             event_publisher: Optional publisher for emitting evaluation events
+            condition_timeout_ms: Timeout for bash conditions in milliseconds
         """
-        self.plugins: list[Plugin] = []
         self._event_publisher = event_publisher
-        self._load_builtin_plugins()
+        self._condition_timeout_ms = condition_timeout_ms
+        self._evaluator: RuleEvaluator | None = None
+        self._rule_count: int = 0
 
-    def _load_builtin_plugins(self) -> None:
-        """Load built-in plugins."""
-        # MVP: Only git-protect plugin
-        self.plugins.append(GitProtectPlugin())
-        logger.info(f"Loaded {len(self.plugins)} built-in plugin(s)")
-        for plugin in self.plugins:
-            logger.debug(f"  - {plugin.name}: {plugin.description}")
+    @property
+    def rule_count(self) -> int:
+        """Return the number of loaded rules."""
+        return self._rule_count
 
     async def process_request(self, request: DaemonRequest) -> DaemonResponse:
         """Process a request from the shell wrapper.
@@ -77,7 +79,6 @@ class PluginManager:
 
     def _handle_status(self) -> DaemonResponse:
         """Handle status request."""
-        # Could include more status info in the future
         return DaemonResponse(
             success=True,
             final_decision=Decision.ALLOW,
@@ -105,6 +106,16 @@ class PluginManager:
                 request.command, request.working_dir
             )
 
+        # Load rules for the working directory
+        rules = load_rules(request.working_dir)
+        self._rule_count = len(rules)
+
+        # Create evaluator
+        evaluator = RuleEvaluator(
+            rules=rules,
+            condition_timeout_ms=self._condition_timeout_ms,
+        )
+
         # Build command context
         context = CommandContext.from_command(
             command=request.command,
@@ -116,96 +127,57 @@ class PluginManager:
         logger.debug(f"  Working dir: {request.working_dir}")
         logger.debug(f"  Git repo: {context.git_repo_root}")
         logger.debug(f"  Git branch: {context.git_branch}")
-
-        # Count matching plugins
-        matching_plugins = [p for p in self.plugins if p.matches(context)]
+        logger.debug(f"  Rules loaded: {len(rules)}")
 
         # Emit evaluation started event
         if self._event_publisher:
             await self._event_publisher.evaluation_started(
-                request.command, len(matching_plugins)
+                request.command, len(rules)
             )
 
-        # Evaluate against all plugins
-        results: list[EvaluationResult] = []
-        for plugin in matching_plugins:
-            result = plugin.evaluate(context)
-            results.append(result)
-            logger.debug(f"  Plugin {plugin.name}: {result.decision.value}")
-
-        # Aggregate decisions (most restrictive wins)
-        final_decision = self._aggregate_decisions(results)
+        # Evaluate against rules
+        result = await evaluator.evaluate(context)
+        results = [result]
 
         # Build response
         response = DaemonResponse(
             success=True,
             results=results,
-            final_decision=final_decision,
-            should_execute=(final_decision == Decision.ALLOW),
+            final_decision=result.decision,
+            should_execute=(result.decision == Decision.ALLOW),
         )
 
         # Add denial message if blocked
-        if final_decision == Decision.DENY:
-            response.denial_message = self._build_denial_message(results)
-
-        # Get denying plugin info for event
-        deny_result = next(
-            (r for r in results if r.decision == Decision.DENY), None
-        )
-        plugin_name = deny_result.plugin_name if deny_result else None
-        reason = deny_result.reason if deny_result else None
+        if result.decision == Decision.DENY:
+            response.denial_message = self._build_denial_message(result)
 
         # Emit evaluation completed event
         if self._event_publisher:
             await self._event_publisher.evaluation_completed(
                 request.command,
-                final_decision,
-                plugin_name,
-                reason,
+                result.decision,
+                result.plugin_name,
+                result.reason,
             )
 
         logger.info(
-            f"Command '{request.command}' -> {final_decision.value}"
+            f"Command '{request.command}' -> {result.decision.value}"
             + (f" ({response.denial_message})" if response.denial_message else "")
         )
 
         return response
 
-    def _aggregate_decisions(self, results: list[EvaluationResult]) -> Decision:
-        """Aggregate plugin decisions - most restrictive wins.
-
-        Priority: DENY > REQUIRE_APPROVAL > ALLOW
+    def _build_denial_message(self, result: EvaluationResult) -> str:
+        """Build denial message from result.
 
         Args:
-            results: List of evaluation results from plugins
-
-        Returns:
-            Most restrictive decision
-        """
-        if not results:
-            return Decision.ALLOW
-
-        if any(r.decision == Decision.DENY for r in results):
-            return Decision.DENY
-
-        if any(r.decision == Decision.REQUIRE_APPROVAL for r in results):
-            return Decision.REQUIRE_APPROVAL
-
-        return Decision.ALLOW
-
-    def _build_denial_message(self, results: list[EvaluationResult]) -> str:
-        """Build denial message from results.
-
-        Args:
-            results: Evaluation results (should contain at least one DENY)
+            result: Evaluation result with DENY decision
 
         Returns:
             Formatted denial message for AI terminal
         """
-        deny_results = [r for r in results if r.decision == Decision.DENY]
-        if not deny_results:
-            return "Command blocked by SafeShell policy"
-
-        # Use the first denial (could combine in future)
-        result = deny_results[0]
         return DaemonResponse._format_denial_message(result.reason, result.plugin_name)
+
+
+# Backward compatibility alias
+PluginManager = RuleManager

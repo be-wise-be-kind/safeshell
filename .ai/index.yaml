@@ -46,6 +46,7 @@ howtos:
     - how-to-roadmap.md
     - how-to-write-file-headers.md
     - how-to-use-safeshell-cli.md
+    - how-to-write-rules.md
 
 templates:
   location: .ai/templates/
@@ -124,13 +125,14 @@ architecture:
   pattern: cli-daemon
   components:
     - shell_wrapper: Intercepts commands from AI tools
-    - daemon: Loads plugins and evaluates policy
+    - daemon: Loads rules and evaluates policy
     - monitor: TUI for real-time visibility and approval
-    - plugins: Policy logic (rm-protect, path-protect, etc.)
+    - rules: YAML-based policy configuration
 
 notes_for_agents:
   - SafeShell operates as a shell wrapper, not command shims
-  - All policy logic resides in plugins - core is policy-agnostic
+  - Policy logic is defined in YAML rules, not Python plugins
+  - Rules use bash conditions for complex matching
   - Uses Typer CLI framework with Rich for TUI
   - Build system uses justfile (not Makefile)
   - Thai-lint integrated for code quality checks

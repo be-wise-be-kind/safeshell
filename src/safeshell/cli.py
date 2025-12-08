@@ -95,23 +95,50 @@ def status() -> None:
 
 @app.command()
 def init() -> None:
-    """Initialize SafeShell configuration."""
+    """Initialize SafeShell configuration and default rules."""
     from safeshell.config import CONFIG_PATH, create_default_config
+    from safeshell.rules import DEFAULT_RULES_YAML, GLOBAL_RULES_PATH
 
+    config_created = False
+    rules_created = False
+
+    # Handle config.yaml
     if CONFIG_PATH.exists():
         console.print(f"[yellow]Config already exists at:[/yellow] {CONFIG_PATH}")
-        if not typer.confirm("Overwrite?"):
-            raise typer.Exit(0)
+        if typer.confirm("Overwrite config?"):
+            create_default_config()
+            config_created = True
+    else:
+        create_default_config()
+        config_created = True
 
-    config = create_default_config()
+    # Handle rules.yaml
+    if GLOBAL_RULES_PATH.exists():
+        console.print(f"[yellow]Rules already exist at:[/yellow] {GLOBAL_RULES_PATH}")
+        if typer.confirm("Overwrite rules?"):
+            GLOBAL_RULES_PATH.parent.mkdir(parents=True, exist_ok=True)
+            GLOBAL_RULES_PATH.write_text(DEFAULT_RULES_YAML)
+            rules_created = True
+    else:
+        GLOBAL_RULES_PATH.parent.mkdir(parents=True, exist_ok=True)
+        GLOBAL_RULES_PATH.write_text(DEFAULT_RULES_YAML)
+        rules_created = True
+
+    if not config_created and not rules_created:
+        console.print("[yellow]No changes made.[/yellow]")
+        raise typer.Exit(0)
+
     console.print("[green]SafeShell initialized![/green]")
     console.print()
-    console.print(f"  Config: {CONFIG_PATH}")
-    console.print(f"  Shell:  {config.delegate_shell}")
+    config_status = " [green](created)[/green]" if config_created else ""
+    rules_status = " [green](created)[/green]" if rules_created else ""
+    console.print(f"  Config: {CONFIG_PATH}{config_status}")
+    console.print(f"  Rules:  {GLOBAL_RULES_PATH}{rules_status}")
     console.print()
     console.print("Next steps:")
-    console.print("  1. Start the daemon: safeshell daemon start")
-    console.print("  2. Configure your AI tool: safeshell wrapper install")
+    console.print("  1. Review rules: ~/.safeshell/rules.yaml")
+    console.print("  2. Start the daemon: safeshell daemon start")
+    console.print("  3. Configure your AI tool: safeshell wrapper install")
 
 
 if __name__ == "__main__":

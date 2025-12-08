@@ -18,13 +18,14 @@ from typing import Any
 
 from loguru import logger
 
+from safeshell.config import load_config
 from safeshell.daemon.events import DaemonEventPublisher
 from safeshell.daemon.lifecycle import (
     MONITOR_SOCKET_PATH,
     SOCKET_PATH,
     DaemonLifecycle,
 )
-from safeshell.daemon.manager import PluginManager
+from safeshell.daemon.manager import RuleManager
 from safeshell.daemon.monitor import MonitorConnectionHandler
 from safeshell.daemon.protocol import read_message, write_message
 from safeshell.events.bus import EventBus
@@ -48,13 +49,19 @@ class DaemonServer:
         self.socket_path = SOCKET_PATH
         self.monitor_socket_path = MONITOR_SOCKET_PATH
 
+        # Load configuration
+        self._config = load_config()
+
         # Event infrastructure
         self._event_bus = EventBus()
         self._event_publisher = DaemonEventPublisher(self._event_bus)
         self._monitor_handler = MonitorConnectionHandler(self._event_bus)
 
-        # Plugin manager with event publisher
-        self.plugin_manager = PluginManager(event_publisher=self._event_publisher)
+        # Rule manager with event publisher and config timeout
+        self.rule_manager = RuleManager(
+            event_publisher=self._event_publisher,
+            condition_timeout_ms=self._config.condition_timeout_ms,
+        )
 
         # Server state
         self._wrapper_server: asyncio.Server | None = None
@@ -130,7 +137,7 @@ class DaemonServer:
         os.chmod(self.monitor_socket_path, 0o600)
         logger.info(f"Monitor server started on {self.monitor_socket_path}")
 
-        logger.info(f"Loaded {len(self.plugin_manager.plugins)} plugin(s)")
+        logger.info("Rule-based evaluation enabled")
 
         # Publish daemon started event
         await self._event_publisher.daemon_status(
@@ -233,7 +240,7 @@ class DaemonServer:
             if request.type.value == "evaluate":
                 self._commands_processed += 1
 
-            return await self.plugin_manager.process_request(request)
+            return await self.rule_manager.process_request(request)
         except Exception as e:
             logger.error(f"Failed to process message: {e}")
             return DaemonResponse.error(f"Invalid request: {e}")
