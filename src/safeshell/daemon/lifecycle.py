@@ -1,7 +1,7 @@
 """
 File: src/safeshell/daemon/lifecycle.py
 Purpose: Daemon process lifecycle management
-Exports: DaemonLifecycle, SOCKET_PATH, PID_PATH, SAFESHELL_DIR
+Exports: DaemonLifecycle, SOCKET_PATH, MONITOR_SOCKET_PATH, PID_PATH, SAFESHELL_DIR
 Depends: pathlib, os, signal, socket
 Overview: Manages daemon start/stop, PID files, and socket cleanup
 """
@@ -17,6 +17,7 @@ from loguru import logger
 # SafeShell directory and file paths
 SAFESHELL_DIR = Path.home() / ".safeshell"
 SOCKET_PATH = SAFESHELL_DIR / "daemon.sock"
+MONITOR_SOCKET_PATH = SAFESHELL_DIR / "monitor.sock"
 PID_PATH = SAFESHELL_DIR / "daemon.pid"
 
 
@@ -118,3 +119,12 @@ class DaemonLifecycle:
         cls.ensure_directories()
         if cls.socket_path.exists():
             cls._cleanup_stale_socket()
+        if MONITOR_SOCKET_PATH.exists():
+            cls._cleanup_stale_monitor_socket()
+
+    @classmethod
+    def _cleanup_stale_monitor_socket(cls) -> None:
+        """Remove stale monitor socket file."""
+        with contextlib.suppress(FileNotFoundError):
+            MONITOR_SOCKET_PATH.unlink()
+            logger.debug(f"Cleaned up stale monitor socket at {MONITOR_SOCKET_PATH}")

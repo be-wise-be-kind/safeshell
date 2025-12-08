@@ -51,36 +51,40 @@ class TestPluginManager:
 class TestProcessRequest:
     """Tests for PluginManager.process_request()."""
 
-    def test_ping_request(self, manager: PluginManager) -> None:
+    @pytest.mark.asyncio
+    async def test_ping_request(self, manager: PluginManager) -> None:
         """Test handling ping request."""
         request = DaemonRequest(type=RequestType.PING)
-        response = manager.process_request(request)
+        response = await manager.process_request(request)
         assert response.success is True
 
-    def test_status_request(self, manager: PluginManager) -> None:
+    @pytest.mark.asyncio
+    async def test_status_request(self, manager: PluginManager) -> None:
         """Test handling status request."""
         request = DaemonRequest(type=RequestType.STATUS)
-        response = manager.process_request(request)
+        response = await manager.process_request(request)
         assert response.success is True
 
-    def test_evaluate_missing_command(self, manager: PluginManager) -> None:
+    @pytest.mark.asyncio
+    async def test_evaluate_missing_command(self, manager: PluginManager) -> None:
         """Test evaluate request without command."""
         request = DaemonRequest(
             type=RequestType.EVALUATE,
             working_dir="/home/user",
         )
-        response = manager.process_request(request)
+        response = await manager.process_request(request)
         assert response.success is False
         assert response.error_message is not None
         assert "command" in response.error_message.lower()
 
-    def test_evaluate_missing_working_dir(self, manager: PluginManager) -> None:
+    @pytest.mark.asyncio
+    async def test_evaluate_missing_working_dir(self, manager: PluginManager) -> None:
         """Test evaluate request without working_dir."""
         request = DaemonRequest(
             type=RequestType.EVALUATE,
             command="ls",
         )
-        response = manager.process_request(request)
+        response = await manager.process_request(request)
         assert response.success is False
         assert response.error_message is not None
         assert "directory" in response.error_message.lower()
@@ -89,7 +93,8 @@ class TestProcessRequest:
 class TestEvaluateCommand:
     """Tests for command evaluation."""
 
-    def test_allowed_command_outside_repo(self, manager: PluginManager) -> None:
+    @pytest.mark.asyncio
+    async def test_allowed_command_outside_repo(self, manager: PluginManager) -> None:
         """Test that commands outside git repo are allowed."""
         with tempfile.TemporaryDirectory() as tmpdir:
             request = DaemonRequest(
@@ -97,25 +102,29 @@ class TestEvaluateCommand:
                 command="ls -la",
                 working_dir=tmpdir,
             )
-            response = manager.process_request(request)
+            response = await manager.process_request(request)
             assert response.success is True
             assert response.final_decision == Decision.ALLOW
             assert response.should_execute is True
 
-    def test_git_commit_blocked_on_main(self, manager: PluginManager, git_repo_main: Path) -> None:
+    @pytest.mark.asyncio
+    async def test_git_commit_blocked_on_main(
+        self, manager: PluginManager, git_repo_main: Path
+    ) -> None:
         """Test git commit is blocked on main branch."""
         request = DaemonRequest(
             type=RequestType.EVALUATE,
             command="git commit -m 'test'",
             working_dir=str(git_repo_main),
         )
-        response = manager.process_request(request)
+        response = await manager.process_request(request)
         assert response.success is True
         assert response.final_decision == Decision.DENY
         assert response.should_execute is False
         assert response.denial_message is not None
 
-    def test_git_commit_allowed_on_feature(
+    @pytest.mark.asyncio
+    async def test_git_commit_allowed_on_feature(
         self, manager: PluginManager, git_repo_feature: Path
     ) -> None:
         """Test git commit is allowed on feature branch."""
@@ -124,19 +133,22 @@ class TestEvaluateCommand:
             command="git commit -m 'test'",
             working_dir=str(git_repo_feature),
         )
-        response = manager.process_request(request)
+        response = await manager.process_request(request)
         assert response.success is True
         assert response.final_decision == Decision.ALLOW
         assert response.should_execute is True
 
-    def test_non_git_command_in_repo(self, manager: PluginManager, git_repo_main: Path) -> None:
+    @pytest.mark.asyncio
+    async def test_non_git_command_in_repo(
+        self, manager: PluginManager, git_repo_main: Path
+    ) -> None:
         """Test non-git commands are allowed in git repo."""
         request = DaemonRequest(
             type=RequestType.EVALUATE,
             command="ls -la",
             working_dir=str(git_repo_main),
         )
-        response = manager.process_request(request)
+        response = await manager.process_request(request)
         assert response.success is True
         assert response.final_decision == Decision.ALLOW
 
@@ -144,7 +156,8 @@ class TestEvaluateCommand:
 class TestDecisionAggregation:
     """Tests for decision aggregation logic."""
 
-    def test_deny_overrides_allow(self, manager: PluginManager) -> None:
+    @pytest.mark.asyncio
+    async def test_deny_overrides_allow(self, manager: PluginManager) -> None:
         """Test that DENY takes precedence over ALLOW."""
         # The git-protect plugin should DENY, so final should be DENY
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -157,7 +170,7 @@ class TestDecisionAggregation:
                 command="git commit -m test",
                 working_dir=tmpdir,
             )
-            response = manager.process_request(request)
+            response = await manager.process_request(request)
 
             # Should have at least one result
             assert len(response.results) >= 1

@@ -28,17 +28,19 @@ This is the **PRIMARY HANDOFF DOCUMENT** for AI agents working on the approval w
 
 ## Current Status
 
-**Overall Progress**: 20% complete (1/5 PRs merged)
+**Overall Progress**: 40% complete (2/5 PRs merged)
 
 ```
-[██████░░░░░░░░░░░░░░░░░░░░░░] 20% Complete
+[████████████░░░░░░░░░░░░░░░░] 40% Complete
 ```
 
-**Current State**: PR-1 complete, ready for PR-2
+**Current State**: PR-2 complete, ready for PR-3 (Monitor TUI Shell)
 
 **Infrastructure State**:
 - MVP Phase 1 complete ✅
 - Event system complete ✅ (PR-1 merged)
+- Daemon event publishing complete ✅ (PR-2 ready for merge)
+- Monitor socket infrastructure complete ✅
 - Monitor TUI not started
 - Approval protocol not started
 
@@ -46,23 +48,24 @@ This is the **PRIMARY HANDOFF DOCUMENT** for AI agents working on the approval w
 
 ## Next PR to Implement
 
-### START HERE: PR-2 - Daemon Event Publishing
+### START HERE: PR-3 - Monitor TUI Shell
 
 **Quick Summary**:
-Integrate event publishing into the daemon and add monitor connection handling. Creates a second Unix socket for monitor connections.
+Create the Textual-based Monitor TUI with three-pane layout. This will be the user interface for viewing events and handling approvals.
 
 **Pre-flight Checklist**:
 - [x] PR-1 (Event System) merged and working
-- [ ] Review existing daemon/server.py for patterns
-- [ ] Understand monitor socket requirements (see AI_CONTEXT.md)
+- [x] PR-2 (Daemon Event Publishing) complete
+- [ ] Install textual dependency: `poetry add textual`
+- [ ] Review Textual documentation: https://textual.textualize.io/
 
-**Prerequisites Complete**: ✅ (PR-1 merged)
+**Prerequisites Complete**: ✅ (PR-1 merged, PR-2 ready)
 
 ---
 
 ## Overall Progress
 
-**Total Completion**: 20% (1/5 PRs completed)
+**Total Completion**: 40% (2/5 PRs completed)
 
 ---
 
@@ -71,9 +74,9 @@ Integrate event publishing into the daemon and add monitor connection handling. 
 | PR | Title | Status | Completion | Complexity | Priority | Notes |
 |----|-------|--------|------------|------------|----------|-------|
 | PR-1 | Event System Foundation | 🟢 Complete | 100% | Medium | P0 | Merged in PR #4 |
-| PR-2 | Daemon Event Publishing | 🔴 Not Started | 0% | Medium | P0 | **Start here** |
-| PR-3 | Monitor TUI Shell | 🔴 Not Started | 0% | High | P0 | Depends on PR-1 ✅ |
-| PR-4 | Approval Protocol | 🔴 Not Started | 0% | High | P0 | Depends on PR-2, PR-3 |
+| PR-2 | Daemon Event Publishing | 🟢 Complete | 100% | Medium | P0 | Ready for merge |
+| PR-3 | Monitor TUI Shell | 🔴 Not Started | 0% | High | P0 | **Start here** |
+| PR-4 | Approval Protocol | 🔴 Not Started | 0% | High | P0 | Depends on PR-2 ✅, PR-3 |
 | PR-5 | Integration and Polish | 🔴 Not Started | 0% | Medium | P0 | Depends on PR-4 |
 
 ### Status Legend
@@ -88,9 +91,9 @@ Integrate event publishing into the daemon and add monitor connection handling. 
 ## PR Dependencies
 
 ```
-PR-1 (Events) ──┬──> PR-2 (Daemon Publishing)
+PR-1 (Events) ──┬──> PR-2 (Daemon Publishing) ✅
                 │
-                └──> PR-3 (Monitor TUI)
+                └──> PR-3 (Monitor TUI) <── START HERE
                             │
                             ▼
 PR-2 + PR-3 ──────> PR-4 (Approval Protocol)
@@ -110,9 +113,11 @@ PR-2 + PR-3 ──────> PR-4 (Approval Protocol)
 - [x] `tests/events/test_types.py`
 - [x] `tests/events/test_bus.py`
 
-### PR-2 Files
-- [ ] `src/safeshell/daemon/events.py`
-- [ ] `src/safeshell/daemon/monitor.py`
+### PR-2 Files ✅
+- [x] `src/safeshell/daemon/events.py`
+- [x] `src/safeshell/daemon/monitor.py`
+- [x] `tests/daemon/test_events.py`
+- [x] `tests/daemon/test_monitor.py`
 
 ### PR-3 Files
 - [ ] `src/safeshell/monitor/__init__.py`
@@ -129,9 +134,9 @@ PR-2 + PR-3 ──────> PR-4 (Approval Protocol)
 ## Validation Checklist
 
 ### Code Quality
-- [ ] `poetry run ruff check src/` passes
-- [ ] `poetry run pytest` passes
-- [ ] `poetry run mypy src/` passes
+- [x] `poetry run ruff check src/` passes
+- [x] `poetry run pytest` passes (140 tests)
+- [ ] `poetry run mypy src/` passes (pre-existing issues with stubs)
 - [ ] `poetry run bandit -r src/` passes
 
 ### Functional Testing
@@ -148,7 +153,7 @@ PR-2 + PR-3 ──────> PR-4 (Approval Protocol)
 ## Implementation Strategy
 
 ### Approach
-1. Build event system foundation (PR-1)
+1. Build event system foundation (PR-1) ✅
 2. PR-2 and PR-3 can proceed in parallel after PR-1
 3. PR-4 integrates approval logic
 4. PR-5 polishes and handles edge cases
@@ -178,8 +183,16 @@ PR-2 + PR-3 ──────> PR-4 (Approval Protocol)
 ### Key Files from MVP to Reference
 - `src/safeshell/models.py` - Pydantic patterns
 - `src/safeshell/daemon/protocol.py` - JSON lines pattern
-- `src/safeshell/daemon/server.py` - Asyncio server pattern
+- `src/safeshell/daemon/server.py` - Asyncio server pattern (now with two sockets)
+- `src/safeshell/daemon/events.py` - Event publishing (NEW in PR-2)
+- `src/safeshell/daemon/monitor.py` - Monitor connection handler (NEW in PR-2)
 - `src/safeshell/plugins/base.py` - Plugin helper methods
+
+### PR-2 Learnings
+- Made `PluginManager.process_request()` async to support event publishing
+- Added `MonitorEventMessage` model for sending events over protocol
+- Two sockets work well: daemon.sock for wrappers, monitor.sock for monitors
+- Event publisher is optional in PluginManager for backward compatibility
 
 ---
 

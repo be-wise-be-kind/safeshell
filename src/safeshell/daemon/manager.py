@@ -2,12 +2,13 @@
 File: src/safeshell/daemon/manager.py
 Purpose: Plugin management and command evaluation
 Exports: PluginManager
-Depends: safeshell.plugins, safeshell.models, loguru
-Overview: Loads plugins and evaluates commands against all loaded plugins
+Depends: safeshell.plugins, safeshell.models, safeshell.daemon.events, loguru
+Overview: Loads plugins and evaluates commands against all loaded plugins, emitting events
 """
 
 from loguru import logger
 
+from safeshell.daemon.events import DaemonEventPublisher
 from safeshell.models import (
     CommandContext,
     DaemonRequest,
@@ -24,12 +25,18 @@ class PluginManager:
     """Manages plugin loading and command evaluation.
 
     Loads built-in plugins on initialization and provides
-    command evaluation against all loaded plugins.
+    command evaluation against all loaded plugins. Optionally
+    publishes events during evaluation for monitor visibility.
     """
 
-    def __init__(self) -> None:
-        """Initialize plugin manager with built-in plugins."""
+    def __init__(self, event_publisher: DaemonEventPublisher | None = None) -> None:
+        """Initialize plugin manager with built-in plugins.
+
+        Args:
+            event_publisher: Optional publisher for emitting evaluation events
+        """
         self.plugins: list[Plugin] = []
+        self._event_publisher = event_publisher
         self._load_builtin_plugins()
 
     def _load_builtin_plugins(self) -> None:
@@ -40,7 +47,7 @@ class PluginManager:
         for plugin in self.plugins:
             logger.debug(f"  - {plugin.name}: {plugin.description}")
 
-    def process_request(self, request: DaemonRequest) -> DaemonResponse:
+    async def process_request(self, request: DaemonRequest) -> DaemonResponse:
         """Process a request from the shell wrapper.
 
         Args:
@@ -56,7 +63,7 @@ class PluginManager:
             return self._handle_status()
 
         if request.type == RequestType.EVALUATE:
-            return self._handle_evaluate(request)
+            return await self._handle_evaluate(request)
 
         return DaemonResponse.error(f"Unknown request type: {request.type}")
 
@@ -77,7 +84,7 @@ class PluginManager:
             should_execute=True,
         )
 
-    def _handle_evaluate(self, request: DaemonRequest) -> DaemonResponse:
+    async def _handle_evaluate(self, request: DaemonRequest) -> DaemonResponse:
         """Handle command evaluation request.
 
         Args:
@@ -92,6 +99,12 @@ class PluginManager:
         if not request.working_dir:
             return DaemonResponse.error("No working directory provided")
 
+        # Emit command received event
+        if self._event_publisher:
+            await self._event_publisher.command_received(
+                request.command, request.working_dir
+            )
+
         # Build command context
         context = CommandContext.from_command(
             command=request.command,
@@ -104,13 +117,21 @@ class PluginManager:
         logger.debug(f"  Git repo: {context.git_repo_root}")
         logger.debug(f"  Git branch: {context.git_branch}")
 
+        # Count matching plugins
+        matching_plugins = [p for p in self.plugins if p.matches(context)]
+
+        # Emit evaluation started event
+        if self._event_publisher:
+            await self._event_publisher.evaluation_started(
+                request.command, len(matching_plugins)
+            )
+
         # Evaluate against all plugins
         results: list[EvaluationResult] = []
-        for plugin in self.plugins:
-            if plugin.matches(context):
-                result = plugin.evaluate(context)
-                results.append(result)
-                logger.debug(f"  Plugin {plugin.name}: {result.decision.value}")
+        for plugin in matching_plugins:
+            result = plugin.evaluate(context)
+            results.append(result)
+            logger.debug(f"  Plugin {plugin.name}: {result.decision.value}")
 
         # Aggregate decisions (most restrictive wins)
         final_decision = self._aggregate_decisions(results)
@@ -126,6 +147,22 @@ class PluginManager:
         # Add denial message if blocked
         if final_decision == Decision.DENY:
             response.denial_message = self._build_denial_message(results)
+
+        # Get denying plugin info for event
+        deny_result = next(
+            (r for r in results if r.decision == Decision.DENY), None
+        )
+        plugin_name = deny_result.plugin_name if deny_result else None
+        reason = deny_result.reason if deny_result else None
+
+        # Emit evaluation completed event
+        if self._event_publisher:
+            await self._event_publisher.evaluation_completed(
+                request.command,
+                final_decision,
+                plugin_name,
+                reason,
+            )
 
         logger.info(
             f"Command '{request.command}' -> {final_decision.value}"

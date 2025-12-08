@@ -1,9 +1,11 @@
 """
 File: src/safeshell/daemon/server.py
 Purpose: Asyncio Unix socket server for SafeShell daemon
-Exports: DaemonServer
-Depends: asyncio, safeshell.daemon.lifecycle, safeshell.daemon.manager, safeshell.daemon.protocol
-Overview: Main daemon server that accepts connections and processes command evaluation requests
+Exports: DaemonServer, run_daemon
+Depends: asyncio, safeshell.daemon.lifecycle, safeshell.daemon.manager, safeshell.daemon.protocol,
+         safeshell.daemon.events, safeshell.daemon.monitor, safeshell.events.bus
+Overview: Main daemon server that accepts connections, processes command evaluation requests,
+          and streams events to connected monitors
 """
 
 # ruff: noqa: SIM105, S110 - contextlib.suppress doesn't work with await; best-effort error responses
@@ -11,13 +13,21 @@ Overview: Main daemon server that accepts connections and processes command eval
 import asyncio
 import os
 import signal
+import time
 from typing import Any
 
 from loguru import logger
 
-from safeshell.daemon.lifecycle import SOCKET_PATH, DaemonLifecycle
+from safeshell.daemon.events import DaemonEventPublisher
+from safeshell.daemon.lifecycle import (
+    MONITOR_SOCKET_PATH,
+    SOCKET_PATH,
+    DaemonLifecycle,
+)
 from safeshell.daemon.manager import PluginManager
+from safeshell.daemon.monitor import MonitorConnectionHandler
 from safeshell.daemon.protocol import read_message, write_message
+from safeshell.events.bus import EventBus
 from safeshell.exceptions import ProtocolError
 from safeshell.models import DaemonRequest, DaemonResponse
 
@@ -25,27 +35,76 @@ from safeshell.models import DaemonRequest, DaemonResponse
 class DaemonServer:
     """Asyncio-based Unix socket daemon server.
 
-    Listens on a Unix domain socket for requests from shell wrappers,
-    evaluates commands using the plugin manager, and returns responses.
+    Listens on two Unix domain sockets:
+    - daemon.sock: For shell wrapper command evaluation requests
+    - monitor.sock: For monitor TUI event streaming
+
+    The server maintains an EventBus that publishes events during
+    command evaluation, which monitors can subscribe to.
     """
 
     def __init__(self) -> None:
-        """Initialize daemon server."""
+        """Initialize daemon server with event infrastructure."""
         self.socket_path = SOCKET_PATH
-        self.plugin_manager = PluginManager()
-        self._server: asyncio.Server | None = None
+        self.monitor_socket_path = MONITOR_SOCKET_PATH
+
+        # Event infrastructure
+        self._event_bus = EventBus()
+        self._event_publisher = DaemonEventPublisher(self._event_bus)
+        self._monitor_handler = MonitorConnectionHandler(self._event_bus)
+
+        # Plugin manager with event publisher
+        self.plugin_manager = PluginManager(event_publisher=self._event_publisher)
+
+        # Server state
+        self._wrapper_server: asyncio.Server | None = None
+        self._monitor_server: asyncio.Server | None = None
         self._shutdown_event: asyncio.Event | None = None
+
+        # Statistics
+        self._start_time: float = 0.0
+        self._commands_processed: int = 0
+
+    @property
+    def event_bus(self) -> EventBus:
+        """Return the event bus."""
+        return self._event_bus
+
+    @property
+    def event_publisher(self) -> DaemonEventPublisher:
+        """Return the event publisher."""
+        return self._event_publisher
+
+    @property
+    def uptime_seconds(self) -> float:
+        """Return daemon uptime in seconds."""
+        if self._start_time == 0.0:
+            return 0.0
+        return time.monotonic() - self._start_time
+
+    @property
+    def commands_processed(self) -> int:
+        """Return total commands processed."""
+        return self._commands_processed
+
+    @property
+    def active_monitor_connections(self) -> int:
+        """Return number of active monitor connections."""
+        return self._monitor_handler.active_connections
 
     async def start(self) -> None:
         """Start the daemon server.
 
-        Sets up signal handlers, creates the socket, and serves forever.
+        Sets up signal handlers, creates both sockets, and serves forever.
         """
         # Clean up any stale files
         DaemonLifecycle.cleanup_on_start()
 
         # Write PID file
         DaemonLifecycle.write_pid()
+
+        # Record start time
+        self._start_time = time.monotonic()
 
         # Set up shutdown event
         self._shutdown_event = asyncio.Event()
@@ -55,21 +114,43 @@ class DaemonServer:
         for sig in (signal.SIGTERM, signal.SIGINT):
             loop.add_signal_handler(sig, self._signal_handler)
 
-        # Create and start server
-        self._server = await asyncio.start_unix_server(
-            self._handle_client,
+        # Create and start wrapper server (command evaluation)
+        self._wrapper_server = await asyncio.start_unix_server(
+            self._handle_wrapper_client,
             path=str(self.socket_path),
         )
-
-        # Set socket permissions (owner only)
         os.chmod(self.socket_path, 0o600)
+        logger.info(f"Wrapper server started on {self.socket_path}")
 
-        logger.info(f"Daemon started on {self.socket_path}")
+        # Create and start monitor server (event streaming)
+        self._monitor_server = await asyncio.start_unix_server(
+            self._monitor_handler.handle_monitor,
+            path=str(self.monitor_socket_path),
+        )
+        os.chmod(self.monitor_socket_path, 0o600)
+        logger.info(f"Monitor server started on {self.monitor_socket_path}")
+
         logger.info(f"Loaded {len(self.plugin_manager.plugins)} plugin(s)")
 
+        # Publish daemon started event
+        await self._event_publisher.daemon_status(
+            "started",
+            0.0,
+            0,
+            0,
+        )
+
         # Serve until shutdown
-        async with self._server:
+        async with self._wrapper_server, self._monitor_server:
             await self._shutdown_event.wait()
+
+        # Publish shutdown event
+        await self._event_publisher.daemon_status(
+            "stopping",
+            self.uptime_seconds,
+            self._commands_processed,
+            self.active_monitor_connections,
+        )
 
         logger.info("Daemon shutting down")
 
@@ -79,12 +160,12 @@ class DaemonServer:
         if self._shutdown_event:
             self._shutdown_event.set()
 
-    async def _handle_client(
+    async def _handle_wrapper_client(
         self,
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
     ) -> None:
-        """Handle a single client connection.
+        """Handle a shell wrapper client connection.
 
         Reads requests, processes them, and writes responses.
         Handles one request per connection (simple protocol).
@@ -94,7 +175,7 @@ class DaemonServer:
             writer: Stream writer for client
         """
         peer = writer.get_extra_info("peername")
-        logger.debug(f"Client connected: {peer}")
+        logger.debug(f"Wrapper client connected: {peer}")
 
         try:
             # Read request
@@ -134,7 +215,7 @@ class DaemonServer:
                 await writer.wait_closed()
             except (BrokenPipeError, ConnectionResetError):
                 pass  # Client already disconnected
-            logger.debug(f"Client disconnected: {peer}")
+            logger.debug(f"Wrapper client disconnected: {peer}")
 
     async def _process_message(self, message: dict[str, Any]) -> DaemonResponse:
         """Process a message and return response.
@@ -147,7 +228,12 @@ class DaemonServer:
         """
         try:
             request = DaemonRequest.model_validate(message)
-            return self.plugin_manager.process_request(request)
+
+            # Track command evaluation requests
+            if request.type.value == "evaluate":
+                self._commands_processed += 1
+
+            return await self.plugin_manager.process_request(request)
         except Exception as e:
             logger.error(f"Failed to process message: {e}")
             return DaemonResponse.error(f"Invalid request: {e}")
