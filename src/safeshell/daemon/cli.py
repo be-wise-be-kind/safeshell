@@ -123,5 +123,11 @@ def _daemonize() -> None:
     sys.stdout = open(os.devnull, "w")
     sys.stderr = open(os.devnull, "w")
 
+    # IMPORTANT: Reconfigure loguru to use the new stderr (which is /dev/null)
+    # Loguru captures the original stderr at import time, so we must reconfigure it
+    from loguru import logger
+    logger.remove()  # Remove default handler pointing to original stderr
+    logger.add(sys.stderr, level="DEBUG")  # Add new handler to /dev/null stderr
+
     # Run the daemon
     asyncio.run(run_daemon())
