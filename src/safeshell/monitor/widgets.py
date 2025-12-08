@@ -11,7 +11,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 from textual.app import ComposeResult
-from textual.containers import Horizontal, ScrollableContainer, Vertical
+from textual.containers import Horizontal, ScrollableContainer
 from textual.message import Message
 from textual.widgets import Button, Input, RichLog, Static
 
@@ -219,10 +219,6 @@ class ApprovalPane(Static):
         margin-bottom: 1;
     }
 
-    ApprovalPane #approval-content {
-        height: 100%;
-    }
-
     ApprovalPane .approval-command {
         background: $surface;
         padding: 1;
@@ -237,20 +233,35 @@ class ApprovalPane(Static):
     }
 
     ApprovalPane #button-row {
-        layout: horizontal;
-        height: auto;
         dock: bottom;
-        margin-top: 1;
+        layout: horizontal;
+        height: 5;
+        width: 100%;
     }
 
     ApprovalPane Button {
         width: 1fr;
+        height: 100%;
         margin: 0 1;
+        content-align: center middle;
     }
 
-    ApprovalPane Input {
-        margin: 1 0;
+    ApprovalPane Button:disabled {
+        opacity: 0.3;
+    }
+
+    ApprovalPane #approve-btn {
+        background: $success;
+    }
+
+    ApprovalPane #deny-btn {
+        background: $error;
+    }
+
+    ApprovalPane #denial-reason {
         dock: bottom;
+        margin: 1 0;
+        height: 3;
     }
 
     ApprovalPane .no-approvals {
@@ -284,17 +295,14 @@ class ApprovalPane(Static):
     def compose(self) -> ComposeResult:
         """Compose the approval pane."""
         yield Static("Pending Approvals", classes="pane-title")
-        yield Vertical(
-            Static("No pending approvals", id="approval-status", classes="no-approvals"),
-            Static("", id="approval-command", classes="approval-command"),
-            Static("", id="approval-reason", classes="approval-reason"),
-            Input(placeholder="Reason for denial (optional)", id="denial-reason"),
-            Horizontal(
-                Button("Approve", id="approve-btn", variant="success"),
-                Button("Deny", id="deny-btn", variant="error"),
-                id="button-row",
-            ),
-            id="approval-content",
+        yield Static("No pending approvals", id="approval-status", classes="no-approvals")
+        yield Static("", id="approval-command", classes="approval-command")
+        yield Static("", id="approval-reason", classes="approval-reason")
+        yield Input(placeholder="Reason for denial (optional)", id="denial-reason")
+        yield Horizontal(
+            Button("Approve", id="approve-btn", variant="success"),
+            Button("Deny", id="deny-btn", variant="error"),
+            id="button-row",
         )
 
     def on_mount(self) -> None:

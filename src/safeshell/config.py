@@ -55,6 +55,13 @@ class SafeShellConfig(BaseModel):
         le=5000,
     )
 
+    approval_timeout_seconds: float = Field(
+        default=300.0,
+        description="Timeout in seconds for approval requests",
+        ge=10.0,
+        le=3600.0,
+    )
+
     @field_validator("delegate_shell")
     @classmethod
     def validate_delegate_shell(cls, v: str) -> str:
