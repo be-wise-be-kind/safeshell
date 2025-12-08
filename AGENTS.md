@@ -1,233 +1,115 @@
-# AI Agent Guide for SafeShell
+# AI Agent Guide - SafeShell
 
 **Purpose**: Primary entry point for AI agents working on this project
 
-**Quick Start**: Read `.ai/docs/PROJECT_CONTEXT.md` for full context, then check `.ai/index.yaml` for navigation.
+**Quick Start**: Read `.ai/index.yaml` for navigation, then `.ai/ai-context.md` and `.ai/ai-rules.md` for full context.
 
 ---
 
-## Project Overview
+## MANDATORY: First Action for Every Task
 
-SafeShell is a command-line safety layer for AI coding assistants. It intercepts shell commands, evaluates them against configurable policies, and enforces decisions before execution.
+**BEFORE working on ANY task, you MUST:**
 
-**Type**: python-cli
-**Status**: in-development
+1. **READ** `.ai/index.yaml` to see what documentation exists
+2. **READ** `.ai/ai-context.md` for development patterns and project structure
+3. **READ** `.ai/ai-rules.md` for quality gates and rules
+4. **IDENTIFY** relevant documents from index.yaml for your specific task
+5. **INFORM** the user which documents you are using
 
-## CRITICAL: First Steps
+**This is NOT optional.** Skipping this step leads to incomplete work and quality issues.
 
-**Before doing anything else:**
-1. Check if `.ai/index.yaml` exists - if not, the foundation plugin may not be installed
-2. Check `.roadmap/` for any active roadmaps that should guide your work
-3. Read `.ai/docs/PROJECT_CONTEXT.md` for architecture understanding
+---
 
-## Navigation
+## Two Types of Requests
 
-### Critical Documents
-- **Project Context**: `.ai/docs/PROJECT_CONTEXT.md` - Architecture and philosophy
-- **Index**: `.ai/index.yaml` - Repository structure and navigation
-- **AI Context**: `.ai/ai-context.md` - Development patterns and project structure
-- **AI Rules**: `.ai/ai-rules.md` - Quality gates and mandatory rules
+### Development Efforts (Making Changes to Code/Repo)
 
-### How-To Guides
-See `.ai/howtos/` for step-by-step guides on common tasks.
+When users want to modify code, add features, fix bugs, or update the repo:
 
-### Templates
-See `.ai/templates/` for reusable file templates and boilerplate.
+1. **Read core docs**: ai-context.md (patterns) + ai-rules.md (gates)
+2. **Check for howtos**: Look in `.ai/howtos/` for task-specific guides
+3. **Use templates**: Use `.ai/templates/` for new files
+4. **Follow patterns**: Match existing code patterns
+5. **Run quality gates**: `just lint-full` before committing
 
-### Roadmaps
-See `.roadmap/` for feature roadmaps and installation progress.
+**Examples:**
+- "Create a new module" → Read ai-context.md for module structure, use templates
+- "Fix linting errors" → Read ai-rules.md for quality gates
+- "Add a CLI command" → Read ai-context.md for CLI patterns
+- "Write file headers" → Read `.ai/howtos/how-to-write-file-headers.md`
 
-## Roadmap-Driven Development
+### Usage Efforts (Using the Tools)
 
-### When User Requests Planning
+When users want to USE the safeshell CLI to perform operations:
 
-If the user says any of the following:
-- "I want to plan out..."
-- "I want to roadmap..."
-- "Create a roadmap for..."
-- "Plan the implementation of..."
-- "Break down the feature..."
+1. **Primary tool**: The `safeshell` CLI
+2. **Navigation pattern**: Use `--help` to discover commands
+   - `safeshell --help` → List all commands
+   - `safeshell <command> --help` → Detailed command help
+3. **Use command tables below** for common question-to-command mappings
 
-**Your Actions**:
-1. **Read** `.ai/howtos/how-to-roadmap.md` for roadmap workflow guidance
-2. **Use templates** from `.ai/templates/roadmap-*.md.template`
-3. **Create roadmap** in `.roadmap/planning/[feature-name]/`
-4. **Follow** the three-document structure:
-   - PROGRESS_TRACKER.md (required - primary handoff document)
-   - PR_BREAKDOWN.md (required for multi-PR features)
-   - AI_CONTEXT.md (optional - architectural context)
+For detailed CLI navigation, see `.ai/howtos/how-to-use-safeshell-cli.md`.
 
-### When User Requests Continuation
+### Roadmap Work
 
-If the user says any of the following:
-- "I want to continue with..."
-- "Continue the roadmap for..."
-- "What's next in..."
-- "Resume work on..."
-- "Lets continue..."
+When users want to plan features or continue roadmap work:
 
-**Your Actions**:
-1. **Check** `.roadmap/in-progress/` for active roadmaps
-2. **Read** the roadmap's `PROGRESS_TRACKER.md` FIRST
-3. **Follow** the "Next PR to Implement" section
-4. **Update** PROGRESS_TRACKER.md after completing each PR
+**Read `.ai/howtos/how-to-roadmap.md`** for complete instructions.
 
-### Roadmap Lifecycle
+Quick reference:
+- Planning: "plan", "roadmap", "break down" → Create in `.roadmap/planning/`
+- Continuing: "continue", "resume", "what's next" → Check `.roadmap/in-progress/`
 
-```
-planning/ → in-progress/ → complete/
-   ↓             ↓              ↓
-Created      Implementing    Archived
-```
+---
 
-See `.ai/howtos/how-to-roadmap.md` for detailed workflow instructions.
+## Quick Start
 
-## Development Guidelines
+1. **Read documentation** - `.ai/index.yaml`, `.ai/ai-context.md`, `.ai/ai-rules.md`
+2. Read the relevant module's files before making changes
+3. Follow existing patterns in the codebase
+4. Run quality gates before committing: `just lint-full`
+5. All code must pass: Ruff, Pylint, MyPy, Bandit, thailint
 
-### Code Style
-- Python 3.11+ with full type hints
-- Ruff for linting and formatting
-- Thai-lint for code quality checks
+---
 
-### File Organization
-See `.ai/ai-context.md` for the canonical directory structure.
+## Question-to-Command Mapping
 
-**Key Directories**:
-- Source code: `src/`
-- Tests: `tests/`
-- Documentation: `docs/`
+When users ask questions, identify the relevant command.
 
-### Documentation Standards
-All files should include appropriate headers following the project's documentation standards.
-
-## Build and Test Commands
-
-### Using justfile (NOT Makefile)
-This project uses `just` as the build system, consistent with thai-lint.
+### Discovery Commands
 
 ```bash
-# Initial setup
-just init
-
-# Run tests
-just test
-
-# Run linting
-just lint
-
-# Full quality checks
-just lint-full
-
-# Format code
-just format
-
-# Thai-lint checks
-just lint-thai
+safeshell --help                    # List all available commands
+safeshell <command> --help          # Get detailed help for a command
 ```
 
-### Docker
-```bash
-# Build Docker image
-just docker-build
+### Core Commands
 
-# Run in container
-just docker-run
-```
+| Question | Command |
+|----------|---------|
+| "What version?" | `safeshell version` |
+| "Is this command safe?" | `safeshell check "<command>"` |
+| "Is the daemon running?" | `safeshell status` |
 
-## Git Workflow
-
-### Commit Messages
-Follow conventional commits format:
-```
-type(scope): Brief description
-
-Detailed description if needed.
-
-Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
-```
-
-Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
-
-### Branch Strategy
-- `main` - stable releases
-- `feature/*` - new features
-- `fix/*` - bug fixes
-
-### Before Committing
-- [ ] All tests pass (`just test`)
-- [ ] Code is linted (`just lint`)
-- [ ] Documentation updated
-- [ ] No secrets committed
-
-## Security Considerations
-
-- Never commit secrets or credentials
-- Secrets should be in `.env` (gitignored)
-- SafeShell itself is a security tool - be extra careful with:
-  - Plugin evaluation logic
-  - Command parsing
-  - Path resolution
-
-## Common Tasks
-
-### Adding a New Plugin
-1. Check `.ai/howtos/` for plugin development guide (when available)
-2. Create plugin in `src/plugins/`
-3. Follow the Plugin API (see PROJECT_CONTEXT.md)
-4. Add tests in `tests/plugins/`
-
-### Debugging
-1. Check logs in `~/.safeshell/safeshell.log`
-2. Run tests with verbose output: `just test -v`
-3. Use Python debugger as needed
+---
 
 ## Resources
 
-### External Dependencies
-See `pyproject.toml` for Python dependencies managed by Poetry.
+### Documentation
+- **Index**: `.ai/index.yaml` - File lookup and navigation
+- **Context**: `.ai/ai-context.md` - Development patterns and conventions
+- **Rules**: `.ai/ai-rules.md` - Quality gates and mandatory rules
+- **How-Tos**: `.ai/howtos/` - Step-by-step guides
+- **Templates**: `.ai/templates/` - File creation templates
 
-Key frameworks:
-- **Typer**: CLI framework
-- **Rich**: Terminal UI and formatting
-- **pytest**: Testing framework
+### Getting Help
 
-## Getting Help
-
-### When Stuck
-1. Check `.ai/docs/` for context and architecture
+When stuck:
+1. Check `.ai/index.yaml` for navigation
 2. Review `.ai/howtos/` for guides
 3. Check existing code for patterns
-4. Review git history for similar changes
+4. Review quality gate output for specific errors
 
 ---
 
-## Language-Specific Guidelines
-
-<!-- BEGIN_LANGUAGE_GUIDELINES -->
-
-### Python (PEP 8)
-
-- **Style**: 100 char line length, 4-space indentation, double quotes
-- **Naming**: snake_case (functions/vars), PascalCase (classes), UPPER_SNAKE_CASE (constants)
-- **Imports**: stdlib -> third-party -> local (with blank lines between groups)
-- **Type hints**: Required for all function signatures (use Python 3.11+ built-in types)
-- **Docstrings**: Google-style for all public functions and classes
-- **Complexity**: Maximum McCabe complexity of 5 (radon grade A)
-- **Security**: No hardcoded secrets, use parameterized queries, validate all inputs
-
-**Quality Commands**:
-- `ruff check .` - Run Ruff linting
-- `ruff format .` - Format code with Ruff
-- `mypy src` - Run MyPy type checking
-- `bandit -r src` - Run Bandit security scan
-- `pytest` - Run tests
-- `pytest --cov=src` - Run tests with coverage
-- `radon cc src -a` - Cyclomatic complexity analysis
-- `pylint src` - Comprehensive linting
-- `thailint .` - Thai-lint quality checks
-
-<!-- END_LANGUAGE_GUIDELINES -->
-
----
-
-**Note**: This file is generated by ai-projen's ai-folder plugin. Customize sections based on your project's specific needs.
+**Remember**: Always start by reading the core documents and informing the user which documents you're using. This ensures you have the full context needed to complete the task correctly.
