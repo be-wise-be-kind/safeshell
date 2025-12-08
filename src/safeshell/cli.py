@@ -118,8 +118,6 @@ def monitor(
     - d: Deny current request
     - r: Reconnect to daemon
     """
-    from safeshell.monitor.app import MonitorApp
-
     # Check if daemon is running
     if not DaemonLifecycle.is_running():
         console.print("[yellow]Daemon is not running.[/yellow]")
@@ -136,13 +134,19 @@ def monitor(
             console.print("Start it with: safeshell daemon start")
             raise typer.Exit(1)
 
-    # Remove all loguru handlers and redirect stderr before TUI starts
-    # (must be after _daemonize() so forked daemon isn't affected)
-    from loguru import logger
-    logger.remove()
-    # Redirect stderr to suppress any stray log output during TUI
-    sys.stderr = open(os.devnull, "w")  # noqa: SIM115 - must stay open for TUI lifetime
+    # DRASTIC: Completely suppress ALL logging output for TUI
+    # This must happen before importing MonitorApp to catch all loguru usage
+    import loguru
+    loguru.logger.disable("safeshell")  # Disable all safeshell.* loggers
+    loguru.logger.disable("")  # Disable root logger too
 
+    # Also redirect stderr at the file descriptor level (more thorough than sys.stderr)
+    # This catches anything that bypasses Python's stderr
+    devnull_fd = os.open(os.devnull, os.O_WRONLY)
+    os.dup2(devnull_fd, sys.stderr.fileno())
+    os.close(devnull_fd)
+
+    from safeshell.monitor.app import MonitorApp
     monitor_app = MonitorApp(debug_mode=debug)
     monitor_app.run()
 
