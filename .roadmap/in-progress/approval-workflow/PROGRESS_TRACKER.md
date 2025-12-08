@@ -28,17 +28,17 @@ This is the **PRIMARY HANDOFF DOCUMENT** for AI agents working on the approval w
 
 ## Current Status
 
-**Overall Progress**: 0% complete (Planning phase)
+**Overall Progress**: 20% complete (1/5 PRs merged)
 
 ```
-[░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 0% Complete
+[██████░░░░░░░░░░░░░░░░░░░░░░] 20% Complete
 ```
 
-**Current State**: Roadmap created, ready for implementation
+**Current State**: PR-1 complete, ready for PR-2
 
 **Infrastructure State**:
 - MVP Phase 1 complete ✅
-- Event system not started
+- Event system complete ✅ (PR-1 merged)
 - Monitor TUI not started
 - Approval protocol not started
 
@@ -46,23 +46,23 @@ This is the **PRIMARY HANDOFF DOCUMENT** for AI agents working on the approval w
 
 ## Next PR to Implement
 
-### START HERE: PR-1 - Event System Foundation
+### START HERE: PR-2 - Daemon Event Publishing
 
 **Quick Summary**:
-Create the event type definitions and event bus infrastructure that will power the daemon-monitor communication.
+Integrate event publishing into the daemon and add monitor connection handling. Creates a second Unix socket for monitor connections.
 
 **Pre-flight Checklist**:
-- [ ] MVP Phase 1 merged and working
-- [ ] Understand event types needed (see AI_CONTEXT.md)
-- [ ] Review existing models.py for patterns
+- [x] PR-1 (Event System) merged and working
+- [ ] Review existing daemon/server.py for patterns
+- [ ] Understand monitor socket requirements (see AI_CONTEXT.md)
 
-**Prerequisites Complete**: ✅ (MVP complete)
+**Prerequisites Complete**: ✅ (PR-1 merged)
 
 ---
 
 ## Overall Progress
 
-**Total Completion**: 0% (0/5 PRs completed)
+**Total Completion**: 20% (1/5 PRs completed)
 
 ---
 
@@ -70,9 +70,9 @@ Create the event type definitions and event bus infrastructure that will power t
 
 | PR | Title | Status | Completion | Complexity | Priority | Notes |
 |----|-------|--------|------------|------------|----------|-------|
-| PR-1 | Event System Foundation | 🔴 Not Started | 0% | Medium | P0 | Start here |
-| PR-2 | Daemon Event Publishing | 🔴 Not Started | 0% | Medium | P0 | Depends on PR-1 |
-| PR-3 | Monitor TUI Shell | 🔴 Not Started | 0% | High | P0 | Depends on PR-1 |
+| PR-1 | Event System Foundation | 🟢 Complete | 100% | Medium | P0 | Merged in PR #4 |
+| PR-2 | Daemon Event Publishing | 🔴 Not Started | 0% | Medium | P0 | **Start here** |
+| PR-3 | Monitor TUI Shell | 🔴 Not Started | 0% | High | P0 | Depends on PR-1 ✅ |
 | PR-4 | Approval Protocol | 🔴 Not Started | 0% | High | P0 | Depends on PR-2, PR-3 |
 | PR-5 | Integration and Polish | 🔴 Not Started | 0% | Medium | P0 | Depends on PR-4 |
 
@@ -103,12 +103,12 @@ PR-2 + PR-3 ──────> PR-4 (Approval Protocol)
 
 ## Files to Create
 
-### PR-1 Files
-- [ ] `src/safeshell/events/__init__.py`
-- [ ] `src/safeshell/events/types.py`
-- [ ] `src/safeshell/events/bus.py`
-- [ ] `tests/events/test_types.py`
-- [ ] `tests/events/test_bus.py`
+### PR-1 Files ✅
+- [x] `src/safeshell/events/__init__.py`
+- [x] `src/safeshell/events/types.py`
+- [x] `src/safeshell/events/bus.py`
+- [x] `tests/events/test_types.py`
+- [x] `tests/events/test_bus.py`
 
 ### PR-2 Files
 - [ ] `src/safeshell/daemon/events.py`
