@@ -58,6 +58,14 @@ def _evaluate_and_execute(command: str) -> int:
     # Check-only mode for shims - evaluate but don't execute
     check_only = os.environ.get("SAFESHELL_CHECK_ONLY") == "1"
 
+    # Determine execution context
+    # - Claude Code hook sets SAFESHELL_CONTEXT=ai
+    # - Warp AI can be configured to set WARP_AI_AGENT=1
+    if os.environ.get("SAFESHELL_CONTEXT") == "ai" or os.environ.get("WARP_AI_AGENT") == "1":
+        execution_context = "ai"
+    else:
+        execution_context = "human"
+
     try:
         # Ensure daemon is running (auto-start if needed)
         client.ensure_daemon_running()
@@ -67,6 +75,7 @@ def _evaluate_and_execute(command: str) -> int:
             command=command,
             working_dir=os.getcwd(),
             env=dict(os.environ),
+            execution_context=execution_context,
         )
 
         if response.should_execute:

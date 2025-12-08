@@ -96,6 +96,7 @@ def check_command(command: str) -> tuple[bool, str]:
     try:
         env = os.environ.copy()
         env["SAFESHELL_CHECK_ONLY"] = "1"
+        env["SAFESHELL_CONTEXT"] = "ai"  # Mark as AI agent execution
 
         result = subprocess.run(
             [wrapper, "-c", command],

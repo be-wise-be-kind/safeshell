@@ -20,6 +20,14 @@ class RuleAction(str, Enum):
     REDIRECT = "redirect"
 
 
+class RuleContext(str, Enum):
+    """Context in which a rule applies."""
+
+    ALL = "all"  # Applies to both AI and human (default)
+    AI_ONLY = "ai_only"  # Only applies to AI agents
+    HUMAN_ONLY = "human_only"  # Only applies to human terminals
+
+
 class Rule(BaseModel):
     """A single policy rule definition.
 
@@ -44,6 +52,10 @@ class Rule(BaseModel):
         description="Bash conditions that must all exit 0 for rule to match",
     )
     action: RuleAction = Field(description="Action to take when rule matches")
+    context: RuleContext = Field(
+        default=RuleContext.ALL,
+        description="Context in which this rule applies (all, ai_only, human_only)",
+    )
     allow_override: bool = Field(
         default=True,
         description="For deny: can user approve anyway via monitor?",

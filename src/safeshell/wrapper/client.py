@@ -43,6 +43,7 @@ class DaemonClient:
         command: str,
         working_dir: str,
         env: dict[str, str] | None = None,
+        execution_context: str = "human",
     ) -> DaemonResponse:
         """Send command for evaluation by daemon.
 
@@ -50,6 +51,7 @@ class DaemonClient:
             command: Command string to evaluate
             working_dir: Current working directory
             env: Environment variables
+            execution_context: Who is executing - "ai" or "human"
 
         Returns:
             Response from daemon with evaluation results
@@ -57,11 +59,16 @@ class DaemonClient:
         Raises:
             DaemonNotRunningError: If daemon is not running and auto-start fails
         """
+        from safeshell.models import ExecutionContext
+
+        exec_ctx = ExecutionContext.AI if execution_context == "ai" else ExecutionContext.HUMAN
+
         request = DaemonRequest(
             type=RequestType.EVALUATE,
             command=command,
             working_dir=working_dir,
             env=env or {},
+            execution_context=exec_ctx,
         )
         return self._send_request(request)
 

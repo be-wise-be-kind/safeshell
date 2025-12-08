@@ -144,10 +144,12 @@ class RuleManager:
             command=request.command,
             working_dir=request.working_dir,
             env=request.env,
+            execution_context=request.execution_context,
         )
 
         logger.debug(f"Evaluating command: {request.command}")
         logger.debug(f"  Working dir: {request.working_dir}")
+        logger.debug(f"  Execution context: {context.execution_context}")
         logger.debug(f"  Git repo: {context.git_repo_root}")
         logger.debug(f"  Git branch: {context.git_branch}")
         logger.debug(f"  Rules loaded: {len(rules)}")

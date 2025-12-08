@@ -13,8 +13,8 @@ import shlex
 
 from loguru import logger
 
-from safeshell.models import CommandContext, Decision, EvaluationResult
-from safeshell.rules.schema import Rule, RuleAction
+from safeshell.models import CommandContext, Decision, EvaluationResult, ExecutionContext
+from safeshell.rules.schema import Rule, RuleAction, RuleContext
 
 
 class RuleEvaluator:
@@ -98,8 +98,9 @@ class RuleEvaluator:
         """Check if a rule matches the given context.
 
         A rule matches if:
-        1. Directory pattern matches (if specified)
-        2. All bash conditions exit 0 (if specified)
+        1. Execution context matches (ai_only, human_only, or all)
+        2. Directory pattern matches (if specified)
+        3. All bash conditions exit 0 (if specified)
 
         Args:
             rule: The rule to check
@@ -108,6 +109,15 @@ class RuleEvaluator:
         Returns:
             True if the rule matches, False otherwise
         """
+        # Check execution context (ai_only, human_only, all)
+        exec_ctx = context.execution_context
+        if rule.context == RuleContext.AI_ONLY and exec_ctx != ExecutionContext.AI:
+            logger.debug(f"Rule '{rule.name}': skipped (ai_only, context={exec_ctx})")
+            return False
+        if rule.context == RuleContext.HUMAN_ONLY and exec_ctx != ExecutionContext.HUMAN:
+            logger.debug(f"Rule '{rule.name}': skipped (human_only, context={exec_ctx})")
+            return False
+
         # Check directory pattern
         if rule.directory and not re.match(rule.directory, context.working_dir):
             logger.debug(f"Rule '{rule.name}': directory pattern didn't match")

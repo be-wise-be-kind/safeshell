@@ -20,6 +20,13 @@ class Decision(str, Enum):
     REQUIRE_APPROVAL = "require_approval"  # Phase 2
 
 
+class ExecutionContext(str, Enum):
+    """Context indicating who is executing the command."""
+
+    AI = "ai"  # Command from AI agent (Claude Code, Cursor, etc.)
+    HUMAN = "human"  # Command from human in terminal
+
+
 class CommandContext(BaseModel):
     """Context for command evaluation by plugins.
 
@@ -34,6 +41,10 @@ class CommandContext(BaseModel):
     git_branch: str | None = Field(default=None, description="Current git branch if in a git repo")
     environment: dict[str, str] = Field(
         default_factory=dict, description="Relevant environment variables"
+    )
+    execution_context: ExecutionContext = Field(
+        default=ExecutionContext.HUMAN,
+        description="Who is executing: ai or human",
     )
 
     @property
@@ -52,6 +63,7 @@ class CommandContext(BaseModel):
         command: str,
         working_dir: str | Path,
         env: dict[str, str] | None = None,
+        execution_context: "ExecutionContext | None" = None,
     ) -> "CommandContext":
         """Create CommandContext from a command string.
 
@@ -59,6 +71,7 @@ class CommandContext(BaseModel):
             command: The raw command string
             working_dir: Current working directory
             env: Environment variables (optional)
+            execution_context: Who is executing (ai or human)
 
         Returns:
             CommandContext with parsed command and detected git context
@@ -84,6 +97,7 @@ class CommandContext(BaseModel):
             git_repo_root=git_root,
             git_branch=git_branch,
             environment=env or {},
+            execution_context=execution_context or ExecutionContext.HUMAN,
         )
 
     @staticmethod
@@ -148,6 +162,10 @@ class DaemonRequest(BaseModel):
     command: str | None = Field(default=None, description="Command to evaluate")
     working_dir: str | None = Field(default=None, description="Working directory")
     env: dict[str, str] = Field(default_factory=dict, description="Environment variables")
+    execution_context: ExecutionContext = Field(
+        default=ExecutionContext.HUMAN,
+        description="Who is executing: ai or human",
+    )
 
 
 class DaemonResponse(BaseModel):
