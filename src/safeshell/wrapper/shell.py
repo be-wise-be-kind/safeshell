@@ -1,0 +1,138 @@
+"""
+File: src/safeshell/wrapper/shell.py
+Purpose: Shell wrapper entry point - intercepts commands from AI tools
+Exports: main
+Depends: os, sys, plumbum, safeshell.wrapper.client, safeshell.config
+Overview: The script that AI tools invoke as their shell (SHELL=/path/to/safeshell-wrapper)
+"""
+
+# ruff: noqa: S606 - os.execv is intentional for shell passthrough
+
+import os
+import sys
+from typing import NoReturn
+
+from loguru import logger
+
+from safeshell.config import UnreachableBehavior, load_config
+from safeshell.exceptions import DaemonNotRunningError, DaemonStartError
+from safeshell.wrapper.client import DaemonClient
+
+
+def main() -> int:
+    """Main entry point for shell wrapper.
+
+    Handles shell invocations from AI tools:
+    - safeshell-wrapper -c "command"  (execute command string)
+    - safeshell-wrapper script.sh     (execute script - passthrough)
+    - safeshell-wrapper               (interactive - passthrough)
+
+    Returns:
+        Exit code (0 for success, non-zero for failure)
+    """
+    # Configure logging (minimal for wrapper - speed is critical)
+    logger.remove()
+    logger.add(sys.stderr, level="WARNING")
+
+    # Handle -c "command" invocation (primary use case)
+    if len(sys.argv) >= 3 and sys.argv[1] == "-c":
+        command = sys.argv[2]
+        return _evaluate_and_execute(command)
+
+    # All other invocations: passthrough to real shell
+    return _passthrough()
+
+
+def _evaluate_and_execute(command: str) -> int:
+    """Evaluate command with daemon and execute if allowed.
+
+    Args:
+        command: Command string to evaluate
+
+    Returns:
+        Exit code from command execution or 1 if denied
+    """
+    config = load_config()
+    client = DaemonClient()
+
+    try:
+        # Ensure daemon is running (auto-start if needed)
+        client.ensure_daemon_running()
+
+        # Evaluate command
+        response = client.evaluate(
+            command=command,
+            working_dir=os.getcwd(),
+            env=dict(os.environ),
+        )
+
+        if response.should_execute:
+            return _execute(command, config.delegate_shell)
+        # Command denied - print message and exit
+        if response.denial_message:
+            sys.stderr.write(response.denial_message + "\n")
+        else:
+            sys.stderr.write("[SafeShell] Command blocked by policy\n")
+        return 1
+
+    except (DaemonNotRunningError, DaemonStartError) as e:
+        # Handle based on config
+        if config.unreachable_behavior == UnreachableBehavior.FAIL_OPEN:
+            sys.stderr.write(f"[SafeShell] Warning: Daemon unreachable ({e}), allowing command\n")
+            return _execute(command, config.delegate_shell)
+        # FAIL_CLOSED (default)
+        sys.stderr.write(f"[SafeShell] Error: Daemon unreachable ({e})\n")
+        sys.stderr.write("[SafeShell] Command blocked (fail-closed mode)\n")
+        return 1
+
+
+def _execute(command: str, shell: str) -> int:
+    """Execute command using the delegate shell.
+
+    Args:
+        command: Command to execute
+        shell: Path to real shell (e.g., /bin/bash)
+
+    Returns:
+        Exit code from command
+    """
+    from plumbum import local
+    from plumbum.commands.processes import ProcessExecutionError
+
+    try:
+        real_shell = local[shell]
+        retcode, stdout, stderr = real_shell["-c", command].run(retcode=None)
+
+        # Write output to stdout/stderr
+        if stdout:
+            sys.stdout.write(stdout)
+        if stderr:
+            sys.stderr.write(stderr)
+
+        return retcode
+
+    except ProcessExecutionError as e:
+        sys.stderr.write(str(e) + "\n")
+        return e.retcode if e.retcode else 1
+    except Exception as e:
+        sys.stderr.write(f"[SafeShell] Execution error: {e}\n")
+        return 1
+
+
+def _passthrough() -> NoReturn:
+    """Pass through to real shell for non -c invocations.
+
+    Replaces current process with real shell.
+    """
+    config = load_config()
+    shell = config.delegate_shell
+
+    # Use os.execv to replace process
+    os.execv(shell, [shell] + sys.argv[1:])
+
+    # Should never reach here
+    sys.exit(1)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
