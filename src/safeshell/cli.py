@@ -117,6 +117,10 @@ def monitor(
     - d: Deny current request
     - r: Reconnect to daemon
     """
+    # Disable loguru to prevent interference with TUI
+    from loguru import logger
+    logger.disable("safeshell")
+
     from safeshell.monitor.app import MonitorApp
 
     # Check if daemon is running
