@@ -7,6 +7,7 @@ Overview: Provides version, check, status commands and registers daemon/wrapper 
 """
 
 import os
+import sys
 
 import typer
 from rich.console import Console
@@ -135,10 +136,12 @@ def monitor(
             console.print("Start it with: safeshell daemon start")
             raise typer.Exit(1)
 
-    # Remove all loguru handlers before TUI starts to prevent interference
+    # Remove all loguru handlers and redirect stderr before TUI starts
     # (must be after _daemonize() so forked daemon isn't affected)
     from loguru import logger
     logger.remove()
+    # Redirect stderr to suppress any stray log output during TUI
+    sys.stderr = open(os.devnull, "w")  # noqa: SIM115 - must stay open for TUI lifetime
 
     monitor_app = MonitorApp(debug_mode=debug)
     monitor_app.run()
