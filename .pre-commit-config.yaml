@@ -64,3 +64,11 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
+
+      - id: check-ai-index
+        name: verify .ai/ index updated
+        entry: .hooks/check-ai-index.sh
+        language: script
+        always_run: true
+        pass_filenames: false
+        stages: [pre-push]
