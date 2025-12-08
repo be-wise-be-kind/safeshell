@@ -1,15 +1,33 @@
 # SafeShell Shell Integration
-# Source this or use: eval "$(safeshell init -)"
+# Source this from .bashrc: source ~/.safeshell/init.bash
 #
 # This provides:
 # 1. PATH modification to use command shims
 # 2. Function overrides for builtins (cd, source, eval, echo)
 #
-# Note: Works in both interactive and non-interactive shells for AI safety
+# Protection is automatically configured based on the detected environment.
 
 # Skip if already loaded
 [[ -n "$SAFESHELL_LOADED" ]] && return
 export SAFESHELL_LOADED=1
+
+# --- Tool Pattern Detection ---
+# Different AI tools need different protection strategies.
+# Hook-based tools (Claude Code, etc.) have pre-execution hooks that
+# already validate commands - loading shims would cause double-checking.
+
+# Pattern: Claude Code (hook-protected)
+# The PreToolUse hook validates commands before execution.
+# Skip shim loading to avoid double-approval issues.
+if [[ -n "$CLAUDECODE" ]]; then
+    return
+fi
+
+# Pattern: Other hook-protected tools can be added here:
+# if [[ -n "$CURSOR_SOMETHING" ]]; then return; fi
+
+# Pattern: Interactive shell OR non-interactive without hook protection
+# Load full shim protection below.
 
 # Find safeshell-wrapper
 __safeshell_find_wrapper() {

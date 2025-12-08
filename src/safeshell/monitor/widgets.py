@@ -370,10 +370,22 @@ class ApprovalPane(Static):
         approval_id = self._current_approval.get("approval_id", "")
 
         if event.button.id == "approve-btn":
+            # Remove from pending immediately to prevent double-click
+            self._pending_approvals = [
+                a for a in self._pending_approvals if a.get("approval_id") != approval_id
+            ]
+            self._current_approval = self._pending_approvals[0] if self._pending_approvals else None
+            self._update_display()
             self.post_message(self.ApprovalAction(True, approval_id))
         elif event.button.id == "deny-btn":
             denial_input = self.query_one("#denial-reason", Input)
             reason = denial_input.value or None
+            # Remove from pending immediately to prevent double-click
+            self._pending_approvals = [
+                a for a in self._pending_approvals if a.get("approval_id") != approval_id
+            ]
+            self._current_approval = self._pending_approvals[0] if self._pending_approvals else None
+            self._update_display()
             self.post_message(self.ApprovalAction(False, approval_id, reason))
             denial_input.value = ""
 
@@ -381,6 +393,12 @@ class ApprovalPane(Static):
         """Approve the current pending approval (for keyboard shortcut)."""
         if self._current_approval:
             approval_id = self._current_approval.get("approval_id", "")
+            # Remove from pending immediately to prevent double-press
+            self._pending_approvals = [
+                a for a in self._pending_approvals if a.get("approval_id") != approval_id
+            ]
+            self._current_approval = self._pending_approvals[0] if self._pending_approvals else None
+            self._update_display()
             self.post_message(self.ApprovalAction(True, approval_id))
 
     def deny_current(self) -> None:
@@ -389,5 +407,11 @@ class ApprovalPane(Static):
             approval_id = self._current_approval.get("approval_id", "")
             denial_input = self.query_one("#denial-reason", Input)
             reason = denial_input.value or None
+            # Remove from pending immediately to prevent double-press
+            self._pending_approvals = [
+                a for a in self._pending_approvals if a.get("approval_id") != approval_id
+            ]
+            self._current_approval = self._pending_approvals[0] if self._pending_approvals else None
+            self._update_display()
             self.post_message(self.ApprovalAction(False, approval_id, reason))
             denial_input.value = ""
