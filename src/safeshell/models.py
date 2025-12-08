@@ -167,6 +167,12 @@ class DaemonResponse(BaseModel):
         default=None, description="Message to show if command is denied"
     )
     error_message: str | None = Field(default=None, description="Error message if request failed")
+    approval_pending: bool = Field(
+        default=False, description="Whether command is awaiting human approval"
+    )
+    approval_id: str | None = Field(
+        default=None, description="ID for pending approval request"
+    )
 
     @classmethod
     def allow(cls) -> "DaemonResponse":

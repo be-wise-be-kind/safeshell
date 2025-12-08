@@ -22,8 +22,8 @@ This document breaks down Phase 2 into 5 PRs:
 
 | PR | Title | Status | Complexity | Priority |
 |----|-------|--------|------------|----------|
-| PR-1 | Event System Foundation | 🔴 Not Started | Medium | P0 |
-| PR-2 | Daemon Event Publishing | 🔴 Not Started | Medium | P0 |
+| PR-1 | Event System Foundation | 🟢 Complete | Medium | P0 |
+| PR-2 | Daemon Event Publishing | 🟢 Complete | Medium | P0 |
 | PR-3 | Monitor TUI Shell | 🔴 Not Started | High | P0 |
 | PR-4 | Approval Protocol | 🔴 Not Started | High | P0 |
 | PR-5 | Integration and Polish | 🔴 Not Started | Medium | P0 |
@@ -32,7 +32,7 @@ This document breaks down Phase 2 into 5 PRs:
 
 ## PR-1: Event System Foundation
 
-**Status**: 🔴 Not Started
+**Status**: 🟢 Complete (Merged in PR #4)
 
 ### Summary
 Create the event type definitions and event bus infrastructure.
@@ -113,7 +113,7 @@ class EventBus:
 
 ## PR-2: Daemon Event Publishing
 
-**Status**: 🔴 Not Started
+**Status**: 🟢 Complete
 
 ### Summary
 Integrate event publishing into the daemon and add monitor connection handling.
