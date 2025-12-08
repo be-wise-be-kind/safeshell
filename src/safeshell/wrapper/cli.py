@@ -25,10 +25,12 @@ def install() -> None:
     wrapper_path = _get_wrapper_path()
     real_shell = SafeShellConfig.detect_default_shell()
 
-    console.print(Panel.fit(
-        "[bold blue]SafeShell Wrapper Installation[/bold blue]",
-        border_style="blue",
-    ))
+    console.print(
+        Panel.fit(
+            "[bold blue]SafeShell Wrapper Installation[/bold blue]",
+            border_style="blue",
+        )
+    )
 
     console.print()
     console.print(f"[bold]Wrapper location:[/bold] {wrapper_path}")

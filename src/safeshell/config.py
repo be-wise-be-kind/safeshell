@@ -86,9 +86,7 @@ def load_config(config_path: Path | None = None) -> SafeShellConfig:
 
     if not path.exists():
         logger.debug(f"No config file at {path}, using defaults")
-        return SafeShellConfig(
-            delegate_shell=SafeShellConfig.detect_default_shell()
-        )
+        return SafeShellConfig(delegate_shell=SafeShellConfig.detect_default_shell())
 
     try:
         content = path.read_text()
@@ -96,9 +94,7 @@ def load_config(config_path: Path | None = None) -> SafeShellConfig:
 
         if data is None:
             # Empty file
-            return SafeShellConfig(
-                delegate_shell=SafeShellConfig.detect_default_shell()
-            )
+            return SafeShellConfig(delegate_shell=SafeShellConfig.detect_default_shell())
 
         return SafeShellConfig.model_validate(data)
 
@@ -139,8 +135,6 @@ def create_default_config() -> SafeShellConfig:
     Returns:
         The created default configuration
     """
-    config = SafeShellConfig(
-        delegate_shell=SafeShellConfig.detect_default_shell()
-    )
+    config = SafeShellConfig(delegate_shell=SafeShellConfig.detect_default_shell())
     save_config(config)
     return config

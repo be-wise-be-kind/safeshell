@@ -78,6 +78,7 @@ def restart() -> None:
 
         # Wait a moment for clean shutdown
         import time
+
         time.sleep(0.5)
 
     _daemonize()
@@ -95,6 +96,7 @@ def _daemonize() -> None:
         if pid > 0:
             # Parent - wait briefly for child to start
             import time
+
             time.sleep(0.5)
             return
     except OSError as e:

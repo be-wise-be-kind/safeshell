@@ -3,8 +3,6 @@
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from safeshell.models import (
     CommandContext,
     DaemonRequest,
@@ -38,11 +36,11 @@ class TestCommandContext:
         ctx = CommandContext(
             raw_command="ls -la",
             parsed_args=["ls", "-la"],
-            working_dir="/tmp",
+            working_dir="/home/user",
         )
         assert ctx.raw_command == "ls -la"
         assert ctx.parsed_args == ["ls", "-la"]
-        assert ctx.working_dir == "/tmp"
+        assert ctx.working_dir == "/home/user"
         assert ctx.git_repo_root is None
         assert ctx.git_branch is None
 
@@ -51,7 +49,7 @@ class TestCommandContext:
         ctx = CommandContext(
             raw_command="git commit -m test",
             parsed_args=["git", "commit", "-m", "test"],
-            working_dir="/tmp",
+            working_dir="/home/user",
         )
         assert ctx.executable == "git"
 
@@ -60,7 +58,7 @@ class TestCommandContext:
         ctx = CommandContext(
             raw_command="",
             parsed_args=[],
-            working_dir="/tmp",
+            working_dir="/home/user",
         )
         assert ctx.executable is None
 
@@ -69,20 +67,20 @@ class TestCommandContext:
         ctx = CommandContext(
             raw_command="git commit -m test",
             parsed_args=["git", "commit", "-m", "test"],
-            working_dir="/tmp",
+            working_dir="/home/user",
         )
         assert ctx.args == ["commit", "-m", "test"]
 
     def test_from_command_simple(self) -> None:
         """Test from_command with simple command."""
-        ctx = CommandContext.from_command("ls -la", "/tmp")
+        ctx = CommandContext.from_command("ls -la", "/home/user")
         assert ctx.raw_command == "ls -la"
         assert ctx.parsed_args == ["ls", "-la"]
-        assert ctx.working_dir == "/tmp"
+        assert ctx.working_dir == "/home/user"
 
     def test_from_command_with_quotes(self) -> None:
         """Test from_command with quoted arguments."""
-        ctx = CommandContext.from_command('echo "hello world"', "/tmp")
+        ctx = CommandContext.from_command('echo "hello world"', "/home/user")
         assert ctx.parsed_args == ["echo", "hello world"]
 
     def test_from_command_git_detection(self) -> None:
@@ -158,7 +156,7 @@ class TestDaemonRequest:
         request = DaemonRequest(
             type=RequestType.EVALUATE,
             command="ls",
-            working_dir="/tmp",
+            working_dir="/home/user",
         )
         json_str = request.model_dump_json()
         assert "evaluate" in json_str

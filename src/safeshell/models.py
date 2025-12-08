@@ -28,16 +28,10 @@ class CommandContext(BaseModel):
     """
 
     raw_command: str = Field(description="Full command string as received")
-    parsed_args: list[str] = Field(
-        default_factory=list, description="Command split into arguments"
-    )
+    parsed_args: list[str] = Field(default_factory=list, description="Command split into arguments")
     working_dir: str = Field(description="Current working directory")
-    git_repo_root: str | None = Field(
-        default=None, description="Root of git repository if in one"
-    )
-    git_branch: str | None = Field(
-        default=None, description="Current git branch if in a git repo"
-    )
+    git_repo_root: str | None = Field(default=None, description="Root of git repository if in one")
+    git_branch: str | None = Field(default=None, description="Current git branch if in a git repo")
     environment: dict[str, str] = Field(
         default_factory=dict, description="Relevant environment variables"
     )
@@ -153,9 +147,7 @@ class DaemonRequest(BaseModel):
     type: RequestType = Field(description="Type of request")
     command: str | None = Field(default=None, description="Command to evaluate")
     working_dir: str | None = Field(default=None, description="Working directory")
-    env: dict[str, str] = Field(
-        default_factory=dict, description="Environment variables"
-    )
+    env: dict[str, str] = Field(default_factory=dict, description="Environment variables")
 
 
 class DaemonResponse(BaseModel):
@@ -174,9 +166,7 @@ class DaemonResponse(BaseModel):
     denial_message: str | None = Field(
         default=None, description="Message to show if command is denied"
     )
-    error_message: str | None = Field(
-        default=None, description="Error message if request failed"
-    )
+    error_message: str | None = Field(default=None, description="Error message if request failed")
 
     @classmethod
     def allow(cls) -> "DaemonResponse":
