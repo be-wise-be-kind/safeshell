@@ -9,6 +9,7 @@ Overview: Loads rules and evaluates commands against all loaded rules, emitting 
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
 from loguru import logger
@@ -60,11 +61,17 @@ class RuleManager:
         """Return the number of loaded rules."""
         return self._rule_count
 
-    async def process_request(self, request: DaemonRequest) -> DaemonResponse:
+    async def process_request(
+        self,
+        request: DaemonRequest,
+        send_intermediate: Callable[[DaemonResponse], Awaitable[None]] | None = None,
+    ) -> DaemonResponse:
         """Process a request from the shell wrapper.
 
         Args:
             request: Request from wrapper
+            send_intermediate: Optional callback to send intermediate responses
+                (e.g., "waiting for approval" messages)
 
         Returns:
             Response to send back to wrapper
@@ -76,7 +83,7 @@ class RuleManager:
             return self._handle_status()
 
         if request.type == RequestType.EVALUATE:
-            return await self._handle_evaluate(request)
+            return await self._handle_evaluate(request, send_intermediate)
 
         return DaemonResponse.error(f"Unknown request type: {request.type}")
 
@@ -96,11 +103,16 @@ class RuleManager:
             should_execute=True,
         )
 
-    async def _handle_evaluate(self, request: DaemonRequest) -> DaemonResponse:
+    async def _handle_evaluate(
+        self,
+        request: DaemonRequest,
+        send_intermediate: Callable[[DaemonResponse], Awaitable[None]] | None = None,
+    ) -> DaemonResponse:
         """Handle command evaluation request.
 
         Args:
             request: Request containing command to evaluate
+            send_intermediate: Optional callback to send intermediate responses
 
         Returns:
             Response with evaluation results and final decision
@@ -151,7 +163,9 @@ class RuleManager:
 
         # Handle REQUIRE_APPROVAL decision
         if result.decision == Decision.REQUIRE_APPROVAL:
-            result = await self._handle_approval(request.command, result)
+            result = await self._handle_approval(
+                request.command, result, send_intermediate
+            )
 
         results = [result]
 
@@ -195,13 +209,17 @@ class RuleManager:
         return DaemonResponse._format_denial_message(result.reason, result.plugin_name)
 
     async def _handle_approval(
-        self, command: str, result: EvaluationResult
+        self,
+        command: str,
+        result: EvaluationResult,
+        send_intermediate: Callable[[DaemonResponse], Awaitable[None]] | None = None,
     ) -> EvaluationResult:
         """Handle REQUIRE_APPROVAL decision by waiting for approval.
 
         Args:
             command: The command awaiting approval
             result: Original evaluation result with REQUIRE_APPROVAL
+            send_intermediate: Optional callback to send "waiting" message
 
         Returns:
             New EvaluationResult with ALLOW or DENY based on approval resolution
@@ -220,12 +238,27 @@ class RuleManager:
                 reason=f"{result.reason} (approval system unavailable)",
             )
 
+        # Generate approval ID first so we can include it in the waiting message
+        import uuid
+        approval_id = str(uuid.uuid4())
+
+        # Send "waiting for approval" message to client
+        if send_intermediate:
+            waiting_response = DaemonResponse.waiting_for_approval(
+                command=command,
+                rule_name=result.plugin_name,
+                reason=result.reason,
+                approval_id=approval_id,
+            )
+            await send_intermediate(waiting_response)
+
         # Request approval and wait for resolution
         logger.info(f"Requesting approval for: {command}")
         approval_result, denial_reason = await self._approval_manager.request_approval(
             command=command,
             plugin_name=result.plugin_name,
             reason=result.reason,
+            approval_id=approval_id,
         )
 
         if approval_result == ApprovalResult.APPROVED:

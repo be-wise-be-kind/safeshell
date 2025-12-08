@@ -11,6 +11,7 @@ import os
 import typer
 from rich.console import Console
 
+from safeshell.daemon.cli import _daemonize
 from safeshell.daemon.cli import app as daemon_app
 from safeshell.daemon.lifecycle import DaemonLifecycle
 from safeshell.wrapper.cli import app as wrapper_app
@@ -94,10 +95,18 @@ def status() -> None:
 
 
 @app.command()
-def monitor() -> None:
+def monitor(
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        "-d",
+        help="Show all panes (debug log, command history, approval)",
+    ),
+) -> None:
     """Launch the SafeShell monitor TUI.
 
-    Opens an interactive terminal interface showing:
+    By default, shows only the approval pane for a clean interface.
+    Use --debug to show all three panes:
     - Debug log: Real-time daemon events
     - Command history: Recent commands and their status
     - Approval pane: Handle pending approval requests
@@ -110,8 +119,24 @@ def monitor() -> None:
     """
     from safeshell.monitor.app import MonitorApp
 
-    app = MonitorApp()
-    app.run()
+    # Check if daemon is running
+    if not DaemonLifecycle.is_running():
+        console.print("[yellow]Daemon is not running.[/yellow]")
+        if typer.confirm("Start the daemon?", default=True):
+            console.print("Starting daemon...")
+            _daemonize()
+            if DaemonLifecycle.is_running():
+                console.print("[green]Daemon started.[/green]")
+            else:
+                console.print("[red]Failed to start daemon.[/red]")
+                raise typer.Exit(1)
+        else:
+            console.print("Monitor requires the daemon to be running.")
+            console.print("Start it with: safeshell daemon start")
+            raise typer.Exit(1)
+
+    monitor_app = MonitorApp(debug_mode=debug)
+    monitor_app.run()
 
 
 @app.command()

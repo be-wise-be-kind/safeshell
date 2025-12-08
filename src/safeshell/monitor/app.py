@@ -24,9 +24,12 @@ class MonitorApp(App[None]):
     """SafeShell Monitor TUI Application.
 
     Provides a three-pane interface for:
-    - Debug log: Shows daemon events in real-time
-    - Command history: Shows recent commands and their status
+    - Debug log: Shows daemon events in real-time (debug mode only)
+    - Command history: Shows recent commands and their status (debug mode only)
     - Approval pane: Handles pending approval requests
+
+    By default, only shows the approval pane for a cleaner UI.
+    Use --debug flag to show all panes.
     """
 
     TITLE = "SafeShell Monitor"
@@ -39,23 +42,35 @@ class MonitorApp(App[None]):
         Binding("r", "reconnect", "Reconnect", priority=True),
     ]
 
-    def __init__(self) -> None:
-        """Initialize the monitor app."""
+    def __init__(self, debug_mode: bool = False) -> None:
+        """Initialize the monitor app.
+
+        Args:
+            debug_mode: If True, show all three panes (debug, history, approval).
+                       If False, show only the approval pane.
+        """
         super().__init__()
         self._client = MonitorClient()
         self._reconnect_attempts = 0
         self._max_reconnect_attempts = 5
+        self._debug_mode = debug_mode
 
     def compose(self) -> ComposeResult:
         """Compose the application layout."""
         yield Header()
         yield Static("Connecting...", id="status-bar")
-        yield Vertical(
-            DebugPane(id="debug-pane"),
-            HistoryPane(id="history-pane"),
-            ApprovalPane(id="approval-pane"),
-            id="main-container",
-        )
+        if self._debug_mode:
+            yield Vertical(
+                DebugPane(id="debug-pane"),
+                HistoryPane(id="history-pane"),
+                ApprovalPane(id="approval-pane"),
+                id="main-container",
+            )
+        else:
+            yield Vertical(
+                ApprovalPane(id="approval-pane"),
+                id="main-container",
+            )
         yield Footer()
 
     async def on_mount(self) -> None:
@@ -65,10 +80,9 @@ class MonitorApp(App[None]):
     async def _connect_to_daemon(self) -> None:
         """Connect to the daemon's monitor socket."""
         status_bar = self.query_one("#status-bar", Static)
-        debug_pane = self.query_one("#debug-pane", DebugPane)
 
         status_bar.update("[yellow]Connecting to daemon...[/yellow]")
-        debug_pane.add_log("Attempting to connect to daemon...", "info")
+        self._log_debug("Attempting to connect to daemon...", "info")
 
         connected = await self._client.connect()
 
@@ -77,7 +91,7 @@ class MonitorApp(App[None]):
             status_bar.update("[green]Connected[/green] to SafeShell daemon")
             status_bar.add_class("status-connected")
             status_bar.remove_class("status-disconnected")
-            debug_pane.add_log("Connected to daemon", "success")
+            self._log_debug("Connected to daemon", "success")
 
             # Set up event callback
             self._client.add_event_callback(self._handle_event)
@@ -88,8 +102,19 @@ class MonitorApp(App[None]):
             status_bar.update("[red]Disconnected[/red] - Press 'r' to reconnect")
             status_bar.add_class("status-disconnected")
             status_bar.remove_class("status-connected")
-            debug_pane.add_log("Failed to connect to daemon", "error")
-            debug_pane.add_log("Is the daemon running? (safeshell daemon start)", "info")
+            self._log_debug("Failed to connect to daemon", "error")
+            self._log_debug("Is the daemon running? (safeshell daemon start)", "info")
+
+    def _log_debug(self, message: str, level: str = "info") -> None:
+        """Log a message to the debug pane if in debug mode.
+
+        Args:
+            message: Message to log
+            level: Log level (info, warning, error, debug, success)
+        """
+        if self._debug_mode:
+            debug_pane = self.query_one("#debug-pane", DebugPane)
+            debug_pane.add_log(message, level)
 
     def _handle_event(self, message: dict[str, Any]) -> None:
         """Handle an event from the daemon.
@@ -106,9 +131,12 @@ class MonitorApp(App[None]):
         Args:
             message: Event message
         """
-        debug_pane = self.query_one("#debug-pane", DebugPane)
-        history_pane = self.query_one("#history-pane", HistoryPane)
         approval_pane = self.query_one("#approval-pane", ApprovalPane)
+
+        # Get optional panes (only exist in debug mode)
+        history_pane = None
+        if self._debug_mode:
+            history_pane = self.query_one("#history-pane", HistoryPane)
 
         msg_type = message.get("type")
 
@@ -120,20 +148,20 @@ class MonitorApp(App[None]):
             if event_type == EventType.COMMAND_RECEIVED.value:
                 command = data.get("command", "unknown")
                 working_dir = data.get("working_dir", "")
-                debug_pane.add_log(f"Command received: {command}", "info")
-                debug_pane.add_log(f"  Working dir: {working_dir}", "debug")
+                self._log_debug(f"Command received: {command}", "info")
+                self._log_debug(f"  Working dir: {working_dir}", "debug")
 
-                # Add to history
-                history_pane.add_command(CommandHistoryItem(
-                    command=command,
-                    timestamp=datetime.now(),
-                    status="pending",
-                ))
+                # Add to history (debug mode only)
+                if history_pane:
+                    history_pane.add_command(CommandHistoryItem(
+                        command=command,
+                        timestamp=datetime.now(),
+                        status="pending",
+                    ))
 
             elif event_type == EventType.EVALUATION_STARTED.value:
-                command = data.get("command", "unknown")
                 plugin_count = data.get("plugin_count", 0)
-                debug_pane.add_log(f"Evaluating with {plugin_count} rules...", "debug")
+                self._log_debug(f"Evaluating with {plugin_count} rules...", "debug")
 
             elif event_type == EventType.EVALUATION_COMPLETED.value:
                 command = data.get("command", "unknown")
@@ -142,18 +170,21 @@ class MonitorApp(App[None]):
                 plugin_name = data.get("plugin_name")
 
                 if decision == "allow":
-                    debug_pane.add_log(f"ALLOWED: {command}", "success")
-                    history_pane.update_command(command, "allowed", decision)
+                    self._log_debug(f"ALLOWED: {command}", "success")
+                    if history_pane:
+                        history_pane.update_command(command, "allowed", decision)
                 elif decision == "deny":
-                    debug_pane.add_log(f"BLOCKED: {command}", "error")
+                    self._log_debug(f"BLOCKED: {command}", "error")
                     if reason:
-                        debug_pane.add_log(f"  Reason: {reason}", "warning")
+                        self._log_debug(f"  Reason: {reason}", "warning")
                     if plugin_name:
-                        debug_pane.add_log(f"  Rule: {plugin_name}", "debug")
-                    history_pane.update_command(command, "blocked", decision, reason)
+                        self._log_debug(f"  Rule: {plugin_name}", "debug")
+                    if history_pane:
+                        history_pane.update_command(command, "blocked", decision, reason)
                 elif decision == "require_approval":
-                    debug_pane.add_log(f"APPROVAL REQUIRED: {command}", "warning")
-                    history_pane.update_command(command, "waiting", decision, reason)
+                    self._log_debug(f"APPROVAL REQUIRED: {command}", "warning")
+                    if history_pane:
+                        history_pane.update_command(command, "waiting", decision, reason)
 
             elif event_type == EventType.APPROVAL_NEEDED.value:
                 approval_id = data.get("approval_id", "")
@@ -161,9 +192,9 @@ class MonitorApp(App[None]):
                 reason = data.get("reason", "")
                 plugin_name = data.get("plugin_name", "")
 
-                debug_pane.add_log(f"Approval needed: {command}", "warning")
-                debug_pane.add_log(f"  ID: {approval_id[:12]}...", "debug")
-                debug_pane.add_log(f"  Reason: {reason}", "info")
+                self._log_debug(f"Approval needed: {command}", "warning")
+                self._log_debug(f"  ID: {approval_id[:12]}...", "debug")
+                self._log_debug(f"  Reason: {reason}", "info")
 
                 approval_pane.add_pending_approval({
                     "approval_id": approval_id,
@@ -172,9 +203,10 @@ class MonitorApp(App[None]):
                     "plugin_name": plugin_name,
                 })
 
-                history_pane.update_command(
-                    command, "waiting", "require_approval", reason, approval_id
-                )
+                if history_pane:
+                    history_pane.update_command(
+                        command, "waiting", "require_approval", reason, approval_id
+                    )
 
             elif event_type == EventType.APPROVAL_RESOLVED.value:
                 approval_id = data.get("approval_id", "")
@@ -182,26 +214,26 @@ class MonitorApp(App[None]):
                 reason = data.get("reason")
 
                 if approved:
-                    debug_pane.add_log(f"Approved: {approval_id[:12]}...", "success")
+                    self._log_debug(f"Approved: {approval_id[:12]}...", "success")
                 else:
-                    debug_pane.add_log(f"Denied: {approval_id[:12]}...", "error")
+                    self._log_debug(f"Denied: {approval_id[:12]}...", "error")
                     if reason:
-                        debug_pane.add_log(f"  Reason: {reason}", "info")
+                        self._log_debug(f"  Reason: {reason}", "info")
 
                 approval_pane.remove_pending_approval(approval_id)
 
             elif event_type == EventType.DAEMON_STATUS.value:
                 status = data.get("status", "unknown")
-                debug_pane.add_log(f"Daemon status: {status}", "info")
+                self._log_debug(f"Daemon status: {status}", "info")
 
         elif msg_type == "response":
             # Response to a command we sent
             success = message.get("success", False)
             msg = message.get("message") or message.get("error")
             if success:
-                debug_pane.add_log(f"Response: {msg}", "success")
+                self._log_debug(f"Response: {msg}", "success")
             else:
-                debug_pane.add_log(f"Error: {msg}", "error")
+                self._log_debug(f"Error: {msg}", "error")
 
     async def on_approval_pane_approval_action(
         self, event: ApprovalPane.ApprovalAction
@@ -211,19 +243,17 @@ class MonitorApp(App[None]):
         Args:
             event: The approval action event
         """
-        debug_pane = self.query_one("#debug-pane", DebugPane)
-
         if event.approved:
-            debug_pane.add_log(f"Approving {event.approval_id[:12]}...", "info")
+            self._log_debug(f"Approving {event.approval_id[:12]}...", "info")
             success = await self._client.approve(event.approval_id)
             if not success:
-                debug_pane.add_log("Failed to send approval", "error")
+                self._log_debug("Failed to send approval", "error")
         else:
             reason_msg = f" (reason: {event.reason})" if event.reason else ""
-            debug_pane.add_log(f"Denying {event.approval_id[:12]}...{reason_msg}", "info")
+            self._log_debug(f"Denying {event.approval_id[:12]}...{reason_msg}", "info")
             success = await self._client.deny(event.approval_id, event.reason)
             if not success:
-                debug_pane.add_log("Failed to send denial", "error")
+                self._log_debug("Failed to send denial", "error")
 
     def action_quit(self) -> None:
         """Quit the application."""
@@ -241,8 +271,7 @@ class MonitorApp(App[None]):
 
     async def action_reconnect(self) -> None:
         """Attempt to reconnect to the daemon."""
-        debug_pane = self.query_one("#debug-pane", DebugPane)
-        debug_pane.add_log("Attempting to reconnect...", "info")
+        self._log_debug("Attempting to reconnect...", "info")
 
         await self._client.disconnect()
         await self._connect_to_daemon()

@@ -95,6 +95,7 @@ class ApprovalManager:
         plugin_name: str,
         reason: str,
         timeout: float | None = None,
+        approval_id: str | None = None,
     ) -> tuple[ApprovalResult, str | None]:
         """Request approval for a command.
 
@@ -106,13 +107,15 @@ class ApprovalManager:
             plugin_name: Name of the rule/plugin that triggered approval
             reason: Human-readable reason why approval is required
             timeout: Optional timeout override in seconds
+            approval_id: Optional pre-generated approval ID
 
         Returns:
             Tuple of (result, denial_reason):
             - result: APPROVED, DENIED, or TIMEOUT
             - denial_reason: Reason string if denied, None otherwise
         """
-        approval_id = str(uuid.uuid4())
+        if approval_id is None:
+            approval_id = str(uuid.uuid4())
         timeout_seconds = timeout if timeout is not None else self._default_timeout
 
         # Create future for this approval

@@ -173,6 +173,12 @@ class DaemonResponse(BaseModel):
     approval_id: str | None = Field(
         default=None, description="ID for pending approval request"
     )
+    is_intermediate: bool = Field(
+        default=False, description="True if more responses will follow (e.g., waiting for approval)"
+    )
+    status_message: str | None = Field(
+        default=None, description="Status message to display (e.g., 'Waiting for approval...')"
+    )
 
     @classmethod
     def allow(cls) -> "DaemonResponse":
@@ -206,6 +212,24 @@ class DaemonResponse(BaseModel):
             success=False,
             should_execute=False,
             error_message=message,
+        )
+
+    @classmethod
+    def waiting_for_approval(
+        cls, command: str, rule_name: str, reason: str, approval_id: str
+    ) -> "DaemonResponse":
+        """Create an intermediate 'waiting for approval' response."""
+        return cls(
+            success=True,
+            approval_pending=True,
+            approval_id=approval_id,
+            is_intermediate=True,
+            status_message=(
+                f"[SafeShell] Waiting for approval in Monitor TUI...\n"
+                f"Command: {command}\n"
+                f"Rule: {rule_name}\n"
+                f"Reason: {reason}"
+            ),
         )
 
     @staticmethod

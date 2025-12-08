@@ -14,6 +14,7 @@ import asyncio
 import os
 import signal
 import time
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from loguru import logger
@@ -208,8 +209,13 @@ class DaemonServer:
             message = await read_message(reader)
             logger.debug(f"Received: {message}")
 
+            # Create callback for sending intermediate messages
+            async def send_intermediate(response: DaemonResponse) -> None:
+                await write_message(writer, response)
+                logger.debug(f"Sent intermediate: {response.model_dump()}")
+
             # Parse and process request
-            response = await self._process_message(message)
+            response = await self._process_message(message, send_intermediate)
 
             # Write response
             await write_message(writer, response)
@@ -243,11 +249,16 @@ class DaemonServer:
                 pass  # Client already disconnected
             logger.debug(f"Wrapper client disconnected: {peer}")
 
-    async def _process_message(self, message: dict[str, Any]) -> DaemonResponse:
+    async def _process_message(
+        self,
+        message: dict[str, Any],
+        send_intermediate: Callable[[DaemonResponse], Awaitable[None]] | None = None,
+    ) -> DaemonResponse:
         """Process a message and return response.
 
         Args:
             message: Parsed message dictionary
+            send_intermediate: Optional callback to send intermediate responses
 
         Returns:
             Response to send to client
@@ -259,7 +270,7 @@ class DaemonServer:
             if request.type.value == "evaluate":
                 self._commands_processed += 1
 
-            return await self.rule_manager.process_request(request)
+            return await self.rule_manager.process_request(request, send_intermediate)
         except Exception as e:
             logger.error(f"Failed to process message: {e}")
             return DaemonResponse.error(f"Invalid request: {e}")

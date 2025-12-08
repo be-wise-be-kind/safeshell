@@ -104,10 +104,19 @@ class DaemonClient:
                 message = request.model_dump_json().encode("utf-8") + b"\n"
                 sock.sendall(message)
 
-                # Receive response
-                response_data = self._recv_all(sock)
-                response_dict = json.loads(response_data.decode("utf-8"))
-                return DaemonResponse.model_validate(response_dict)
+                # Receive response(s) - may include intermediate "waiting" messages
+                while True:
+                    response_data = self._recv_one(sock)
+                    response_dict = json.loads(response_data.decode("utf-8"))
+                    response = DaemonResponse.model_validate(response_dict)
+
+                    # Print status messages for intermediate responses
+                    if response.is_intermediate and response.status_message:
+                        sys.stderr.write(response.status_message + "\n")
+                        sys.stderr.flush()
+                        continue  # Wait for final response
+
+                    return response
 
         except ConnectionRefusedError as e:
             raise DaemonNotRunningError("Daemon is not accepting connections") from e
@@ -116,14 +125,14 @@ class DaemonClient:
         except FileNotFoundError as e:
             raise DaemonNotRunningError(f"Daemon socket not found: {e}") from e
 
-    def _recv_all(self, sock: socket.socket) -> bytes:
-        """Receive all data until newline (JSON lines protocol).
+    def _recv_one(self, sock: socket.socket) -> bytes:
+        """Receive one JSON line from socket.
 
         Args:
             sock: Connected socket
 
         Returns:
-            Received data (without trailing newline)
+            Received data (one JSON line without trailing newline)
         """
         data = b""
         while True:
@@ -132,8 +141,9 @@ class DaemonClient:
                 break
             data += chunk
             if b"\n" in data:
-                # Got complete message
-                return data.strip()
+                # Got complete message - return just the first line
+                line, _, _ = data.partition(b"\n")
+                return line.strip()
         return data.strip()
 
     def ensure_daemon_running(self) -> None:
