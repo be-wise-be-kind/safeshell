@@ -338,6 +338,35 @@ Per-repo: `.safeshell/rules.yaml`
 - Claude Code PreToolUse hook for AI agent protection
 - Full approval workflow: require_approval → Monitor TUI → approve/deny
 
+### PR-6: Cross-Environment Testing (Next)
+
+**Status**: Planned
+
+**Goal**: Ensure all command interception (shims and builtins) works reliably across:
+- Human interactive terminals (bash, zsh)
+- Claude Code Bash tool (non-interactive)
+- WARP terminal
+- Other AI coding assistants
+
+**Test Matrix**:
+| Command Type | Human Terminal | Claude Code | WARP |
+|--------------|----------------|-------------|------|
+| External (git, ls) | ✓ shim | ? | ? |
+| Builtin (echo, cd) | ✓ function | ? | ? |
+| eval/source | ✓ function | ? | ? |
+
+**Tasks**:
+- [ ] Verify BASH_ENV approach works for Claude Code
+- [ ] Test shim interception in WARP terminal
+- [ ] Test builtin overrides in non-interactive shells
+- [ ] Add integration tests for each environment type
+- [ ] Document shell integration requirements for each AI tool
+- [ ] Fix any gaps found in testing
+
+**Known Issues**:
+- Non-interactive bash doesn't source `.bashrc` - requires `BASH_ENV` to be set
+- Some AI tools may bypass shell entirely (direct exec)
+
 ### Phase 3: CI/CD Hardening (Planned)
 
 - Integration tests for full command flow
