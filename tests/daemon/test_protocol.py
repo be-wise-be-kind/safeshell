@@ -9,7 +9,7 @@ from safeshell.daemon.protocol import (
     sync_encode_message,
 )
 from safeshell.exceptions import ProtocolError
-from safeshell.models import DaemonRequest, DaemonResponse, Decision, RequestType
+from safeshell.models import DaemonRequest, DaemonResponse, RequestType
 
 
 class TestEncodeMessage:
@@ -20,7 +20,7 @@ class TestEncodeMessage:
         request = DaemonRequest(
             type=RequestType.EVALUATE,
             command="git status",
-            working_dir="/tmp",
+            working_dir="/home/user",
         )
         encoded = encode_message(request)
 

@@ -67,7 +67,7 @@ class TestProcessRequest:
         """Test evaluate request without command."""
         request = DaemonRequest(
             type=RequestType.EVALUATE,
-            working_dir="/tmp",
+            working_dir="/home/user",
         )
         response = manager.process_request(request)
         assert response.success is False
@@ -102,9 +102,7 @@ class TestEvaluateCommand:
             assert response.final_decision == Decision.ALLOW
             assert response.should_execute is True
 
-    def test_git_commit_blocked_on_main(
-        self, manager: PluginManager, git_repo_main: Path
-    ) -> None:
+    def test_git_commit_blocked_on_main(self, manager: PluginManager, git_repo_main: Path) -> None:
         """Test git commit is blocked on main branch."""
         request = DaemonRequest(
             type=RequestType.EVALUATE,
@@ -131,9 +129,7 @@ class TestEvaluateCommand:
         assert response.final_decision == Decision.ALLOW
         assert response.should_execute is True
 
-    def test_non_git_command_in_repo(
-        self, manager: PluginManager, git_repo_main: Path
-    ) -> None:
+    def test_non_git_command_in_repo(self, manager: PluginManager, git_repo_main: Path) -> None:
         """Test non-git commands are allowed in git repo."""
         request = DaemonRequest(
             type=RequestType.EVALUATE,

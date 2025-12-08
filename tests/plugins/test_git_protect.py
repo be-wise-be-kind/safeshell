@@ -65,9 +65,7 @@ class TestGitProtectMatches:
         ctx = CommandContext.from_command("git status", str(git_repo_main))
         assert plugin.matches(ctx) is True
 
-    def test_no_match_non_git_command(
-        self, plugin: GitProtectPlugin, git_repo_main: Path
-    ) -> None:
+    def test_no_match_non_git_command(self, plugin: GitProtectPlugin, git_repo_main: Path) -> None:
         """Test matches returns False for non-git commands."""
         ctx = CommandContext.from_command("ls -la", str(git_repo_main))
         assert plugin.matches(ctx) is False
@@ -78,9 +76,7 @@ class TestGitProtectMatches:
             ctx = CommandContext.from_command("git status", tmpdir)
             assert plugin.matches(ctx) is False
 
-    def test_no_match_empty_command(
-        self, plugin: GitProtectPlugin, git_repo_main: Path
-    ) -> None:
+    def test_no_match_empty_command(self, plugin: GitProtectPlugin, git_repo_main: Path) -> None:
         """Test matches returns False for empty command."""
         ctx = CommandContext(
             raw_command="",
@@ -95,9 +91,7 @@ class TestGitProtectMatches:
 class TestGitProtectCommit:
     """Tests for git commit evaluation."""
 
-    def test_commit_blocked_on_main(
-        self, plugin: GitProtectPlugin, git_repo_main: Path
-    ) -> None:
+    def test_commit_blocked_on_main(self, plugin: GitProtectPlugin, git_repo_main: Path) -> None:
         """Test git commit is blocked on main branch."""
         ctx = CommandContext.from_command("git commit -m 'test'", str(git_repo_main))
         result = plugin.evaluate(ctx)
@@ -137,17 +131,13 @@ class TestGitProtectPush:
         assert result.decision == Decision.DENY
         assert "force" in result.reason.lower()
 
-    def test_force_push_with_f_flag(
-        self, plugin: GitProtectPlugin, git_repo_main: Path
-    ) -> None:
+    def test_force_push_with_f_flag(self, plugin: GitProtectPlugin, git_repo_main: Path) -> None:
         """Test force push with -f flag is blocked."""
         ctx = CommandContext.from_command("git push -f origin main", str(git_repo_main))
         result = plugin.evaluate(ctx)
         assert result.decision == Decision.DENY
 
-    def test_regular_push_allowed(
-        self, plugin: GitProtectPlugin, git_repo_main: Path
-    ) -> None:
+    def test_regular_push_allowed(self, plugin: GitProtectPlugin, git_repo_main: Path) -> None:
         """Test regular push is allowed."""
         ctx = CommandContext.from_command("git push origin main", str(git_repo_main))
         result = plugin.evaluate(ctx)
@@ -165,33 +155,25 @@ class TestGitProtectPush:
 class TestGitProtectOtherCommands:
     """Tests for other git commands."""
 
-    def test_git_status_allowed(
-        self, plugin: GitProtectPlugin, git_repo_main: Path
-    ) -> None:
+    def test_git_status_allowed(self, plugin: GitProtectPlugin, git_repo_main: Path) -> None:
         """Test git status is allowed."""
         ctx = CommandContext.from_command("git status", str(git_repo_main))
         result = plugin.evaluate(ctx)
         assert result.decision == Decision.ALLOW
 
-    def test_git_log_allowed(
-        self, plugin: GitProtectPlugin, git_repo_main: Path
-    ) -> None:
+    def test_git_log_allowed(self, plugin: GitProtectPlugin, git_repo_main: Path) -> None:
         """Test git log is allowed."""
         ctx = CommandContext.from_command("git log --oneline", str(git_repo_main))
         result = plugin.evaluate(ctx)
         assert result.decision == Decision.ALLOW
 
-    def test_git_add_allowed(
-        self, plugin: GitProtectPlugin, git_repo_main: Path
-    ) -> None:
+    def test_git_add_allowed(self, plugin: GitProtectPlugin, git_repo_main: Path) -> None:
         """Test git add is allowed."""
         ctx = CommandContext.from_command("git add .", str(git_repo_main))
         result = plugin.evaluate(ctx)
         assert result.decision == Decision.ALLOW
 
-    def test_git_no_subcommand(
-        self, plugin: GitProtectPlugin, git_repo_main: Path
-    ) -> None:
+    def test_git_no_subcommand(self, plugin: GitProtectPlugin, git_repo_main: Path) -> None:
         """Test bare git command is allowed."""
         ctx = CommandContext.from_command("git", str(git_repo_main))
         result = plugin.evaluate(ctx)

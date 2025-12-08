@@ -156,9 +156,7 @@ class DaemonClient:
                 return
             time.sleep(self.POLL_INTERVAL)
 
-        raise DaemonStartError(
-            f"Daemon failed to start within {self.MAX_START_WAIT} seconds"
-        )
+        raise DaemonStartError(f"Daemon failed to start within {self.MAX_START_WAIT} seconds")
 
     def _try_connect(self) -> bool:
         """Attempt to connect to daemon socket.
