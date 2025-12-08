@@ -28,24 +28,23 @@ This is the **PRIMARY HANDOFF DOCUMENT** for AI agents working on the approval w
 
 ## Current Status
 
-**Overall Progress**: 70% complete (4/6 PRs complete + shim architecture POC)
+**Overall Progress**: 83% complete (5/6 PRs complete)
 
 ```
-[█████████████████████████░░░] 70% Complete
+[████████████████████████████░░] 83% Complete
 ```
 
-**Current State**: Shim architecture POC complete, ready for PR-3.5 (safeshell refresh + TUI fix)
+**Current State**: Shim infrastructure complete (PR-3.5), ready for PR-4 (Approval Protocol)
 
 **Infrastructure State**:
 - MVP Phase 1 complete ✅
 - Event system complete ✅ (PR-1 merged)
 - Daemon event publishing complete ✅ (PR-2 merged)
 - Monitor socket infrastructure complete ✅
-- Config-based rules complete ✅ (PR-2.5 done)
-- Monitor TUI complete ✅ (PR-3 done)
-- **Shim architecture POC complete ✅ (NEW)**
-- `safeshell refresh` command not started ← NEXT STEP
-- Approval protocol not started
+- Config-based rules complete ✅ (PR-2.5 merged)
+- Monitor TUI complete ✅ (PR-3 merged)
+- **Shim infrastructure complete ✅ (PR-3.5 merged)**
+- Approval protocol not started ← NEXT STEP
 
 **Major Architecture Discovery (Shims)**:
 The SHELL wrapper approach (`SHELL=/path/to/safeshell-wrapper`) only works when AI tools explicitly invoke `$SHELL -c "command"`. For truly transparent interception that works for:
@@ -59,70 +58,48 @@ We need **shims** (like pyenv/rbenv) + **shell function overrides** for builtins
 
 ## Next PR to Implement
 
-### START HERE: PR-3.5 - Shim Infrastructure & TUI Fix
+### START HERE: PR-4 - Approval Protocol
 
 **Quick Summary**:
-Productionize the shim-based command interception and fix the Monitor TUI to receive events. This enables truly transparent command interception for all users (humans and AI).
+Implement the approval request/response protocol between wrapper, daemon, and monitor. This enables `require_approval` rules to pause command execution until approved/denied in the Monitor TUI.
 
 **Pre-flight Checklist**:
 - [x] PR-1 (Event System) merged
 - [x] PR-2 (Daemon Event Publishing) merged
-- [x] PR-2.5 (Config Rules) done
-- [x] PR-3 (Monitor TUI) done
-- [x] Shim POC working (cd, ls blocked via shims)
-- [ ] Read shim architecture section below
+- [x] PR-2.5 (Config Rules) merged
+- [x] PR-3 (Monitor TUI) merged
+- [x] PR-3.5 (Shim Infrastructure) merged
+- [ ] Understand current event flow (daemon → monitor)
 
 **What to Build**:
 
-1. **`safeshell refresh` CLI command** (`src/safeshell/cli.py`):
+1. **`src/safeshell/daemon/approval.py`** - ApprovalManager class:
 ```python
-@app.command()
-def refresh() -> None:
-    """Regenerate shims based on rules.yaml commands."""
-    # 1. Load all rules (global + repo)
-    # 2. Extract unique commands from rules
-    # 3. Create/update symlinks in ~/.safeshell/shims/
-    # 4. Report what was created/updated
+class ApprovalManager:
+    """Manages pending approval requests."""
+
+    async def create_approval(self, command: str, rule_name: str, reason: str) -> str:
+        """Create a pending approval, returns approval_id."""
+
+    async def wait_for_decision(self, approval_id: str, timeout: float) -> ApprovalDecision:
+        """Block until approved/denied or timeout."""
+
+    async def approve(self, approval_id: str) -> bool:
+        """Approve a pending request."""
+
+    async def deny(self, approval_id: str, reason: str | None) -> bool:
+        """Deny a pending request with optional reason."""
 ```
 
-2. **Shim management module** (`src/safeshell/shims/`):
-   - Move POC scripts to proper location
-   - Create `manager.py` for shim CRUD operations
-   - Support `~/.safeshell/shims/` as production location
+2. **Update daemon to handle REQUIRE_APPROVAL**:
+   - When rule returns `require_approval`, create pending approval
+   - Emit `APPROVAL_NEEDED` event to monitor
+   - Block wrapper until decision received
+   - Return approval/denial to wrapper
 
-3. **Update `safeshell init`**:
-   - Create `~/.safeshell/shims/` directory
-   - Copy universal shim script
-   - Run initial `safeshell refresh`
-   - Output shell init instructions
-
-4. **Fix Monitor TUI event display**:
-   - Changed `call_from_thread()` to `call_later()` in app.py (done)
-   - Verify events flow from shims → daemon → monitor
-
-**Files to Create**:
-- `src/safeshell/shims/manager.py` - Shim management functions
-- `~/.safeshell/shims/safeshell-shim` - Universal shim (installed by init)
-
-**Files to Modify**:
-- `src/safeshell/cli.py` - Add `refresh` command, update `init`
-- `src/safeshell/monitor/app.py` - Fix event handling (done: call_later)
-
-**Success Criteria**:
-- [ ] `safeshell init` creates shims directory and initial shims
-- [ ] `safeshell refresh` regenerates shims from rules.yaml
-- [ ] `poetry run ruff check src/` passes
-- [ ] `poetry run pytest` passes
-- [ ] Shimmed commands are intercepted transparently
-- [ ] Monitor TUI displays events from intercepted commands
-- [ ] Shell starts cleanly without daemon (fail-open)
-
----
-
-### THEN: PR-4 - Approval Protocol
-
-**Quick Summary**:
-Implement the approval request/response protocol between wrapper, daemon, and monitor.
+3. **Update monitor to send approval decisions**:
+   - When user clicks Approve/Deny, send decision to daemon
+   - Daemon forwards result to waiting wrapper
 
 **Files to Create**:
 - `src/safeshell/daemon/approval.py` - ApprovalManager, PendingApproval
@@ -144,7 +121,7 @@ Implement the approval request/response protocol between wrapper, daemon, and mo
 
 ## Overall Progress
 
-**Total Completion**: 67% (4/6 PRs completed)
+**Total Completion**: 83% (5/6 PRs completed)
 
 ---
 
@@ -155,9 +132,8 @@ Implement the approval request/response protocol between wrapper, daemon, and mo
 | PR-1 | Event System Foundation | 🟢 Complete | 100% | Medium | P0 | Merged in PR #4 |
 | PR-2 | Daemon Event Publishing | 🟢 Complete | 100% | Medium | P0 | Merged in PR #5 |
 | PR-2.5 | Config-Based Rules | 🟢 Complete | 100% | Medium | P0 | Merged in PR #6 |
-| PR-3 | Monitor TUI Shell | 🟡 In Progress | 80% | High | P0 | Code done, needs manual test |
-| PR-3.5 | Shim Infrastructure & TUI Fix | 🟡 In Progress | 60% | Medium | P0 | **START HERE** |
-| PR-4 | Approval Protocol | 🔴 Not Started | 0% | High | P0 | After PR-3.5 |
+| PR-3/3.5 | Monitor TUI + Shim Infrastructure | 🟢 Complete | 100% | High | P0 | Merged in PR #7 |
+| PR-4 | Approval Protocol | 🔴 Not Started | 0% | High | P0 | **START HERE** |
 | PR-5 | Integration and Polish | 🔴 Not Started | 0% | Medium | P0 | Depends on PR-4 |
 
 ### Status Legend
@@ -181,7 +157,7 @@ PR-2 (Daemon Publishing) ✅
 PR-2.5 (Config Rules) ✅
        │
        ▼
-PR-3 (Monitor TUI) ✅
+PR-3/3.5 (Monitor TUI + Shims) ✅
        │
        ▼
 PR-4 (Approval Protocol) ◀── START HERE
@@ -227,6 +203,13 @@ PR-5 (Integration)
 - [x] `tests/monitor/test_client.py`
 - [x] `tests/monitor/test_widgets.py`
 
+### PR-3.5 Files ✅
+- [x] `src/safeshell/shims/__init__.py`
+- [x] `src/safeshell/shims/manager.py`
+- [x] `src/safeshell/shims/safeshell-shim` (updated)
+- [x] `src/safeshell/shims/init.bash` (updated)
+- [x] `src/safeshell/cli.py` (added `refresh` command, updated `init`)
+
 ### PR-4 Files
 - [ ] `src/safeshell/daemon/approval.py`
 
@@ -236,21 +219,24 @@ PR-5 (Integration)
 
 ### Code Quality
 - [x] `poetry run ruff check src/` passes
-- [x] `poetry run pytest` passes (140 tests)
+- [x] `poetry run pytest` passes (181 tests)
 - [ ] `poetry run mypy src/` passes (pre-existing issues with stubs)
 - [ ] `poetry run bandit -r src/` passes
 
 ### Functional Testing
-- [ ] Config rules block git commit on protected branches
-- [ ] Config rules work with bash conditions
-- [ ] Global + repo rules merge correctly
-- [ ] `safeshell monitor` launches TUI
-- [ ] Three-pane layout displays correctly
-- [ ] Events stream from daemon to monitor
-- [ ] Approval prompt appears for REQUIRE_APPROVAL
-- [ ] Approve button works (mouse click)
-- [ ] Deny button works with reason text
-- [ ] Reason appears in denial message
+- [x] Config rules block git commit on protected branches
+- [x] Config rules work with bash conditions
+- [x] Global + repo rules merge correctly
+- [x] `safeshell monitor` launches TUI
+- [x] Three-pane layout displays correctly
+- [x] Events stream from daemon to monitor
+- [x] Shims intercept commands transparently
+- [x] `safeshell refresh` creates/removes shims
+- [x] `safeshell init` sets up shim infrastructure
+- [ ] Approval prompt appears for REQUIRE_APPROVAL (PR-4)
+- [ ] Approve button works (mouse click) (PR-4)
+- [ ] Deny button works with reason text (PR-4)
+- [ ] Reason appears in denial message (PR-4)
 
 ---
 
@@ -259,9 +245,9 @@ PR-5 (Integration)
 ### Approach
 1. Build event system foundation (PR-1) ✅
 2. Add daemon event publishing (PR-2) ✅
-3. **Refactor to config-based rules (PR-2.5)** ← CURRENT
-4. Build Monitor TUI (PR-3)
-5. Implement approval protocol (PR-4)
+3. Refactor to config-based rules (PR-2.5) ✅
+4. Build Monitor TUI + Shim Infrastructure (PR-3/3.5) ✅
+5. **Implement approval protocol (PR-4)** ← CURRENT
 6. Integration and polish (PR-5)
 
 ### Key Considerations

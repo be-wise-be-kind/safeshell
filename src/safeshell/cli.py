@@ -116,9 +116,14 @@ def monitor() -> None:
 
 @app.command()
 def init() -> None:
-    """Initialize SafeShell configuration and default rules."""
+    """Initialize SafeShell configuration, rules, and shims."""
     from safeshell.config import CONFIG_PATH, create_default_config
     from safeshell.rules import DEFAULT_RULES_YAML, GLOBAL_RULES_PATH
+    from safeshell.shims import (
+        get_shell_init_instructions,
+        install_init_script,
+        refresh_shims,
+    )
 
     config_created = False
     rules_created = False
@@ -145,7 +150,13 @@ def init() -> None:
         GLOBAL_RULES_PATH.write_text(DEFAULT_RULES_YAML)
         rules_created = True
 
-    if not config_created and not rules_created:
+    # Set up shims
+    console.print("[dim]Setting up shims...[/dim]")
+    install_init_script()
+    result = refresh_shims()
+    shims_created = len(result["created"])
+
+    if not config_created and not rules_created and shims_created == 0:
         console.print("[yellow]No changes made.[/yellow]")
         raise typer.Exit(0)
 
@@ -155,11 +166,40 @@ def init() -> None:
     rules_status = " [green](created)[/green]" if rules_created else ""
     console.print(f"  Config: {CONFIG_PATH}{config_status}")
     console.print(f"  Rules:  {GLOBAL_RULES_PATH}{rules_status}")
+    if shims_created > 0:
+        console.print(f"  Shims:  {shims_created} command shims created")
     console.print()
     console.print("Next steps:")
     console.print("  1. Review rules: ~/.safeshell/rules.yaml")
-    console.print("  2. Start the daemon: safeshell daemon start")
-    console.print("  3. Configure your AI tool: safeshell wrapper install")
+    console.print("  2. [bold]Add shell integration:[/bold]")
+    console.print(get_shell_init_instructions())
+    console.print("  3. Start the daemon: safeshell daemon start")
+
+
+@app.command()
+def refresh() -> None:
+    """Regenerate shims based on rules.yaml commands.
+
+    Reads all commands from global and repo rules, then creates/updates
+    symlinks in ~/.safeshell/shims/ for each command that needs interception.
+
+    Stale shims (for commands no longer in rules) are removed.
+    """
+    from safeshell.shims import refresh_shims
+
+    console.print("[dim]Refreshing shims...[/dim]")
+    result = refresh_shims(working_dir=os.getcwd())
+
+    if result["created"]:
+        console.print(f"[green]Created:[/green] {', '.join(result['created'])}")
+    if result["removed"]:
+        console.print(f"[yellow]Removed:[/yellow] {', '.join(result['removed'])}")
+    if result["unchanged"]:
+        console.print(f"[dim]Unchanged:[/dim] {', '.join(result['unchanged'])}")
+
+    total = len(result["created"]) + len(result["unchanged"])
+    console.print()
+    console.print(f"[green]Done![/green] {total} shim(s) active.")
 
 
 if __name__ == "__main__":
