@@ -36,11 +36,34 @@ documentation:
 
 howtos:
   location: .ai/howtos/
-  files: []
+  files:
+    - how-to-roadmap.md
 
 templates:
   location: .ai/templates/
-  files: []
+  files:
+    - roadmap-progress-tracker.md.template
+    - roadmap-pr-breakdown.md.template
+    - roadmap-ai-context.md.template
+
+roadmaps:
+  location: .roadmap/
+  guide: .ai/howtos/how-to-roadmap.md
+
+  structure:
+    planning: .roadmap/planning/
+    in_progress: .roadmap/in-progress/
+    complete: .roadmap/complete/
+
+  templates:
+    progress_tracker: .ai/templates/roadmap-progress-tracker.md.template
+    pr_breakdown: .ai/templates/roadmap-pr-breakdown.md.template
+    ai_context: .ai/templates/roadmap-ai-context.md.template
+
+  three_document_structure:
+    - PROGRESS_TRACKER.md (required - primary handoff)
+    - PR_BREAKDOWN.md (required for multi-PR)
+    - AI_CONTEXT.md (optional - architecture)
 
 commands:
   # Using justfile (not Makefile)
@@ -64,6 +87,9 @@ installed_plugins:
   - name: foundation/ai-folder
     status: installed
     provides: .ai/ directory structure, AGENTS.md
+  - name: foundation/roadmap
+    status: installed
+    provides: .roadmap/ structure, howtos, templates, AGENTS.md roadmap detection
   - name: languages/python
     status: installed
     provides: pyproject.toml, Ruff, MyPy, Bandit, pytest, Pylint, radon
