@@ -6,19 +6,328 @@
 
 **Overview**: Extends SafeShell with human-in-the-loop approval for REQUIRE_APPROVAL decisions. Introduces a Monitor TUI (terminal user interface) built with Textual that displays real-time events, command history, and approval prompts. Supports mouse interaction for approve/deny actions.
 
-**Dependencies**: Python 3.11+, textual, existing daemon/plugin infrastructure from MVP
+**Dependencies**: Python 3.11+, textual, existing daemon infrastructure from MVP
 
 **Exports**: safeshell monitor command, approval protocol, event streaming
 
 **Related**: PR_BREAKDOWN.md for implementation tasks, PROGRESS_TRACKER.md for current status
 
-**Implementation**: Event-driven architecture with WebSocket-like streaming over Unix socket
+**Implementation**: Event-driven architecture with config-based rules
 
 ---
 
-## Overview
+## ⚠️ ARCHITECTURE PIVOT: Config-Based Rules
 
-Phase 2 adds human approval for risky operations:
+**IMPORTANT: Before building the Monitor TUI, implement the config-based rules system (PR-2.5).**
+
+The Python plugin system is being replaced with YAML configuration. This section describes the new architecture in detail.
+
+---
+
+## Config-Based Rules Architecture
+
+### Why This Change?
+
+The original plugin system required:
+- Python class per rule type
+- Knowledge of our plugin API
+- Complex module loading for repo-level rules
+
+The new config system provides:
+- YAML files for all rules
+- Bash conditions for complex logic
+- Global + repo-level configuration
+- No Python knowledge required for new rules
+
+### Rule Schema
+
+```yaml
+# ~/.safeshell/rules.yaml (global) or .safeshell/rules.yaml (repo)
+rules:
+  - name: "rule-identifier"           # Unique name for logging/debugging
+    commands: ["git", "rm"]           # Target executables (fast-path filter)
+    directory: "regex"                # Optional: working directory pattern
+    conditions:                       # Optional: bash conditions (all must pass)
+      - "bash statement that exits 0 if true"
+      - "another condition"
+    action: deny | require_approval | redirect
+    allow_override: true | false      # For deny: can user approve anyway?
+    redirect_to: "command $ARGS"      # For redirect: replacement command
+    message: "User-facing message"    # Shown in denial/approval prompt
+```
+
+### Available Variables in Conditions
+
+When evaluating conditions, these variables are available:
+- `$CMD` - Full command string (e.g., "git commit -m test")
+- `$ARGS` - Arguments after executable (e.g., "commit -m test")
+- `$PWD` - Current working directory
+- `$SAFESHELL_RULE` - Name of current rule being evaluated
+
+### Rule Evaluation Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Command Received                              │
+│                 e.g., "git commit -m test"                       │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Step 1: Extract executable                                      │
+│  "git commit -m test" → executable = "git"                       │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Step 2: Fast-path check                                         │
+│  Is "git" in ANY rule's commands list?                           │
+│  NO → ALLOW immediately (most commands take this path)           │
+└─────────────────────────────────────────────────────────────────┘
+                              │ YES
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Step 3: For each rule where executable matches:                 │
+│                                                                  │
+│  a. Check directory pattern (if specified)                       │
+│     - Regex match against $PWD                                   │
+│     - No match → skip this rule                                  │
+│                                                                  │
+│  b. Run bash conditions (if specified)                           │
+│     - Each condition run via: bash -c "condition"                │
+│     - ALL must exit 0 for rule to match                          │
+│     - Any exits non-zero → skip this rule                        │
+│                                                                  │
+│  c. Rule matches! Record the action.                             │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Step 4: Determine final action                                  │
+│                                                                  │
+│  No rules matched → ALLOW                                        │
+│  One rule matched → use its action                               │
+│  Multiple matched → most restrictive wins:                       │
+│                     deny > require_approval > redirect > allow   │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Step 5: Execute action                                          │
+│                                                                  │
+│  ALLOW → wrapper executes command                                │
+│  DENY → wrapper shows denial message, exits 1                    │
+│  REQUIRE_APPROVAL → daemon waits for monitor approval            │
+│  REDIRECT → wrapper executes redirect_to instead                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Global vs Repo Rules
+
+```
+~/.safeshell/rules.yaml          # Global - YOUR protections
+     │
+     │  loaded first
+     ▼
+.safeshell/rules.yaml            # Repo - project-specific additions
+     │
+     │  merged (additive only)
+     ▼
+Combined rule set                # Repo rules can ADD restrictions
+                                 # Repo rules CANNOT relax global rules
+```
+
+**Security Model**: Repo rules are additive only. A malicious cloned repo cannot disable your global protections.
+
+### Example Rules
+
+#### 1. Block git commit on protected branches
+```yaml
+- name: block-commit-protected-branch
+  commands: ["git"]
+  conditions:
+    - "echo '$CMD' | grep -qE '^git\\s+commit'"
+    - "git branch --show-current | grep -qE '^(main|master|develop)$'"
+  action: deny
+  message: "Cannot commit directly to protected branch. Create a feature branch first."
+```
+
+#### 2. Require approval for force push
+```yaml
+- name: require-approval-force-push
+  commands: ["git"]
+  conditions:
+    - "echo '$CMD' | grep -qE '^git\\s+push.*(--force|-f)'"
+    - "git branch --show-current | grep -qE '^(main|master|develop)$'"
+  action: require_approval
+  message: "Force push to protected branch requires approval"
+```
+
+#### 3. Redirect rm to trash
+```yaml
+- name: redirect-rm-to-trash
+  commands: ["rm"]
+  action: redirect
+  redirect_to: "trash $ARGS"
+  message: "Redirecting deletion to trash for safety"
+```
+
+#### 4. Block reading SSH keys
+```yaml
+- name: block-read-ssh-keys
+  commands: ["cat", "less", "head", "tail", "more", "bat"]
+  conditions:
+    - "echo '$CMD' | grep -qE '\\.ssh'"
+  action: deny
+  message: "Cannot read SSH keys"
+```
+
+#### 5. Block rm outside project (using path resolution)
+```yaml
+- name: block-rm-outside-project
+  commands: ["rm"]
+  conditions:
+    - "for f in $ARGS; do realpath \"$f\" 2>/dev/null | grep -qv \"^$PWD\" && exit 0; done; exit 1"
+  action: require_approval
+  message: "Deleting files outside project requires approval"
+```
+
+#### 6. Block curl | bash patterns
+```yaml
+- name: block-curl-pipe-bash
+  commands: ["curl", "wget"]
+  conditions:
+    - "echo '$CMD' | grep -qE '\\|.*(ba)?sh'"
+  action: deny
+  message: "Cannot pipe downloads directly to shell"
+```
+
+### Implementation Details
+
+#### File Structure
+```
+src/safeshell/rules/
+├── __init__.py          # Exports
+├── schema.py            # Pydantic models for Rule, RuleSet
+├── evaluator.py         # RuleEvaluator class
+└── loader.py            # Load and merge rule files
+
+src/safeshell/
+└── default-rules.yaml   # Shipped default rules
+```
+
+#### Pydantic Models (schema.py)
+```python
+from enum import Enum
+from pydantic import BaseModel, Field
+
+class RuleAction(str, Enum):
+    ALLOW = "allow"
+    DENY = "deny"
+    REQUIRE_APPROVAL = "require_approval"
+    REDIRECT = "redirect"
+
+class Rule(BaseModel):
+    name: str
+    commands: list[str]
+    directory: str | None = None
+    conditions: list[str] = Field(default_factory=list)
+    action: RuleAction
+    allow_override: bool = True
+    redirect_to: str | None = None
+    message: str
+
+class RuleSet(BaseModel):
+    rules: list[Rule] = Field(default_factory=list)
+```
+
+#### Rule Evaluator (evaluator.py)
+```python
+class RuleEvaluator:
+    def __init__(self, rules: list[Rule], event_publisher=None):
+        self.rules = rules
+        self._event_publisher = event_publisher
+        # Build command -> rules index for fast lookup
+        self._command_index: dict[str, list[Rule]] = {}
+        for rule in rules:
+            for cmd in rule.commands:
+                self._command_index.setdefault(cmd, []).append(rule)
+
+    async def evaluate(self, command: str, working_dir: str) -> EvaluationResult:
+        # Extract executable
+        executable = command.split()[0] if command else ""
+
+        # Fast path: no rules for this executable
+        if executable not in self._command_index:
+            return EvaluationResult(decision=Decision.ALLOW, ...)
+
+        # Check each matching rule
+        matching_rules = []
+        for rule in self._command_index[executable]:
+            if await self._rule_matches(rule, command, working_dir):
+                matching_rules.append(rule)
+
+        # Return most restrictive
+        return self._aggregate_results(matching_rules)
+
+    async def _rule_matches(self, rule: Rule, cmd: str, pwd: str) -> bool:
+        # Check directory pattern
+        if rule.directory and not re.match(rule.directory, pwd):
+            return False
+
+        # Check bash conditions
+        for condition in rule.conditions:
+            if not await self._check_condition(condition, cmd, pwd):
+                return False
+
+        return True
+
+    async def _check_condition(self, condition: str, cmd: str, pwd: str) -> bool:
+        # Run bash condition with variables
+        env = {
+            "CMD": cmd,
+            "ARGS": " ".join(cmd.split()[1:]),
+            "PWD": pwd,
+        }
+        proc = await asyncio.create_subprocess_shell(
+            f"bash -c {shlex.quote(condition)}",
+            env={**os.environ, **env},
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await proc.wait()
+        return proc.returncode == 0
+```
+
+#### Rule Loader (loader.py)
+```python
+def load_rules(working_dir: str) -> list[Rule]:
+    """Load and merge global + repo rules."""
+    rules = []
+
+    # Load global rules
+    global_path = Path.home() / ".safeshell" / "rules.yaml"
+    if global_path.exists():
+        rules.extend(_load_rule_file(global_path))
+
+    # Load default rules (shipped with SafeShell)
+    default_path = Path(__file__).parent.parent / "default-rules.yaml"
+    if default_path.exists():
+        rules.extend(_load_rule_file(default_path))
+
+    # Load repo rules (additive only)
+    repo_path = Path(working_dir) / ".safeshell" / "rules.yaml"
+    if repo_path.exists():
+        rules.extend(_load_rule_file(repo_path))
+
+    return rules
+```
+
+---
+
+## Monitor TUI (PR-3, after config rules)
+
+### Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -37,67 +346,13 @@ Phase 2 adds human approval for risky operations:
 └─────────────────────┴─────────────────────┴─────────────────────┘
 ```
 
-## Project Background
+### Technology: Textual
 
-The MVP established the daemon/wrapper architecture for blocking dangerous commands. However, some operations are risky but not outright forbidden - they require human judgment:
-
-- Force push to protected branches (might be intentional)
-- Deleting important files (might be cleanup)
-- Running privileged commands (might be necessary)
-
-The approval workflow adds a third decision type: `REQUIRE_APPROVAL`, which pauses execution until a human approves or denies in the Monitor TUI.
-
-## Feature Vision
-
-1. **Monitor TUI**: Rich terminal interface with three panes
-   - Debug pane: Real-time log streaming from daemon
-   - History pane: Recent commands with allow/block/pending status
-   - Approval pane: Current pending approval with action buttons
-
-2. **Mouse Support**: Textual provides full mouse interaction
-   - Click Approve/Deny buttons
-   - Optional reason text input for denials
-   - Scrollable panes
-
-3. **Event Streaming**: Daemon broadcasts events to connected monitors
-   - Command received
-   - Evaluation started/completed
-   - Approval requested/resolved
-
-4. **Keyboard Support**: Full keyboard navigation
-   - Press 'a' to approve, 'd' to deny
-   - Tab to navigate between elements
-   - Works in terminals without mouse support
-
-## Technology Choice: Textual
-
-[Textual](https://textual.textualize.io/) is a modern Python TUI framework that provides:
-- Full mouse support (clicks, scrolling)
-- Rich widget library (buttons, inputs, panels)
+[Textual](https://textual.textualize.io/) provides:
+- Full mouse support
+- Rich widget library
 - CSS-like styling
-- Reactive data binding
-- Async-first design (matches our asyncio daemon)
-
-Textual is actively maintained and production-ready.
-
-## Target Architecture
-
-### New Components
-
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| Event System | `src/safeshell/events/` | Event types, bus, streaming |
-| Monitor TUI | `src/safeshell/monitor/` | Textual app, widgets, screens |
-| Monitor CLI | `src/safeshell/monitor/cli.py` | `safeshell monitor` command |
-| Approval Protocol | `src/safeshell/daemon/approval.py` | Pending approvals, timeouts |
-
-### Modified Components
-
-| Component | Changes |
-|-----------|---------|
-| DaemonServer | Add event publishing, approval waiting |
-| PluginManager | Support REQUIRE_APPROVAL decisions |
-| DaemonResponse | Add challenge_code, approval_id fields |
+- Async-first design
 
 ### Communication Flow
 
@@ -107,7 +362,7 @@ Wrapper                  Daemon                     Monitor TUI
    │──evaluate(cmd)────────>│                           │
    │                        │──event: cmd_received─────>│
    │                        │                           │
-   │                        │ [plugin returns REQUIRE_APPROVAL]
+   │                        │ [rule returns REQUIRE_APPROVAL]
    │                        │                           │
    │                        │──event: approval_needed──>│
    │                        │                           │
@@ -120,93 +375,37 @@ Wrapper                  Daemon                     Monitor TUI
    │                        │                           │
 ```
 
-### Approval States
+---
 
-```
-PENDING ──> APPROVED ──> (command executes)
-    │
-    └──> DENIED ──> (command blocked with reason)
-    │
-    └──> TIMEOUT ──> (command blocked, timeout message)
-```
+## Project Background
 
-## Key Decisions
+The MVP established the daemon/wrapper architecture for blocking dangerous commands. However, some operations are risky but not outright forbidden - they require human judgment:
 
-### TUI Layout
+- Force push to protected branches (might be intentional)
+- Deleting important files (might be cleanup)
+- Running privileged commands (might be necessary)
 
-Three-column layout with:
-1. **Debug Pane** (left, 30%): Scrolling log view, color-coded by level
-2. **History Pane** (center, 35%): Recent commands with status icons
-3. **Approval Pane** (right, 35%): Current approval request with actions
+The approval workflow adds a third decision type: `REQUIRE_APPROVAL`, which pauses execution until a human approves or denies in the Monitor TUI.
 
-### Deny Reason
-
-- Optional text input below Deny button
-- If provided, included in denial message to AI agent
-- Helps AI understand why and avoid repeating
-
-### Event Protocol
-
-Extend JSON lines protocol with event types:
-```json
-{"type": "event", "event": "command_received", "data": {...}}
-{"type": "event", "event": "approval_needed", "data": {"id": "...", "command": "..."}}
-{"type": "request", ...}  // existing request format
-{"type": "response", ...}  // existing response format
-```
-
-### Multiple Monitors
-
-- Support multiple connected monitors (informational)
-- Only first connected monitor can approve/deny (simplicity for MVP)
-- Future: designated approver concept
-
-## Integration Points
-
-### With Existing Features
-
-- **Plugin System**: Plugins return REQUIRE_APPROVAL decision
-- **Daemon Server**: Add event publisher, approval queue
-- **Wrapper**: Handle approval_pending response, wait for resolution
-- **CLI**: Add `safeshell monitor` subcommand
-
-### With Textual
-
-```python
-from textual.app import App
-from textual.widgets import Button, Input, Static, RichLog
-
-class MonitorApp(App):
-    CSS = """
-    /* Three-column layout */
-    """
-
-    def compose(self):
-        yield DebugPane()
-        yield HistoryPane()
-        yield ApprovalPane()
-
-    async def on_button_pressed(self, event):
-        if event.button.id == "approve":
-            await self.send_approval(approved=True)
-        elif event.button.id == "deny":
-            reason = self.query_one("#reason-input").value
-            await self.send_approval(approved=False, reason=reason)
-```
+---
 
 ## Success Metrics
 
 ### Phase 2 Complete When:
 
-1. `safeshell monitor` launches TUI successfully
-2. TUI displays three panes with correct layout
-3. Real-time log streaming works in debug pane
-4. Command history updates live
-5. Approval prompt appears for REQUIRE_APPROVAL
-6. Approve button allows command to execute
-7. Deny button blocks with optional reason
-8. Reason text appears in wrapper's denial message
-9. Timeout properly blocks after configurable period
+1. Config-based rules replace Python plugins
+2. Global + repo rules work correctly
+3. `safeshell monitor` launches TUI successfully
+4. TUI displays three panes with correct layout
+5. Real-time log streaming works in debug pane
+6. Command history updates live
+7. Approval prompt appears for REQUIRE_APPROVAL
+8. Approve button allows command to execute
+9. Deny button blocks with optional reason
+10. Reason text appears in wrapper's denial message
+11. Timeout properly blocks after configurable period
+
+---
 
 ## Technical Constraints
 
@@ -214,37 +413,45 @@ class MonitorApp(App):
 - Terminal must support 256 colors (most modern terminals do)
 - Mouse support requires terminal emulator support (most do)
 - Single monitor can approve at a time (MVP constraint)
+- Bash conditions require bash to be available
 
-## Risk Mitigation
-
-| Risk | Mitigation |
-|------|------------|
-| Monitor disconnects during approval | Timeout with configurable behavior |
-| Multiple rapid approvals | Queue with FIFO processing |
-| Terminal doesn't support mouse | Keyboard shortcuts (a/d keys) |
-| Daemon restart loses pending | Fail-closed (deny pending on restart) |
+---
 
 ## AI Agent Guidance
 
-### When Implementing Events
+### When Implementing Config Rules (PR-2.5)
 
-1. Define event types in `src/safeshell/events/types.py`
-2. Use Pydantic models for event data
-3. Implement EventBus with async publish/subscribe
-4. Add event emission points in DaemonServer
+1. Start with schema.py - define Pydantic models
+2. Implement loader.py - load and merge rule files
+3. Implement evaluator.py - rule matching and condition execution
+4. Update daemon/manager.py to use RuleEvaluator
+5. Create default-rules.yaml with git-protect equivalent
+6. Write comprehensive tests for each component
+7. Remove old plugin code after tests pass
 
-### When Implementing Monitor TUI
+### When Implementing Monitor TUI (PR-3)
 
 1. Start with single-file prototype, then split
 2. Use Textual's reactive pattern for state
 3. Connect to daemon socket for events
 4. Handle reconnection gracefully
 
-### When Modifying Plugins
+### Testing Bash Conditions
 
-1. Use `_require_approval()` helper method
-2. Include clear reason for user
-3. Consider if operation is truly approval-worthy
+```python
+# Test that conditions work as expected
+async def test_git_branch_condition():
+    evaluator = RuleEvaluator([...])
+    # In a git repo on main branch
+    result = await evaluator._check_condition(
+        "git branch --show-current | grep -qE '^main$'",
+        "git commit -m test",
+        "/path/to/repo"
+    )
+    assert result is True
+```
+
+---
 
 ## Future Enhancements (Phase 3+)
 
@@ -253,13 +460,3 @@ class MonitorApp(App):
 - Remote approval (not just local terminal)
 - Approval rules (auto-approve certain patterns)
 - Integration with git-protect for force-push approval
-
----
-
-## Note on Requirements
-
-After completing Phase 2, update `.roadmap/REQUIREMENTS.md` with:
-- Learnings from TUI implementation
-- Any new coding standards discovered
-- Architecture changes if any
-- Updated technical constraints

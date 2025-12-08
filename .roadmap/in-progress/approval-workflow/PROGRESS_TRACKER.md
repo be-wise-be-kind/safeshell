@@ -28,44 +28,134 @@ This is the **PRIMARY HANDOFF DOCUMENT** for AI agents working on the approval w
 
 ## Current Status
 
-**Overall Progress**: 40% complete (2/5 PRs merged)
+**Overall Progress**: 33% complete (2/6 PRs merged)
 
 ```
-[████████████░░░░░░░░░░░░░░░░] 40% Complete
+[██████████░░░░░░░░░░░░░░░░░░] 33% Complete
 ```
 
-**Current State**: PR-2 complete, ready for PR-3 (Monitor TUI Shell)
+**Current State**: PR-2 complete, ready for PR-2.5 (Config-Based Rules Architecture)
 
 **Infrastructure State**:
 - MVP Phase 1 complete ✅
 - Event system complete ✅ (PR-1 merged)
-- Daemon event publishing complete ✅ (PR-2 ready for merge)
+- Daemon event publishing complete ✅ (PR-2 merged)
 - Monitor socket infrastructure complete ✅
+- **Config-based rules: NOT STARTED** ← NEXT STEP
 - Monitor TUI not started
 - Approval protocol not started
 
 ---
 
+## ⚠️ ARCHITECTURE PIVOT - READ THIS FIRST
+
+**Before continuing with PR-3 (Monitor TUI), we are refactoring to a simpler config-based rules system.**
+
+The current Python plugin architecture is being replaced with YAML configuration files. This is a **major simplification** that:
+1. Eliminates the need for Python plugins
+2. Enables global + repo-level rule configuration
+3. Uses bash conditions for complex logic
+4. Makes adding new rules trivial (edit YAML, no Python)
+
+**See AI_CONTEXT.md Section "Config-Based Rules Architecture" for full details.**
+
+---
+
 ## Next PR to Implement
 
-### START HERE: PR-3 - Monitor TUI Shell
+### START HERE: PR-2.5 - Config-Based Rules Architecture
 
 **Quick Summary**:
-Create the Textual-based Monitor TUI with three-pane layout. This will be the user interface for viewing events and handling approvals.
+Replace the Python plugin system with YAML-based rule configuration. Rules use regex patterns and bash conditions for matching, with actions: deny, require_approval, redirect.
+
+**This is a REFACTOR, not new functionality. The goal is to simplify before adding more features.**
 
 **Pre-flight Checklist**:
-- [x] PR-1 (Event System) merged and working
-- [x] PR-2 (Daemon Event Publishing) complete
-- [ ] Install textual dependency: `poetry add textual`
-- [ ] Review Textual documentation: https://textual.textualize.io/
+- [x] PR-1 (Event System) merged
+- [x] PR-2 (Daemon Event Publishing) merged
+- [ ] Read AI_CONTEXT.md "Config-Based Rules Architecture" section thoroughly
+- [ ] Understand the rule evaluation flow
 
-**Prerequisites Complete**: ✅ (PR-1 merged, PR-2 ready)
+**What to Build**:
+
+1. **Rule Schema** (`~/.safeshell/rules.yaml` and `.safeshell/rules.yaml`):
+```yaml
+rules:
+  - name: "block-commit-protected"
+    commands: ["git"]
+    conditions:
+      - "echo '$CMD' | grep -qE '^git\\s+commit'"
+      - "git branch --show-current | grep -qE '^(main|master|develop)$'"
+    action: deny
+    message: "Cannot commit to protected branch"
+```
+
+2. **Rule Evaluator** (replaces PluginManager):
+   - Load global rules from `~/.safeshell/rules.yaml`
+   - Load repo rules from `.safeshell/rules.yaml` (additive only)
+   - Fast-path: skip if command not in any rule's `commands` list
+   - Evaluate conditions via subprocess (bash)
+   - Return: ALLOW, DENY, REQUIRE_APPROVAL, or REDIRECT
+
+3. **Migration**:
+   - Keep event system (PR-1) - still needed for monitor
+   - Keep daemon infrastructure (PR-2) - still needed
+   - Remove/deprecate: `src/safeshell/plugins/` directory
+   - Update: `PluginManager` → `RuleEvaluator`
+
+**Files to Create**:
+- `src/safeshell/rules/__init__.py`
+- `src/safeshell/rules/schema.py` - Pydantic models for rules
+- `src/safeshell/rules/evaluator.py` - Rule evaluation logic
+- `src/safeshell/rules/loader.py` - Load and merge rule files
+- `tests/rules/test_schema.py`
+- `tests/rules/test_evaluator.py`
+- `tests/rules/test_loader.py`
+
+**Files to Modify**:
+- `src/safeshell/daemon/manager.py` - Use RuleEvaluator instead of plugins
+- `src/safeshell/daemon/server.py` - Update imports
+
+**Files to Remove/Deprecate**:
+- `src/safeshell/plugins/base.py` - No longer needed
+- `src/safeshell/plugins/git_protect.py` - Replaced by config rules
+- `tests/plugins/` - Replace with rules tests
+
+**Default Rules to Include** (equivalent to current git-protect):
+```yaml
+# ~/.safeshell/default-rules.yaml (shipped with SafeShell)
+rules:
+  - name: block-commit-protected-branch
+    commands: ["git"]
+    conditions:
+      - "echo '$CMD' | grep -qE '^git\\s+commit'"
+      - "git branch --show-current | grep -qE '^(main|master|develop)$'"
+    action: deny
+    message: "Cannot commit directly to protected branch. Create a feature branch first."
+
+  - name: block-force-push-protected
+    commands: ["git"]
+    conditions:
+      - "echo '$CMD' | grep -qE '^git\\s+push.*(--force|-f)'"
+      - "git branch --show-current | grep -qE '^(main|master|develop)$'"
+    action: require_approval
+    message: "Force push to protected branch requires approval"
+```
+
+**Success Criteria**:
+- [ ] `poetry run ruff check src/` passes
+- [ ] `poetry run pytest` passes
+- [ ] Existing git-protect behavior works via config rules
+- [ ] Global rules load from `~/.safeshell/rules.yaml`
+- [ ] Repo rules load from `.safeshell/rules.yaml`
+- [ ] Bash conditions execute correctly
+- [ ] Rule evaluation is fast (< 50ms for non-matching commands)
 
 ---
 
 ## Overall Progress
 
-**Total Completion**: 40% (2/5 PRs completed)
+**Total Completion**: 33% (2/6 PRs completed)
 
 ---
 
@@ -74,9 +164,10 @@ Create the Textual-based Monitor TUI with three-pane layout. This will be the us
 | PR | Title | Status | Completion | Complexity | Priority | Notes |
 |----|-------|--------|------------|------------|----------|-------|
 | PR-1 | Event System Foundation | 🟢 Complete | 100% | Medium | P0 | Merged in PR #4 |
-| PR-2 | Daemon Event Publishing | 🟢 Complete | 100% | Medium | P0 | Ready for merge |
-| PR-3 | Monitor TUI Shell | 🔴 Not Started | 0% | High | P0 | **Start here** |
-| PR-4 | Approval Protocol | 🔴 Not Started | 0% | High | P0 | Depends on PR-2 ✅, PR-3 |
+| PR-2 | Daemon Event Publishing | 🟢 Complete | 100% | Medium | P0 | Merged in PR #5 |
+| PR-2.5 | Config-Based Rules | 🔴 Not Started | 0% | Medium | P0 | **START HERE** |
+| PR-3 | Monitor TUI Shell | 🔴 Not Started | 0% | High | P0 | After PR-2.5 |
+| PR-4 | Approval Protocol | 🔴 Not Started | 0% | High | P0 | Depends on PR-2.5, PR-3 |
 | PR-5 | Integration and Polish | 🔴 Not Started | 0% | Medium | P0 | Depends on PR-4 |
 
 ### Status Legend
@@ -91,15 +182,22 @@ Create the Textual-based Monitor TUI with three-pane layout. This will be the us
 ## PR Dependencies
 
 ```
-PR-1 (Events) ──┬──> PR-2 (Daemon Publishing) ✅
-                │
-                └──> PR-3 (Monitor TUI) <── START HERE
-                            │
-                            ▼
-PR-2 + PR-3 ──────> PR-4 (Approval Protocol)
-                            │
-                            ▼
-                    PR-5 (Integration)
+PR-1 (Events) ✅
+       │
+       ▼
+PR-2 (Daemon Publishing) ✅
+       │
+       ▼
+PR-2.5 (Config Rules) ◀── START HERE
+       │
+       ▼
+PR-3 (Monitor TUI)
+       │
+       ▼
+PR-4 (Approval Protocol)
+       │
+       ▼
+PR-5 (Integration)
 ```
 
 ---
@@ -118,6 +216,16 @@ PR-2 + PR-3 ──────> PR-4 (Approval Protocol)
 - [x] `src/safeshell/daemon/monitor.py`
 - [x] `tests/daemon/test_events.py`
 - [x] `tests/daemon/test_monitor.py`
+
+### PR-2.5 Files (Config Rules)
+- [ ] `src/safeshell/rules/__init__.py`
+- [ ] `src/safeshell/rules/schema.py`
+- [ ] `src/safeshell/rules/evaluator.py`
+- [ ] `src/safeshell/rules/loader.py`
+- [ ] `tests/rules/test_schema.py`
+- [ ] `tests/rules/test_evaluator.py`
+- [ ] `tests/rules/test_loader.py`
+- [ ] `src/safeshell/default-rules.yaml` (shipped defaults)
 
 ### PR-3 Files
 - [ ] `src/safeshell/monitor/__init__.py`
@@ -140,6 +248,9 @@ PR-2 + PR-3 ──────> PR-4 (Approval Protocol)
 - [ ] `poetry run bandit -r src/` passes
 
 ### Functional Testing
+- [ ] Config rules block git commit on protected branches
+- [ ] Config rules work with bash conditions
+- [ ] Global + repo rules merge correctly
 - [ ] `safeshell monitor` launches TUI
 - [ ] Three-pane layout displays correctly
 - [ ] Events stream from daemon to monitor
@@ -154,39 +265,53 @@ PR-2 + PR-3 ──────> PR-4 (Approval Protocol)
 
 ### Approach
 1. Build event system foundation (PR-1) ✅
-2. PR-2 and PR-3 can proceed in parallel after PR-1
-3. PR-4 integrates approval logic
-4. PR-5 polishes and handles edge cases
+2. Add daemon event publishing (PR-2) ✅
+3. **Refactor to config-based rules (PR-2.5)** ← CURRENT
+4. Build Monitor TUI (PR-3)
+5. Implement approval protocol (PR-4)
+6. Integration and polish (PR-5)
 
 ### Key Considerations
-- Textual is async-first, matches our asyncio daemon
-- Mouse support is built into Textual
-- Keep TUI simple for MVP, polish later
-- Test approval timeout behavior carefully
+- Config-based rules are simpler than Python plugins
+- Bash conditions provide unlimited flexibility
+- Global + repo rules enable per-project customization
+- Keep event system - still needed for monitor
 
 ---
 
 ## Notes for AI Agents
 
 ### Critical Context
-- **Textual documentation**: https://textual.textualize.io/
-- **Textual is async**: Matches our asyncio daemon
-- **Mouse clicks work**: Textual handles this natively
-- **Two sockets**: Keep wrapper socket separate from monitor socket
+- **Architecture Pivot**: We are moving from Python plugins to YAML config
+- **Why**: Simpler, more flexible, supports repo-level customization
+- **Textual documentation**: https://textual.textualize.io/ (for PR-3)
+- **Two sockets**: daemon.sock for wrappers, monitor.sock for monitors
+
+### Rule Evaluation Flow (PR-2.5)
+```
+1. Command received (e.g., "git commit -m test")
+2. Extract executable ("git")
+3. Is "git" in any rule's commands list? No → ALLOW (fast path)
+4. For each matching rule:
+   a. Check directory pattern (if specified)
+   b. Run bash conditions (all must pass)
+   c. If all match → apply action (deny/require_approval/redirect)
+5. No rules matched → ALLOW
+6. Multiple rules matched → most restrictive wins (deny > require_approval > redirect)
+```
 
 ### Common Pitfalls to Avoid
-1. Don't block the event loop in TUI handlers
-2. Don't forget to handle monitor disconnection
-3. Don't expose sensitive data in events
-4. Don't forget timeout handling for approvals
+1. Don't forget to handle bash condition failures gracefully
+2. Repo rules are ADDITIVE only - can't relax global rules
+3. Use proper shell escaping in conditions
+4. Don't block the event loop with subprocess calls (use async)
 
 ### Key Files from MVP to Reference
 - `src/safeshell/models.py` - Pydantic patterns
 - `src/safeshell/daemon/protocol.py` - JSON lines pattern
-- `src/safeshell/daemon/server.py` - Asyncio server pattern (now with two sockets)
-- `src/safeshell/daemon/events.py` - Event publishing (NEW in PR-2)
-- `src/safeshell/daemon/monitor.py` - Monitor connection handler (NEW in PR-2)
-- `src/safeshell/plugins/base.py` - Plugin helper methods
+- `src/safeshell/daemon/server.py` - Asyncio server pattern
+- `src/safeshell/daemon/events.py` - Event publishing
+- `src/safeshell/daemon/monitor.py` - Monitor connection handler
 
 ### PR-2 Learnings
 - Made `PluginManager.process_request()` async to support event publishing
@@ -199,14 +324,16 @@ PR-2 + PR-3 ──────> PR-4 (Approval Protocol)
 ## Definition of Done
 
 The feature is complete when:
-1. [ ] All 5 PRs implemented and merged
-2. [ ] `safeshell monitor` shows three-pane TUI
-3. [ ] Mouse clicks on Approve/Deny work
-4. [ ] Denial reason appears in wrapper message
-5. [ ] Force-push triggers approval prompt
-6. [ ] Timeout properly blocks pending commands
-7. [ ] All tests pass
-8. [ ] `.roadmap/REQUIREMENTS.md` updated with learnings
+1. [ ] All 6 PRs implemented and merged
+2. [ ] Config-based rules replace Python plugins
+3. [ ] Global + repo rules work correctly
+4. [ ] `safeshell monitor` shows three-pane TUI
+5. [ ] Mouse clicks on Approve/Deny work
+6. [ ] Denial reason appears in wrapper message
+7. [ ] Force-push triggers approval prompt
+8. [ ] Timeout properly blocks pending commands
+9. [ ] All tests pass
+10. [ ] `.roadmap/REQUIREMENTS.md` updated with learnings
 
 ---
 
