@@ -117,10 +117,6 @@ def monitor(
     - d: Deny current request
     - r: Reconnect to daemon
     """
-    # Disable loguru to prevent interference with TUI
-    from loguru import logger
-    logger.disable("safeshell")
-
     from safeshell.monitor.app import MonitorApp
 
     # Check if daemon is running
@@ -138,6 +134,11 @@ def monitor(
             console.print("Monitor requires the daemon to be running.")
             console.print("Start it with: safeshell daemon start")
             raise typer.Exit(1)
+
+    # Disable loguru just before TUI starts to prevent interference
+    # (must be after _daemonize() so forked daemon isn't affected)
+    from loguru import logger
+    logger.disable("safeshell")
 
     monitor_app = MonitorApp(debug_mode=debug)
     monitor_app.run()
