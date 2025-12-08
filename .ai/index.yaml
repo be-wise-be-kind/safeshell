@@ -11,6 +11,12 @@ project:
   status: in-development
   version: "0.1.0"
 
+core_documents:
+  - file: .ai/ai-context.md
+    description: Development patterns, architecture, and conventions
+  - file: .ai/ai-rules.md
+    description: Quality gates, coding standards, and mandatory rules
+
 structure:
   source:
     location: src/
@@ -32,22 +38,82 @@ documentation:
   location: .ai/docs/
   files:
     - PROJECT_CONTEXT.md
+    - PYTHON_STANDARDS.md
 
 howtos:
   location: .ai/howtos/
-  files: []
+  files:
+    - how-to-roadmap.md
+    - how-to-write-file-headers.md
+    - how-to-use-safeshell-cli.md
 
 templates:
   location: .ai/templates/
-  files: []
+  files:
+    - roadmap-progress-tracker.md.template
+    - roadmap-pr-breakdown.md.template
+    - roadmap-ai-context.md.template
+    - file-header-python.template
+
+roadmaps:
+  location: .roadmap/
+  guide: .ai/howtos/how-to-roadmap.md
+
+  structure:
+    planning: .roadmap/planning/
+    in_progress: .roadmap/in-progress/
+    complete: .roadmap/complete/
+
+  templates:
+    progress_tracker: .ai/templates/roadmap-progress-tracker.md.template
+    pr_breakdown: .ai/templates/roadmap-pr-breakdown.md.template
+    ai_context: .ai/templates/roadmap-ai-context.md.template
+
+  three_document_structure:
+    - PROGRESS_TRACKER.md (required - primary handoff)
+    - PR_BREAKDOWN.md (required for multi-PR)
+    - AI_CONTEXT.md (optional - architecture)
 
 commands:
-  # Commands will be added as plugins are installed
   # Using justfile (not Makefile)
   init: just init
+  install: just install
   test: just test
+  test-coverage: just test-coverage
   lint: just lint
+  lint-all: just lint-all
+  lint-security: just lint-security
+  lint-complexity: just lint-complexity
+  lint-thai: just lint-thai
+  lint-full: just lint-full
   format: just format
+  clean: just clean
+  docker-build: just docker-build
+  docker-run: just docker-run
+  run: just run
+
+installed_plugins:
+  - name: foundation/ai-folder
+    status: installed
+    provides: .ai/ directory structure, AGENTS.md
+  - name: foundation/roadmap
+    status: installed
+    provides: .roadmap/ structure, howtos, templates, AGENTS.md roadmap detection
+  - name: languages/python
+    status: installed
+    provides: pyproject.toml, Ruff, MyPy, Bandit, pytest, Pylint, radon
+  - name: infrastructure/docker
+    status: installed
+    provides: Dockerfile, docker-compose.yml
+  - name: infrastructure/github-actions
+    status: installed
+    provides: .github/workflows/lint.yml, .github/workflows/test.yml
+  - name: standards/security
+    status: installed
+    provides: .gitignore with security patterns
+  - name: standards/pre-commit
+    status: installed
+    provides: .pre-commit-config.yaml
 
 key_files:
   readme: README.md

@@ -1,0 +1,74 @@
+# Pre-commit hooks for SafeShell
+# Install: poetry run pre-commit install
+# Run manually: poetry run pre-commit run --all-files
+
+default_install_hook_types: [pre-commit, pre-push]
+
+repos:
+  # Standard pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  # Local hooks using Poetry
+  - repo: local
+    hooks:
+      # ========================================================================
+      # COMMIT HOOKS - Check changed files only (fast feedback)
+      # ========================================================================
+
+      - id: ruff-check
+        name: ruff check
+        entry: poetry run ruff check --fix
+        language: system
+        types: [python]
+        stages: [pre-commit]
+
+      - id: ruff-format
+        name: ruff format
+        entry: poetry run ruff format
+        language: system
+        types: [python]
+        stages: [pre-commit]
+
+      # ========================================================================
+      # PUSH HOOKS - Thorough validation before pushing
+      # ========================================================================
+
+      - id: mypy
+        name: mypy type checking
+        entry: poetry run mypy src/safeshell
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: bandit
+        name: bandit security scan
+        entry: poetry run bandit -r src/safeshell -c pyproject.toml
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: pytest
+        name: pytest
+        entry: poetry run pytest tests/ -v --tb=short
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: check-ai-index
+        name: verify .ai/ index updated
+        entry: .hooks/check-ai-index.sh
+        language: script
+        always_run: true
+        pass_filenames: false
+        stages: [pre-push]

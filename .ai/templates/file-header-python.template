@@ -1,0 +1,102 @@
+"""
+Purpose: Template for creating standardized Python file headers
+Scope: All Python modules and scripts (.py files) in SafeShell
+Overview: This template provides the standard docstring header structure for Python files.
+    When used, it generates a complete file header with all mandatory and recommended fields
+    following the atemporal documentation principle and Python docstring conventions. The
+    generated header includes project-specific information and helps developers quickly
+    understand the module's purpose, exports, and dependencies without reading the code.
+    Use this template as the starting point for all new Python modules.
+
+Placeholders:
+  {{MODULE_NAME}}: Python module name in snake_case
+    - Type: string (valid Python identifier)
+    - Example: "plugin_loader" or "rm_protect"
+    - Required: yes
+
+  {{PURPOSE}}: Brief description of module functionality (1-2 lines)
+    - Type: string
+    - Example: "Manages plugin loading and lifecycle"
+    - Required: yes
+
+  {{SCOPE}}: What this module handles in the system
+    - Type: string
+    - Example: "Plugin discovery, loading, initialization, and cleanup"
+    - Required: yes
+
+  {{OVERVIEW}}: Comprehensive summary of module's role (3-5+ lines)
+    - Type: string (multiline)
+    - Example: "Provides comprehensive plugin management including discovery from configured directories..."
+    - Required: yes
+
+  {{DEPENDENCIES}}: Key external dependencies or internal modules
+    - Type: string
+    - Example: "importlib for dynamic loading, pathlib for path handling"
+    - Required: yes (for code files)
+
+  {{EXPORTS}}: Main classes, functions, or constants this module provides
+    - Type: string
+    - Example: "PluginLoader class, Plugin base class, PluginError exception"
+    - Required: yes (for code files)
+
+  {{INTERFACES}}: Key APIs, endpoints, or methods this module exposes
+    - Type: string
+    - Example: "load_plugin(path) -> Plugin, unload_plugin(name) -> None"
+    - Required: no
+    - Default: Can be omitted if no notable implementation details
+
+  {{IMPLEMENTATION}}: Notable algorithms, patterns, or architectural decisions
+    - Type: string
+    - Example: "Uses importlib.util for dynamic module loading, caches loaded plugins"
+    - Required: no
+    - Default: Can be omitted if no notable implementation details
+
+Usage:
+  1. Copy template:
+     cp .ai/templates/file-header-python.template src/safeshell/{{MODULE_NAME}}.py
+
+  2. Replace all placeholders with actual values:
+     - {{MODULE_NAME}}: Replace with module name (use in filename)
+     - {{PURPOSE}}: Replace with brief description (1-2 lines)
+     - {{SCOPE}}: Replace with module responsibilities
+     - {{OVERVIEW}}: Replace with comprehensive explanation (3-5+ lines)
+     - {{DEPENDENCIES}}: Replace with actual dependencies
+     - {{EXPORTS}}: Replace with actual exports (classes, functions)
+     - {{INTERFACES}}: Replace or remove if not applicable
+     - {{IMPLEMENTATION}}: Replace or remove if not applicable
+
+  3. Remove this template header docstring (lines 1-XX before the actual module docstring)
+
+  4. Add your module code after the header docstring
+
+  5. Validate Python syntax:
+     python -m py_compile src/safeshell/{{MODULE_NAME}}.py
+
+Related: howtos/how-to-write-file-headers.md
+"""
+
+"""
+File: {{FILE_PATH}}
+
+Purpose: {{PURPOSE}}
+
+Exports: {{EXPORTS}}
+
+Depends: {{DEPENDENCIES}}
+
+Implements: {{INTERFACES}}
+
+Related: {{RELATED}}
+
+Overview: {{OVERVIEW}}
+
+Usage: {{USAGE}}
+
+Notes: {{IMPLEMENTATION}}
+"""
+
+# Module imports go here
+# from typing import Optional
+# import other_modules
+
+# Your module code starts here
