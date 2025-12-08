@@ -131,6 +131,49 @@ All Python files require standardized headers. See [how_tos/how-to-write-file-he
 
 ---
 
+## Project Structure
+
+```
+safeshell/
+├── .ai/
+│   ├── index.yaml            # This index - documentation navigation
+│   ├── ai-context.md         # Development context and patterns (this file)
+│   ├── ai-rules.md           # Rules and quality gates
+│   ├── docs/
+│   │   ├── PROJECT_CONTEXT.md
+│   │   └── PYTHON_STANDARDS.md
+│   ├── howtos/
+│   │   ├── how-to-roadmap.md
+│   │   ├── how-to-write-file-headers.md
+│   │   └── how-to-use-safeshell-cli.md
+│   └── templates/
+│       ├── roadmap-*.md.template
+│       └── file-header-python.template
+├── .roadmap/
+│   ├── planning/             # New roadmaps being designed
+│   ├── in-progress/          # Active implementation
+│   └── complete/             # Archived completed roadmaps
+├── src/safeshell/
+│   ├── __init__.py
+│   ├── cli.py                # Main CLI entry point
+│   ├── plugins/              # Policy plugins (rm-protect, etc.)
+│   ├── daemon/               # Background daemon process
+│   ├── monitor/              # TUI for approval workflow
+│   └── wrapper/              # Shell wrapper logic
+├── tests/
+│   ├── test_cli.py
+│   └── plugins/
+├── .github/workflows/
+│   ├── lint.yml
+│   └── test.yml
+├── pyproject.toml            # Poetry configuration
+├── justfile                  # Build commands
+├── Dockerfile
+└── docker-compose.yml
+```
+
+---
+
 ## DO NOT
 
 - Use bash-style exit codes (use proper exceptions or return values)

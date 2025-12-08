@@ -25,7 +25,8 @@ SafeShell is a command-line safety layer for AI coding assistants. It intercepts
 ### Critical Documents
 - **Project Context**: `.ai/docs/PROJECT_CONTEXT.md` - Architecture and philosophy
 - **Index**: `.ai/index.yaml` - Repository structure and navigation
-- **Layout**: `.ai/layout.yaml` - Directory organization
+- **AI Context**: `.ai/ai-context.md` - Development patterns and project structure
+- **AI Rules**: `.ai/ai-rules.md` - Quality gates and mandatory rules
 
 ### How-To Guides
 See `.ai/howtos/` for step-by-step guides on common tasks.
@@ -89,7 +90,7 @@ See `.ai/howtos/how-to-roadmap.md` for detailed workflow instructions.
 - Thai-lint for code quality checks
 
 ### File Organization
-See `.ai/layout.yaml` for the canonical directory structure.
+See `.ai/ai-context.md` for the canonical directory structure.
 
 **Key Directories**:
 - Source code: `src/`
