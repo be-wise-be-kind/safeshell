@@ -22,8 +22,13 @@ def test_status_command() -> None:
     assert "Daemon" in result.stdout or "daemon" in result.stdout.lower()
 
 
-def test_check_command_requires_daemon() -> None:
+def test_check_command_requires_daemon(monkeypatch) -> None:
     """Test that check command requires daemon to be running."""
+    from safeshell.daemon.lifecycle import DaemonLifecycle
+
+    # Mock is_running to always return False for test isolation
+    monkeypatch.setattr(DaemonLifecycle, "is_running", staticmethod(lambda: False))
+
     result = runner.invoke(app, ["check", "ls -la"])
     # Should fail because daemon is not running
     assert result.exit_code == 1

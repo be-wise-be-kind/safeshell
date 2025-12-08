@@ -241,7 +241,7 @@ PR-5 (Integration) ✅ (merged with PR-4)
 - [x] Approve button works (mouse click) (PR-4)
 - [x] Deny button works with reason text (PR-4)
 - [x] Claude Code hook intercepts AI agent commands (PR-4)
-- [ ] Reason appears in denial message (PR-4)
+- [x] Reason appears in denial message (PR-4)
 
 ---
 
@@ -308,16 +308,16 @@ PR-5 (Integration) ✅ (merged with PR-4)
 ## Definition of Done
 
 The feature is complete when:
-1. [ ] All 6 PRs implemented and merged
-2. [ ] Config-based rules replace Python plugins
-3. [ ] Global + repo rules work correctly
-4. [ ] `safeshell monitor` shows three-pane TUI
-5. [ ] Mouse clicks on Approve/Deny work
-6. [ ] Denial reason appears in wrapper message
-7. [ ] Force-push triggers approval prompt
-8. [ ] Timeout properly blocks pending commands
-9. [ ] All tests pass
-10. [ ] `.roadmap/REQUIREMENTS.md` updated with learnings
+1. [x] All 6 PRs implemented and merged
+2. [x] Config-based rules replace Python plugins
+3. [x] Global + repo rules work correctly
+4. [x] `safeshell monitor` shows three-pane TUI
+5. [x] Mouse clicks on Approve/Deny work
+6. [x] Denial reason appears in wrapper message
+7. [x] Force-push triggers approval prompt
+8. [x] Timeout properly blocks pending commands
+9. [x] All tests pass (195 tests)
+10. [x] `.roadmap/REQUIREMENTS.md` updated with learnings
 
 ---
 
