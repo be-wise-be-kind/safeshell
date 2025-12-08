@@ -28,21 +28,21 @@ This is the **PRIMARY HANDOFF DOCUMENT** for AI agents working on the approval w
 
 ## Current Status
 
-**Overall Progress**: 33% complete (2/6 PRs merged)
+**Overall Progress**: 50% complete (3/6 PRs merged)
 
 ```
-[██████████░░░░░░░░░░░░░░░░░░] 33% Complete
+[██████████████░░░░░░░░░░░░░░] 50% Complete
 ```
 
-**Current State**: PR-2 complete, ready for PR-2.5 (Config-Based Rules Architecture)
+**Current State**: PR-2.5 complete, ready for PR-3 (Monitor TUI Shell)
 
 **Infrastructure State**:
 - MVP Phase 1 complete ✅
 - Event system complete ✅ (PR-1 merged)
 - Daemon event publishing complete ✅ (PR-2 merged)
 - Monitor socket infrastructure complete ✅
-- **Config-based rules: NOT STARTED** ← NEXT STEP
-- Monitor TUI not started
+- **Config-based rules complete ✅ (PR-2.5 done)**
+- Monitor TUI not started ← NEXT STEP
 - Approval protocol not started
 
 ---
@@ -165,8 +165,8 @@ rules:
 |----|-------|--------|------------|------------|----------|-------|
 | PR-1 | Event System Foundation | 🟢 Complete | 100% | Medium | P0 | Merged in PR #4 |
 | PR-2 | Daemon Event Publishing | 🟢 Complete | 100% | Medium | P0 | Merged in PR #5 |
-| PR-2.5 | Config-Based Rules | 🔴 Not Started | 0% | Medium | P0 | **START HERE** |
-| PR-3 | Monitor TUI Shell | 🔴 Not Started | 0% | High | P0 | After PR-2.5 |
+| PR-2.5 | Config-Based Rules | 🟢 Complete | 100% | Medium | P0 | Done |
+| PR-3 | Monitor TUI Shell | 🔴 Not Started | 0% | High | P0 | **START HERE** |
 | PR-4 | Approval Protocol | 🔴 Not Started | 0% | High | P0 | Depends on PR-2.5, PR-3 |
 | PR-5 | Integration and Polish | 🔴 Not Started | 0% | Medium | P0 | Depends on PR-4 |
 
@@ -188,10 +188,10 @@ PR-1 (Events) ✅
 PR-2 (Daemon Publishing) ✅
        │
        ▼
-PR-2.5 (Config Rules) ◀── START HERE
+PR-2.5 (Config Rules) ✅
        │
        ▼
-PR-3 (Monitor TUI)
+PR-3 (Monitor TUI) ◀── START HERE
        │
        ▼
 PR-4 (Approval Protocol)
@@ -217,15 +217,15 @@ PR-5 (Integration)
 - [x] `tests/daemon/test_events.py`
 - [x] `tests/daemon/test_monitor.py`
 
-### PR-2.5 Files (Config Rules)
-- [ ] `src/safeshell/rules/__init__.py`
-- [ ] `src/safeshell/rules/schema.py`
-- [ ] `src/safeshell/rules/evaluator.py`
-- [ ] `src/safeshell/rules/loader.py`
-- [ ] `tests/rules/test_schema.py`
-- [ ] `tests/rules/test_evaluator.py`
-- [ ] `tests/rules/test_loader.py`
-- [ ] `src/safeshell/default-rules.yaml` (shipped defaults)
+### PR-2.5 Files (Config Rules) ✅
+- [x] `src/safeshell/rules/__init__.py`
+- [x] `src/safeshell/rules/schema.py`
+- [x] `src/safeshell/rules/evaluator.py`
+- [x] `src/safeshell/rules/loader.py`
+- [x] `src/safeshell/rules/defaults.py`
+- [x] `tests/rules/test_schema.py`
+- [x] `tests/rules/test_evaluator.py`
+- [x] `tests/rules/test_loader.py`
 
 ### PR-3 Files
 - [ ] `src/safeshell/monitor/__init__.py`

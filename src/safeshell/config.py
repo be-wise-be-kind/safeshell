@@ -48,6 +48,13 @@ class SafeShellConfig(BaseModel):
         description="Logging level for daemon",
     )
 
+    condition_timeout_ms: int = Field(
+        default=100,
+        description="Timeout in milliseconds for bash condition evaluation",
+        ge=10,
+        le=5000,
+    )
+
     @field_validator("delegate_shell")
     @classmethod
     def validate_delegate_shell(cls, v: str) -> str:

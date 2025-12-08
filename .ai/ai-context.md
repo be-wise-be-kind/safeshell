@@ -23,7 +23,7 @@ Overview: Comprehensive development context document that provides AI agents wit
 ### What This Repo Does
 
 - Intercepts shell commands from AI tools (Claude Code, Cursor, etc.)
-- Evaluates commands against configurable plugin-based policies
+- Evaluates commands against YAML-configured rules
 - Provides automatic denial for prohibited operations
 - Enables soft-delete of files to recoverable trash
 - Offers human approval workflow for risky operations via monitor TUI
@@ -122,12 +122,31 @@ All Python files require standardized headers. See [how_tos/how-to-write-file-he
 
 ---
 
-## Adding a New Plugin
+## Adding a New Rule
 
-1. Create plugin file: `src/safeshell/plugins/<plugin_name>.py`
-2. Implement the Plugin interface
-3. Add tests in `tests/plugins/test_<plugin_name>.py`
-4. Document in README.md
+Rules are defined in YAML configuration files. See `~/.safeshell/rules.yaml` for examples.
+
+### Rule Schema
+
+```yaml
+- name: "rule-identifier"
+  commands: ["git", "rm"]           # Target executables
+  conditions:                       # Bash conditions (all must exit 0)
+    - 'echo "$CMD" | grep -qE "pattern"'
+  action: deny | require_approval | redirect
+  message: "User-facing message"
+```
+
+### Available Variables in Conditions
+
+- `$CMD` - Full command string
+- `$ARGS` - Arguments after executable
+- `$PWD` - Current working directory
+
+### Rule Loading Order
+
+1. Global: `~/.safeshell/rules.yaml` (your protections)
+2. Repo: `.safeshell/rules.yaml` (project-specific, additive only)
 
 ---
 
@@ -156,13 +175,13 @@ safeshell/
 ├── src/safeshell/
 │   ├── __init__.py
 │   ├── cli.py                # Main CLI entry point
-│   ├── plugins/              # Policy plugins (rm-protect, etc.)
+│   ├── rules/                # YAML-based policy rules
 │   ├── daemon/               # Background daemon process
 │   ├── monitor/              # TUI for approval workflow
 │   └── wrapper/              # Shell wrapper logic
 ├── tests/
 │   ├── test_cli.py
-│   └── plugins/
+│   └── rules/
 ├── .github/workflows/
 │   ├── lint.yml
 │   └── test.yml

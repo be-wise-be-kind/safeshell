@@ -1,7 +1,8 @@
 """
 File: src/safeshell/exceptions.py
 Purpose: Custom exception hierarchy for SafeShell
-Exports: SafeShellError, DaemonError, DaemonNotRunningError, PluginError, ProtocolError, ConfigError
+Exports: SafeShellError, DaemonError, DaemonNotRunningError, PluginError, ProtocolError,
+         ConfigError, RuleLoadError
 Depends: None
 Overview: Defines the exception classes used throughout SafeShell for error handling
 """
@@ -37,3 +38,7 @@ class ProtocolError(SafeShellError):
 
 class ConfigError(SafeShellError):
     """Errors related to configuration loading or validation."""
+
+
+class RuleLoadError(SafeShellError):
+    """Errors related to rule file loading or validation."""

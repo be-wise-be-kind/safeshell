@@ -88,6 +88,7 @@ safeshell <command> --help          # Get detailed help for a command
 | Question | Command |
 |----------|---------|
 | "What version?" | `safeshell version` |
+| "How do I set up SafeShell?" | `safeshell init` |
 | "Is this command safe?" | `safeshell check "<command>"` |
 | "Is the daemon running?" | `safeshell status` |
 
