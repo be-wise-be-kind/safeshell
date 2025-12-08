@@ -1,0 +1,63 @@
+/* SafeShell Monitor TUI Styles */
+
+/* Main layout */
+Screen {
+    layout: vertical;
+}
+
+#main-container {
+    layout: vertical;
+    height: 100%;
+    width: 100%;
+}
+
+/* Pane heights for vertical stacking */
+#debug-pane {
+    height: 1fr;
+    min-height: 5;
+}
+
+#history-pane {
+    height: 1fr;
+    min-height: 5;
+}
+
+#approval-pane {
+    height: 1fr;
+    min-height: 8;
+}
+
+/* Header */
+Header {
+    dock: top;
+    height: 1;
+    background: $primary;
+}
+
+/* Footer */
+Footer {
+    dock: bottom;
+    height: 1;
+}
+
+/* Connection status bar */
+#status-bar {
+    dock: top;
+    height: 1;
+    background: $surface;
+    padding: 0 1;
+}
+
+.status-connected {
+    color: green;
+}
+
+.status-disconnected {
+    color: red;
+}
+
+/* Scrollable containers */
+ScrollableContainer {
+    scrollbar-gutter: stable;
+    overflow-y: auto;
+}

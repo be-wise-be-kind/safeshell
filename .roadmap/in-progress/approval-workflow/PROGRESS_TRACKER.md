@@ -28,134 +28,123 @@ This is the **PRIMARY HANDOFF DOCUMENT** for AI agents working on the approval w
 
 ## Current Status
 
-**Overall Progress**: 50% complete (3/6 PRs merged)
+**Overall Progress**: 70% complete (4/6 PRs complete + shim architecture POC)
 
 ```
-[██████████████░░░░░░░░░░░░░░] 50% Complete
+[█████████████████████████░░░] 70% Complete
 ```
 
-**Current State**: PR-2.5 complete, ready for PR-3 (Monitor TUI Shell)
+**Current State**: Shim architecture POC complete, ready for PR-3.5 (safeshell refresh + TUI fix)
 
 **Infrastructure State**:
 - MVP Phase 1 complete ✅
 - Event system complete ✅ (PR-1 merged)
 - Daemon event publishing complete ✅ (PR-2 merged)
 - Monitor socket infrastructure complete ✅
-- **Config-based rules complete ✅ (PR-2.5 done)**
-- Monitor TUI not started ← NEXT STEP
+- Config-based rules complete ✅ (PR-2.5 done)
+- Monitor TUI complete ✅ (PR-3 done)
+- **Shim architecture POC complete ✅ (NEW)**
+- `safeshell refresh` command not started ← NEXT STEP
 - Approval protocol not started
 
----
+**Major Architecture Discovery (Shims)**:
+The SHELL wrapper approach (`SHELL=/path/to/safeshell-wrapper`) only works when AI tools explicitly invoke `$SHELL -c "command"`. For truly transparent interception that works for:
+- Humans typing in terminals
+- AI tools (Claude Code, Codex, etc.)
+- Any script or tool
 
-## ⚠️ ARCHITECTURE PIVOT - READ THIS FIRST
-
-**Before continuing with PR-3 (Monitor TUI), we are refactoring to a simpler config-based rules system.**
-
-The current Python plugin architecture is being replaced with YAML configuration files. This is a **major simplification** that:
-1. Eliminates the need for Python plugins
-2. Enables global + repo-level rule configuration
-3. Uses bash conditions for complex logic
-4. Makes adding new rules trivial (edit YAML, no Python)
-
-**See AI_CONTEXT.md Section "Config-Based Rules Architecture" for full details.**
+We need **shims** (like pyenv/rbenv) + **shell function overrides** for builtins.
 
 ---
 
 ## Next PR to Implement
 
-### START HERE: PR-2.5 - Config-Based Rules Architecture
+### START HERE: PR-3.5 - Shim Infrastructure & TUI Fix
 
 **Quick Summary**:
-Replace the Python plugin system with YAML-based rule configuration. Rules use regex patterns and bash conditions for matching, with actions: deny, require_approval, redirect.
-
-**This is a REFACTOR, not new functionality. The goal is to simplify before adding more features.**
+Productionize the shim-based command interception and fix the Monitor TUI to receive events. This enables truly transparent command interception for all users (humans and AI).
 
 **Pre-flight Checklist**:
 - [x] PR-1 (Event System) merged
 - [x] PR-2 (Daemon Event Publishing) merged
-- [ ] Read AI_CONTEXT.md "Config-Based Rules Architecture" section thoroughly
-- [ ] Understand the rule evaluation flow
+- [x] PR-2.5 (Config Rules) done
+- [x] PR-3 (Monitor TUI) done
+- [x] Shim POC working (cd, ls blocked via shims)
+- [ ] Read shim architecture section below
 
 **What to Build**:
 
-1. **Rule Schema** (`~/.safeshell/rules.yaml` and `.safeshell/rules.yaml`):
-```yaml
-rules:
-  - name: "block-commit-protected"
-    commands: ["git"]
-    conditions:
-      - "echo '$CMD' | grep -qE '^git\\s+commit'"
-      - "git branch --show-current | grep -qE '^(main|master|develop)$'"
-    action: deny
-    message: "Cannot commit to protected branch"
+1. **`safeshell refresh` CLI command** (`src/safeshell/cli.py`):
+```python
+@app.command()
+def refresh() -> None:
+    """Regenerate shims based on rules.yaml commands."""
+    # 1. Load all rules (global + repo)
+    # 2. Extract unique commands from rules
+    # 3. Create/update symlinks in ~/.safeshell/shims/
+    # 4. Report what was created/updated
 ```
 
-2. **Rule Evaluator** (replaces PluginManager):
-   - Load global rules from `~/.safeshell/rules.yaml`
-   - Load repo rules from `.safeshell/rules.yaml` (additive only)
-   - Fast-path: skip if command not in any rule's `commands` list
-   - Evaluate conditions via subprocess (bash)
-   - Return: ALLOW, DENY, REQUIRE_APPROVAL, or REDIRECT
+2. **Shim management module** (`src/safeshell/shims/`):
+   - Move POC scripts to proper location
+   - Create `manager.py` for shim CRUD operations
+   - Support `~/.safeshell/shims/` as production location
 
-3. **Migration**:
-   - Keep event system (PR-1) - still needed for monitor
-   - Keep daemon infrastructure (PR-2) - still needed
-   - Remove/deprecate: `src/safeshell/plugins/` directory
-   - Update: `PluginManager` → `RuleEvaluator`
+3. **Update `safeshell init`**:
+   - Create `~/.safeshell/shims/` directory
+   - Copy universal shim script
+   - Run initial `safeshell refresh`
+   - Output shell init instructions
+
+4. **Fix Monitor TUI event display**:
+   - Changed `call_from_thread()` to `call_later()` in app.py (done)
+   - Verify events flow from shims → daemon → monitor
 
 **Files to Create**:
-- `src/safeshell/rules/__init__.py`
-- `src/safeshell/rules/schema.py` - Pydantic models for rules
-- `src/safeshell/rules/evaluator.py` - Rule evaluation logic
-- `src/safeshell/rules/loader.py` - Load and merge rule files
-- `tests/rules/test_schema.py`
-- `tests/rules/test_evaluator.py`
-- `tests/rules/test_loader.py`
+- `src/safeshell/shims/manager.py` - Shim management functions
+- `~/.safeshell/shims/safeshell-shim` - Universal shim (installed by init)
 
 **Files to Modify**:
-- `src/safeshell/daemon/manager.py` - Use RuleEvaluator instead of plugins
-- `src/safeshell/daemon/server.py` - Update imports
-
-**Files to Remove/Deprecate**:
-- `src/safeshell/plugins/base.py` - No longer needed
-- `src/safeshell/plugins/git_protect.py` - Replaced by config rules
-- `tests/plugins/` - Replace with rules tests
-
-**Default Rules to Include** (equivalent to current git-protect):
-```yaml
-# ~/.safeshell/default-rules.yaml (shipped with SafeShell)
-rules:
-  - name: block-commit-protected-branch
-    commands: ["git"]
-    conditions:
-      - "echo '$CMD' | grep -qE '^git\\s+commit'"
-      - "git branch --show-current | grep -qE '^(main|master|develop)$'"
-    action: deny
-    message: "Cannot commit directly to protected branch. Create a feature branch first."
-
-  - name: block-force-push-protected
-    commands: ["git"]
-    conditions:
-      - "echo '$CMD' | grep -qE '^git\\s+push.*(--force|-f)'"
-      - "git branch --show-current | grep -qE '^(main|master|develop)$'"
-    action: require_approval
-    message: "Force push to protected branch requires approval"
-```
+- `src/safeshell/cli.py` - Add `refresh` command, update `init`
+- `src/safeshell/monitor/app.py` - Fix event handling (done: call_later)
 
 **Success Criteria**:
+- [ ] `safeshell init` creates shims directory and initial shims
+- [ ] `safeshell refresh` regenerates shims from rules.yaml
 - [ ] `poetry run ruff check src/` passes
 - [ ] `poetry run pytest` passes
-- [ ] Existing git-protect behavior works via config rules
-- [ ] Global rules load from `~/.safeshell/rules.yaml`
-- [ ] Repo rules load from `.safeshell/rules.yaml`
-- [ ] Bash conditions execute correctly
-- [ ] Rule evaluation is fast (< 50ms for non-matching commands)
+- [ ] Shimmed commands are intercepted transparently
+- [ ] Monitor TUI displays events from intercepted commands
+- [ ] Shell starts cleanly without daemon (fail-open)
+
+---
+
+### THEN: PR-4 - Approval Protocol
+
+**Quick Summary**:
+Implement the approval request/response protocol between wrapper, daemon, and monitor.
+
+**Files to Create**:
+- `src/safeshell/daemon/approval.py` - ApprovalManager, PendingApproval
+
+**Files to Modify**:
+- `src/safeshell/daemon/server.py` - Handle approval flow
+- `src/safeshell/daemon/manager.py` - Integrate with ApprovalManager
+- `src/safeshell/wrapper/client.py` - Wait for approval
+- `src/safeshell/rules/evaluator.py` - Support REQUIRE_APPROVAL action
+
+**Success Criteria**:
+- [ ] Rule with `action: require_approval` triggers approval flow
+- [ ] Monitor TUI shows pending approval
+- [ ] Approve button allows command execution
+- [ ] Deny button blocks with optional reason
+- [ ] Timeout properly blocks pending commands
 
 ---
 
 ## Overall Progress
 
-**Total Completion**: 33% (2/6 PRs completed)
+**Total Completion**: 67% (4/6 PRs completed)
 
 ---
 
@@ -165,9 +154,10 @@ rules:
 |----|-------|--------|------------|------------|----------|-------|
 | PR-1 | Event System Foundation | 🟢 Complete | 100% | Medium | P0 | Merged in PR #4 |
 | PR-2 | Daemon Event Publishing | 🟢 Complete | 100% | Medium | P0 | Merged in PR #5 |
-| PR-2.5 | Config-Based Rules | 🟢 Complete | 100% | Medium | P0 | Done |
-| PR-3 | Monitor TUI Shell | 🔴 Not Started | 0% | High | P0 | **START HERE** |
-| PR-4 | Approval Protocol | 🔴 Not Started | 0% | High | P0 | Depends on PR-2.5, PR-3 |
+| PR-2.5 | Config-Based Rules | 🟢 Complete | 100% | Medium | P0 | Merged in PR #6 |
+| PR-3 | Monitor TUI Shell | 🟡 In Progress | 80% | High | P0 | Code done, needs manual test |
+| PR-3.5 | Shim Infrastructure & TUI Fix | 🟡 In Progress | 60% | Medium | P0 | **START HERE** |
+| PR-4 | Approval Protocol | 🔴 Not Started | 0% | High | P0 | After PR-3.5 |
 | PR-5 | Integration and Polish | 🔴 Not Started | 0% | Medium | P0 | Depends on PR-4 |
 
 ### Status Legend
@@ -191,10 +181,10 @@ PR-2 (Daemon Publishing) ✅
 PR-2.5 (Config Rules) ✅
        │
        ▼
-PR-3 (Monitor TUI) ◀── START HERE
+PR-3 (Monitor TUI) ✅
        │
        ▼
-PR-4 (Approval Protocol)
+PR-4 (Approval Protocol) ◀── START HERE
        │
        ▼
 PR-5 (Integration)
@@ -227,12 +217,15 @@ PR-5 (Integration)
 - [x] `tests/rules/test_evaluator.py`
 - [x] `tests/rules/test_loader.py`
 
-### PR-3 Files
-- [ ] `src/safeshell/monitor/__init__.py`
-- [ ] `src/safeshell/monitor/app.py`
-- [ ] `src/safeshell/monitor/widgets.py`
-- [ ] `src/safeshell/monitor/styles.css`
-- [ ] `src/safeshell/monitor/cli.py`
+### PR-3 Files ✅
+- [x] `src/safeshell/monitor/__init__.py`
+- [x] `src/safeshell/monitor/app.py`
+- [x] `src/safeshell/monitor/widgets.py`
+- [x] `src/safeshell/monitor/styles.css`
+- [x] `src/safeshell/monitor/client.py`
+- [x] `tests/monitor/test_app.py`
+- [x] `tests/monitor/test_client.py`
+- [x] `tests/monitor/test_widgets.py`
 
 ### PR-4 Files
 - [ ] `src/safeshell/daemon/approval.py`

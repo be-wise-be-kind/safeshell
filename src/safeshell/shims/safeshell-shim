@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# SafeShell Universal Shim
+# All command shims symlink to this script.
+# It intercepts commands, checks with daemon, and executes if allowed.
+
+# Get the command name from how we were invoked
+CMD_NAME=$(basename "$0")
+
+# Find the real command (skip our shim directory in PATH)
+SHIM_DIR=$(dirname "$(readlink -f "$0")")
+REAL_CMD=""
+
+# Search PATH for the real command, skipping our shim directory
+IFS=':' read -ra PATH_DIRS <<< "$PATH"
+for dir in "${PATH_DIRS[@]}"; do
+    # Skip our shim directory
+    [[ "$dir" == "$SHIM_DIR" ]] && continue
+
+    if [[ -x "$dir/$CMD_NAME" ]]; then
+        REAL_CMD="$dir/$CMD_NAME"
+        break
+    fi
+done
+
+if [[ -z "$REAL_CMD" ]]; then
+    echo "[SafeShell] Error: Could not find real '$CMD_NAME' in PATH" >&2
+    exit 127
+fi
+
+# Quick check: is daemon socket present? If not, fail-open
+SOCKET="${SAFESHELL_SOCKET:-$HOME/.safeshell/daemon.sock}"
+if [[ ! -S "$SOCKET" ]]; then
+    exec "$REAL_CMD" "$@"
+fi
+
+# Build the full command string for evaluation
+FULL_CMD="$CMD_NAME"
+for arg in "$@"; do
+    # Quote arguments that contain spaces or special chars
+    if [[ "$arg" =~ [[:space:]] || "$arg" =~ [\'\"\$\`\\] ]]; then
+        FULL_CMD="$FULL_CMD \"$arg\""
+    else
+        FULL_CMD="$FULL_CMD $arg"
+    fi
+done
+
+# Find safeshell-wrapper
+SAFESHELL_WRAPPER=""
+if command -v safeshell-wrapper &>/dev/null; then
+    SAFESHELL_WRAPPER=$(command -v safeshell-wrapper)
+elif [[ -x "$HOME/.local/bin/safeshell-wrapper" ]]; then
+    SAFESHELL_WRAPPER="$HOME/.local/bin/safeshell-wrapper"
+else
+    # Try poetry environment (development)
+    SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+    PROJECT_ROOT=$(cd "$SCRIPT_DIR/../../.." && pwd)
+    if [[ -f "$PROJECT_ROOT/pyproject.toml" ]]; then
+        SAFESHELL_WRAPPER=$(cd "$PROJECT_ROOT" && poetry run which safeshell-wrapper 2>/dev/null || true)
+    fi
+fi
+
+# If no wrapper found, just run the real command (fail-open)
+if [[ -z "$SAFESHELL_WRAPPER" || ! -x "$SAFESHELL_WRAPPER" ]]; then
+    exec "$REAL_CMD" "$@"
+fi
+
+# Check with SafeShell daemon
+SAFESHELL_CHECK_ONLY=1 "$SAFESHELL_WRAPPER" -c "$FULL_CMD"
+CHECK_RESULT=$?
+
+if [[ $CHECK_RESULT -eq 0 ]]; then
+    # Allowed - execute the real command
+    exec "$REAL_CMD" "$@"
+else
+    # Blocked - error message already printed by wrapper
+    exit $CHECK_RESULT
+fi
