@@ -2,7 +2,7 @@
 
 **Purpose**: Living requirements document, updated after each major phase with learnings
 
-**Last Updated**: After PR-2 completion (Architecture Pivot Decision)
+**Last Updated**: After PR-4 completion (Approval Workflow Complete)
 
 ---
 
@@ -318,22 +318,25 @@ Per-repo: `.safeshell/rules.yaml`
 - Configuration via ~/.safeshell/config.yaml
 - 75 unit tests passing
 
-### Phase 2: Approval Workflow with Monitor TUI (In Progress)
+### Phase 2: Approval Workflow with Monitor TUI ✅ COMPLETE
 
-**Progress**: 33% (2/6 PRs complete)
+**Progress**: 100% (6/6 PRs complete)
 
 **PR Status**:
 - ✅ PR-1: Event System Foundation (merged)
 - ✅ PR-2: Daemon Event Publishing (merged)
-- 🔴 PR-2.5: Config-Based Rules Architecture ← **NEXT**
-- 🔴 PR-3: Monitor TUI Shell
-- 🔴 PR-4: Approval Protocol
-- 🔴 PR-5: Integration and Polish
+- ✅ PR-2.5: Config-Based Rules Architecture (merged)
+- ✅ PR-3/3.5: Monitor TUI + Shim Infrastructure (merged)
+- ✅ PR-4: Approval Protocol + Claude Code Hook (merged)
+- ✅ PR-5: Integration and Polish (merged with PR-4)
 
-**Current Task (PR-2.5)**:
-Replace Python plugin system with YAML config rules. See:
-- `.roadmap/in-progress/approval-workflow/PROGRESS_TRACKER.md`
-- `.roadmap/in-progress/approval-workflow/AI_CONTEXT.md`
+**Delivered**:
+- Monitor TUI with three-pane layout (Debug, History, Approval)
+- YAML-based rule configuration
+- Shim-based command interception (pyenv-style)
+- Shell function overrides for builtins (cd, source, eval)
+- Claude Code PreToolUse hook for AI agent protection
+- Full approval workflow: require_approval → Monitor TUI → approve/deny
 
 ### Phase 3: CI/CD Hardening (Planned)
 
@@ -348,6 +351,38 @@ Replace Python plugin system with YAML config rules. See:
 - Windows support
 - Packaging (Homebrew, Snap, Chocolatey)
 - Enterprise features
+
+---
+
+## Future Investigation: AI Tool Shell Override Mechanisms
+
+**Status**: Research needed
+
+Different AI terminal tools have different mechanisms for intercepting/wrapping shell commands. SafeShell needs to support multiple integration patterns:
+
+### Known Mechanisms
+
+| Tool | Mechanism | Status |
+|------|-----------|--------|
+| Claude Code | `PreToolUse` hooks (exit 2 = block) | ✅ Implemented |
+| Claude Code | `CLAUDE_CODE_SHELL_PREFIX` env var | Not tested |
+| Cursor | Unknown | Needs research |
+| Aider | Unknown | Needs research |
+| GitHub Copilot CLI | Unknown | Needs research |
+| Cody | Unknown | Needs research |
+
+### Integration Patterns to Support
+
+1. **Hook-based** (Claude Code) - Script called before tool execution with JSON input
+2. **Shell wrapper** (SHELL env var) - AI tool uses `$SHELL -c "command"`
+3. **Shim-based** (universal) - PATH-based command interception for any source
+
+### Research Tasks
+
+- [ ] Document integration patterns for each major AI terminal tool
+- [ ] Create integration guides for each tool
+- [ ] Test shim-based approach with tools that don't support hooks
+- [ ] Consider MCP (Model Context Protocol) integration for tools that support it
 
 ---
 

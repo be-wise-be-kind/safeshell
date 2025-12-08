@@ -19,6 +19,7 @@ from typing import Any
 from loguru import logger
 
 from safeshell.config import load_config
+from safeshell.daemon.approval import ApprovalManager
 from safeshell.daemon.events import DaemonEventPublisher
 from safeshell.daemon.lifecycle import (
     MONITOR_SOCKET_PATH,
@@ -57,9 +58,22 @@ class DaemonServer:
         self._event_publisher = DaemonEventPublisher(self._event_bus)
         self._monitor_handler = MonitorConnectionHandler(self._event_bus)
 
-        # Rule manager with event publisher and config timeout
+        # Approval manager for handling REQUIRE_APPROVAL decisions
+        self._approval_manager = ApprovalManager(
+            event_publisher=self._event_publisher,
+            default_timeout=self._config.approval_timeout_seconds,
+        )
+
+        # Wire monitor handler's approval callbacks to approval manager
+        self._monitor_handler.set_approval_callbacks(
+            approve_callback=self._approval_manager.approve,
+            deny_callback=self._approval_manager.deny,
+        )
+
+        # Rule manager with event publisher, approval manager, and config timeout
         self.rule_manager = RuleManager(
             event_publisher=self._event_publisher,
+            approval_manager=self._approval_manager,
             condition_timeout_ms=self._config.condition_timeout_ms,
         )
 
@@ -81,6 +95,11 @@ class DaemonServer:
     def event_publisher(self) -> DaemonEventPublisher:
         """Return the event publisher."""
         return self._event_publisher
+
+    @property
+    def approval_manager(self) -> ApprovalManager:
+        """Return the approval manager."""
+        return self._approval_manager
 
     @property
     def uptime_seconds(self) -> float:

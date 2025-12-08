@@ -2,13 +2,17 @@
 File: src/safeshell/daemon/manager.py
 Purpose: Rule management and command evaluation
 Exports: RuleManager
-Depends: safeshell.rules, safeshell.models, safeshell.daemon.events, loguru
+Depends: safeshell.rules, safeshell.models, safeshell.daemon.events,
+         safeshell.daemon.approval, loguru
 Overview: Loads rules and evaluates commands against all loaded rules, emitting events
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from loguru import logger
 
-from safeshell.daemon.events import DaemonEventPublisher
 from safeshell.models import (
     CommandContext,
     DaemonRequest,
@@ -18,6 +22,10 @@ from safeshell.models import (
     RequestType,
 )
 from safeshell.rules import RuleEvaluator, load_rules
+
+if TYPE_CHECKING:
+    from safeshell.daemon.approval import ApprovalManager
+    from safeshell.daemon.events import DaemonEventPublisher
 
 
 class RuleManager:
@@ -31,15 +39,18 @@ class RuleManager:
     def __init__(
         self,
         event_publisher: DaemonEventPublisher | None = None,
+        approval_manager: ApprovalManager | None = None,
         condition_timeout_ms: int = 100,
     ) -> None:
         """Initialize rule manager.
 
         Args:
             event_publisher: Optional publisher for emitting evaluation events
+            approval_manager: Optional manager for handling REQUIRE_APPROVAL decisions
             condition_timeout_ms: Timeout for bash conditions in milliseconds
         """
         self._event_publisher = event_publisher
+        self._approval_manager = approval_manager
         self._condition_timeout_ms = condition_timeout_ms
         self._evaluator: RuleEvaluator | None = None
         self._rule_count: int = 0
@@ -137,6 +148,11 @@ class RuleManager:
 
         # Evaluate against rules
         result = await evaluator.evaluate(context)
+
+        # Handle REQUIRE_APPROVAL decision
+        if result.decision == Decision.REQUIRE_APPROVAL:
+            result = await self._handle_approval(request.command, result)
+
         results = [result]
 
         # Build response
@@ -177,6 +193,61 @@ class RuleManager:
             Formatted denial message for AI terminal
         """
         return DaemonResponse._format_denial_message(result.reason, result.plugin_name)
+
+    async def _handle_approval(
+        self, command: str, result: EvaluationResult
+    ) -> EvaluationResult:
+        """Handle REQUIRE_APPROVAL decision by waiting for approval.
+
+        Args:
+            command: The command awaiting approval
+            result: Original evaluation result with REQUIRE_APPROVAL
+
+        Returns:
+            New EvaluationResult with ALLOW or DENY based on approval resolution
+        """
+        # Import here to avoid circular dependency at runtime
+        from safeshell.daemon.approval import ApprovalResult
+
+        if self._approval_manager is None:
+            # No approval manager configured - treat as deny
+            logger.warning(
+                f"REQUIRE_APPROVAL for '{command}' but no ApprovalManager configured"
+            )
+            return EvaluationResult(
+                decision=Decision.DENY,
+                plugin_name=result.plugin_name,
+                reason=f"{result.reason} (approval system unavailable)",
+            )
+
+        # Request approval and wait for resolution
+        logger.info(f"Requesting approval for: {command}")
+        approval_result, denial_reason = await self._approval_manager.request_approval(
+            command=command,
+            plugin_name=result.plugin_name,
+            reason=result.reason,
+        )
+
+        if approval_result == ApprovalResult.APPROVED:
+            logger.info(f"Command approved: {command}")
+            return EvaluationResult(
+                decision=Decision.ALLOW,
+                plugin_name=result.plugin_name,
+                reason=f"Approved: {result.reason}",
+            )
+
+        # Denied or timed out
+        if approval_result == ApprovalResult.TIMEOUT:
+            denial_reason = "Approval timed out"
+            logger.warning(f"Command timed out waiting for approval: {command}")
+        else:
+            logger.info(f"Command denied: {command}")
+
+        return EvaluationResult(
+            decision=Decision.DENY,
+            plugin_name=result.plugin_name,
+            reason=denial_reason or result.reason,
+        )
 
 
 # Backward compatibility alias

@@ -95,7 +95,9 @@ class DaemonClient:
 
         try:
             with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
-                sock.settimeout(5.0)
+                # Timeout set to 10 minutes to accommodate approval waits
+                # (default approval timeout is 5 minutes)
+                sock.settimeout(600.0)
                 sock.connect(str(self.socket_path))
 
                 # Send request as JSON line

@@ -28,13 +28,13 @@ This is the **PRIMARY HANDOFF DOCUMENT** for AI agents working on the approval w
 
 ## Current Status
 
-**Overall Progress**: 83% complete (5/6 PRs complete)
+**Overall Progress**: 100% complete (6/6 PRs complete)
 
 ```
-[████████████████████████████░░] 83% Complete
+[██████████████████████████████] 100% Complete
 ```
 
-**Current State**: Shim infrastructure complete (PR-3.5), ready for PR-4 (Approval Protocol)
+**Current State**: Feature complete! PR-4 merged with Claude Code hook integration.
 
 **Infrastructure State**:
 - MVP Phase 1 complete ✅
@@ -43,8 +43,9 @@ This is the **PRIMARY HANDOFF DOCUMENT** for AI agents working on the approval w
 - Monitor socket infrastructure complete ✅
 - Config-based rules complete ✅ (PR-2.5 merged)
 - Monitor TUI complete ✅ (PR-3 merged)
-- **Shim infrastructure complete ✅ (PR-3.5 merged)**
-- Approval protocol not started ← NEXT STEP
+- Shim infrastructure complete ✅ (PR-3.5 merged)
+- **Approval protocol complete ✅ (PR-4 implemented)**
+- Integration & polish not started ← NEXT STEP
 
 **Major Architecture Discovery (Shims)**:
 The SHELL wrapper approach (`SHELL=/path/to/safeshell-wrapper`) only works when AI tools explicitly invoke `$SHELL -c "command"`. For truly transparent interception that works for:
@@ -121,7 +122,7 @@ class ApprovalManager:
 
 ## Overall Progress
 
-**Total Completion**: 83% (5/6 PRs completed)
+**Total Completion**: 100% (6/6 PRs completed)
 
 ---
 
@@ -132,9 +133,9 @@ class ApprovalManager:
 | PR-1 | Event System Foundation | 🟢 Complete | 100% | Medium | P0 | Merged in PR #4 |
 | PR-2 | Daemon Event Publishing | 🟢 Complete | 100% | Medium | P0 | Merged in PR #5 |
 | PR-2.5 | Config-Based Rules | 🟢 Complete | 100% | Medium | P0 | Merged in PR #6 |
-| PR-3/3.5 | Monitor TUI + Shim Infrastructure | 🟢 Complete | 100% | High | P0 | Merged in PR #7 |
-| PR-4 | Approval Protocol | 🔴 Not Started | 0% | High | P0 | **START HERE** |
-| PR-5 | Integration and Polish | 🔴 Not Started | 0% | Medium | P0 | Depends on PR-4 |
+| PR-3/3.5 | Monitor TUI + Shim Infrastructure | 🟢 Complete | 100% | High | P0 | Merged in PR #7, #8 |
+| PR-4 | Approval Protocol + Claude Code Hook | 🟢 Complete | 100% | High | P0 | Merged in PR #9 |
+| PR-5 | Integration and Polish | 🟢 Complete | 100% | Medium | P0 | Merged with PR-4 |
 
 ### Status Legend
 - 🔴 Not Started
@@ -160,10 +161,10 @@ PR-2.5 (Config Rules) ✅
 PR-3/3.5 (Monitor TUI + Shims) ✅
        │
        ▼
-PR-4 (Approval Protocol) ◀── START HERE
+PR-4 (Approval Protocol + Claude Code Hook) ✅
        │
        ▼
-PR-5 (Integration)
+PR-5 (Integration) ✅ (merged with PR-4)
 ```
 
 ---
@@ -210,8 +211,11 @@ PR-5 (Integration)
 - [x] `src/safeshell/shims/init.bash` (updated)
 - [x] `src/safeshell/cli.py` (added `refresh` command, updated `init`)
 
-### PR-4 Files
-- [ ] `src/safeshell/daemon/approval.py`
+### PR-4 Files ✅
+- [x] `src/safeshell/daemon/approval.py`
+- [x] `src/safeshell/hooks/__init__.py`
+- [x] `src/safeshell/hooks/claude_code_hook.py`
+- [x] `tests/daemon/test_approval.py`
 
 ---
 
@@ -219,7 +223,7 @@ PR-5 (Integration)
 
 ### Code Quality
 - [x] `poetry run ruff check src/` passes
-- [x] `poetry run pytest` passes (181 tests)
+- [x] `poetry run pytest` passes (195 tests)
 - [ ] `poetry run mypy src/` passes (pre-existing issues with stubs)
 - [ ] `poetry run bandit -r src/` passes
 
@@ -233,9 +237,10 @@ PR-5 (Integration)
 - [x] Shims intercept commands transparently
 - [x] `safeshell refresh` creates/removes shims
 - [x] `safeshell init` sets up shim infrastructure
-- [ ] Approval prompt appears for REQUIRE_APPROVAL (PR-4)
-- [ ] Approve button works (mouse click) (PR-4)
-- [ ] Deny button works with reason text (PR-4)
+- [x] Approval prompt appears for REQUIRE_APPROVAL (PR-4)
+- [x] Approve button works (mouse click) (PR-4)
+- [x] Deny button works with reason text (PR-4)
+- [x] Claude Code hook intercepts AI agent commands (PR-4)
 - [ ] Reason appears in denial message (PR-4)
 
 ---
