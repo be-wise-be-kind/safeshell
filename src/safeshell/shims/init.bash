@@ -3,10 +3,9 @@
 #
 # This provides:
 # 1. PATH modification to use command shims
-# 2. Function overrides for dangerous builtins (cd, source, eval)
-
-# Skip if not interactive
-[[ $- != *i* ]] && return
+# 2. Function overrides for builtins (cd, source, eval, echo)
+#
+# Note: Works in both interactive and non-interactive shells for AI safety
 
 # Skip if already loaded
 [[ -n "$SAFESHELL_LOADED" ]] && return
@@ -124,15 +123,28 @@ eval() {
     fi
 }
 
+# Override: echo
+# Use case: Prevent echoing sensitive data or test blocking
+echo() {
+    # Check with SafeShell (fail-open if daemon down)
+    if __safeshell_check "echo $*"; then
+        builtin echo "$@"
+    else
+        return 1
+    fi
+}
+
 # --- Restore tab completion for overridden builtins ---
 # When we override builtins with functions, bash loses default completion
 complete -d cd           # cd completes directories
 complete -f source       # source completes files
 complete -f .            # . completes files
 
-# Only show message if daemon is running
-if [[ -S "${SAFESHELL_SOCKET:-$HOME/.safeshell/daemon.sock}" ]]; then
-    echo "[SafeShell] Protection active. Commands and builtins are monitored."
-else
-    echo "[SafeShell] Loaded (daemon not running - fail-open mode)."
+# Only show message for interactive shells
+if [[ $- == *i* ]]; then
+    if [[ -S "${SAFESHELL_SOCKET:-$HOME/.safeshell/daemon.sock}" ]]; then
+        builtin echo "[SafeShell] Protection active. Commands and builtins are monitored."
+    else
+        builtin echo "[SafeShell] Loaded (daemon not running - fail-open mode)."
+    fi
 fi
