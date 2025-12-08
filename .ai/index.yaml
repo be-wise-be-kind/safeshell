@@ -43,12 +43,42 @@ templates:
   files: []
 
 commands:
-  # Commands will be added as plugins are installed
   # Using justfile (not Makefile)
   init: just init
+  install: just install
   test: just test
+  test-coverage: just test-coverage
   lint: just lint
+  lint-all: just lint-all
+  lint-security: just lint-security
+  lint-complexity: just lint-complexity
+  lint-thai: just lint-thai
+  lint-full: just lint-full
   format: just format
+  clean: just clean
+  docker-build: just docker-build
+  docker-run: just docker-run
+  run: just run
+
+installed_plugins:
+  - name: foundation/ai-folder
+    status: installed
+    provides: .ai/ directory structure, AGENTS.md
+  - name: languages/python
+    status: installed
+    provides: pyproject.toml, Ruff, MyPy, Bandit, pytest, Pylint, radon
+  - name: infrastructure/docker
+    status: installed
+    provides: Dockerfile, docker-compose.yml
+  - name: infrastructure/github-actions
+    status: installed
+    provides: .github/workflows/lint.yml, .github/workflows/test.yml
+  - name: standards/security
+    status: installed
+    provides: .gitignore with security patterns
+  - name: standards/pre-commit
+    status: installed
+    provides: .pre-commit-config.yaml
 
 key_files:
   readme: README.md
