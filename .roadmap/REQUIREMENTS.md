@@ -17,21 +17,28 @@ The system has three core protection mechanisms:
 
 The approval mechanism is central to SafeShell's value proposition. Risky operations display an approval prompt in a Monitor TUI that the AI cannot see. The user clicks Approve/Deny buttons (or uses keyboard shortcuts) to make decisions. This provides true human-in-the-loop control without requiring containers or VMs.
 
-**Key architectural decision:** SafeShell operates as a shell wrapper, not command shims. AI tools set `SHELL=/path/to/safeshell`. This approach:
-- Catches all commands regardless of how they're invoked
-- Requires no PATH manipulation or shim maintenance
-- Cannot be bypassed by using absolute paths (`/bin/rm`)
-- Automatically supports new commands when rules are added
+**Key architectural decision (UPDATED):** SafeShell uses a **hybrid shim + shell wrapper** approach:
+1. **Command Shims** (pyenv-style) - Intercept external commands (git, rm, docker, etc.)
+2. **Shell Function Overrides** - Intercept builtins (cd, source, eval)
+3. **Shell Wrapper** - Fallback for AI tools that use `$SHELL -c "command"`
+
+This approach:
+- Catches all commands regardless of how they're invoked (terminals, AI tools, scripts)
+- Works transparently - users just type commands normally
+- Supports both humans typing and AI executing commands
+- Uses proven patterns (pyenv, rbenv use same approach)
+- Requires one-time `.bashrc` setup: `eval "$(safeshell init -)"`
 
 The system assumes a cooperative (non-adversarial) AI agent and focuses on preventing mistakes rather than containing malicious behavior.
 
 ---
 
-## ⚠️ ARCHITECTURE PIVOT: Config-Based Rules
+## ⚠️ ARCHITECTURE PIVOT #1: Config-Based Rules
 
 **Decision Date**: After PR-2 completion
+**Status**: COMPLETE (PR-2.5 merged)
 
-**Change**: The Python plugin system is being replaced with YAML configuration files.
+**Change**: The Python plugin system was replaced with YAML configuration files.
 
 **Rationale**:
 1. **Simpler**: Adding rules is editing YAML, not writing Python
@@ -43,6 +50,38 @@ The system assumes a cooperative (non-adversarial) AI agent and focuses on preve
 - `src/safeshell/plugins/` is deprecated
 - New `src/safeshell/rules/` module handles rule evaluation
 - Rules defined in `~/.safeshell/rules.yaml` (global) and `.safeshell/rules.yaml` (repo)
+
+---
+
+## ⚠️ ARCHITECTURE PIVOT #2: Shim-Based Interception
+
+**Decision Date**: During PR-3.5 development
+**Status**: POC COMPLETE, productionization in progress
+
+**Change**: The SHELL wrapper approach is supplemented with shims and shell function overrides.
+
+**Problem Discovered**:
+The original `SHELL=/path/to/safeshell-wrapper` approach only works when AI tools invoke `$SHELL -c "command"`. It does NOT work for:
+- Humans typing commands directly in terminals
+- AI tools that execute binaries without using SHELL (e.g., `execvp("git", ...)`)
+- Scripts that call commands directly
+
+**Solution**:
+1. **Command Shims** - Symlinks in `~/.safeshell/shims/` pointing to universal shim script
+2. **Shell Function Overrides** - Functions overriding builtins (cd, source, eval)
+3. **Shell Init Script** - Sets up PATH and functions via `.bashrc`
+
+**Rationale**:
+- Proven pattern used by pyenv, rbenv, nvm
+- Transparent to users - just type commands normally
+- Works for ALL command sources (terminals, AI tools, scripts)
+- Fail-open when daemon not running (shell still works)
+
+**Impact**:
+- New `~/.safeshell/shims/` directory with command shims
+- New `~/.safeshell/init.bash` shell initialization script
+- New `safeshell refresh` command to regenerate shims from rules
+- Updated `safeshell init` to set up shim infrastructure
 
 See `.roadmap/in-progress/approval-workflow/AI_CONTEXT.md` for full architecture details.
 

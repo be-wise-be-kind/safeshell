@@ -94,6 +94,27 @@ def status() -> None:
 
 
 @app.command()
+def monitor() -> None:
+    """Launch the SafeShell monitor TUI.
+
+    Opens an interactive terminal interface showing:
+    - Debug log: Real-time daemon events
+    - Command history: Recent commands and their status
+    - Approval pane: Handle pending approval requests
+
+    Keyboard shortcuts:
+    - q: Quit
+    - a: Approve current request
+    - d: Deny current request
+    - r: Reconnect to daemon
+    """
+    from safeshell.monitor.app import MonitorApp
+
+    app = MonitorApp()
+    app.run()
+
+
+@app.command()
 def init() -> None:
     """Initialize SafeShell configuration and default rules."""
     from safeshell.config import CONFIG_PATH, create_default_config

@@ -55,6 +55,9 @@ def _evaluate_and_execute(command: str) -> int:
     config = load_config()
     client = DaemonClient()
 
+    # Check-only mode for shims - evaluate but don't execute
+    check_only = os.environ.get("SAFESHELL_CHECK_ONLY") == "1"
+
     try:
         # Ensure daemon is running (auto-start if needed)
         client.ensure_daemon_running()
@@ -67,6 +70,8 @@ def _evaluate_and_execute(command: str) -> int:
         )
 
         if response.should_execute:
+            if check_only:
+                return 0  # Signal allowed, shim will execute
             return _execute(command, config.delegate_shell)
         # Command denied - print message and exit
         if response.denial_message:
@@ -79,6 +84,8 @@ def _evaluate_and_execute(command: str) -> int:
         # Handle based on config
         if config.unreachable_behavior == UnreachableBehavior.FAIL_OPEN:
             sys.stderr.write(f"[SafeShell] Warning: Daemon unreachable ({e}), allowing command\n")
+            if check_only:
+                return 0  # Signal allowed, shim will execute
             return _execute(command, config.delegate_shell)
         # FAIL_CLOSED (default)
         sys.stderr.write(f"[SafeShell] Error: Daemon unreachable ({e})\n")

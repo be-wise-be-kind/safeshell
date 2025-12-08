@@ -190,9 +190,9 @@ class DaemonClient:
             # Get the safeshell command
             safeshell = local[sys.executable]["-m", "safeshell.daemon.server"]
 
-            # Run in background (daemonize)
-            # Using nohup-like behavior
-            safeshell & None  # type: ignore[misc]
+            # Run in background using plumbum's BG
+            from plumbum import BG
+            safeshell & BG
 
         except ProcessExecutionError as e:
             raise DaemonStartError(f"Failed to start daemon: {e}") from e

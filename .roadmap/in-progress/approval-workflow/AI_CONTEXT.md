@@ -16,13 +16,109 @@
 
 ---
 
-## ⚠️ ARCHITECTURE PIVOT: Config-Based Rules
+## ⚠️ ARCHITECTURE PIVOT #1: Config-Based Rules
 
-**IMPORTANT: Before building the Monitor TUI, implement the config-based rules system (PR-2.5).**
+**Status: COMPLETE (PR-2.5 merged)**
 
-The Python plugin system is being replaced with YAML configuration. This section describes the new architecture in detail.
+The Python plugin system was replaced with YAML configuration. See rules section below.
 
 ---
+
+## ⚠️ ARCHITECTURE PIVOT #2: Shim-Based Interception
+
+**Status: POC COMPLETE, needs productionization (PR-3.5)**
+
+### The Problem
+
+The original SHELL wrapper approach (`SHELL=/path/to/safeshell-wrapper`) only works when:
+- AI tools explicitly invoke `$SHELL -c "command"`
+- Programs respect the SHELL environment variable
+
+It does NOT work for:
+- Humans typing commands directly in terminals
+- AI tools that execute commands without using SHELL
+- Scripts that call binaries directly
+
+### The Solution: Shims + Shell Function Overrides
+
+**Like pyenv/rbenv**, SafeShell now uses:
+
+1. **Command Shims** - Lightweight scripts in `~/.safeshell/shims/` that intercept external commands
+2. **Shell Function Overrides** - Functions that override dangerous builtins (cd, source, eval)
+3. **Shell Init Script** - Sourced in .bashrc to set up PATH and functions
+
+### How It Works
+
+```
+User types: git commit -m "test"
+                │
+                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Bash looks up "git" in PATH                                     │
+│  PATH = ~/.safeshell/shims:/usr/bin:/bin:...                    │
+│                                                                  │
+│  Finds: ~/.safeshell/shims/git (symlink to safeshell-shim)      │
+└─────────────────────────────────────────────────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  safeshell-shim executes:                                        │
+│  1. Check if daemon socket exists (fail-open if not)            │
+│  2. SAFESHELL_CHECK_ONLY=1 safeshell-wrapper -c "git commit..." │
+│  3. If allowed → exec /usr/bin/git commit -m "test"             │
+│  4. If blocked → show message, exit 1                           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Builtin Overrides
+
+Shell builtins (cd, source, eval) can't be shimmed via PATH. Instead, we define functions:
+
+```bash
+cd() {
+    if __safeshell_check "cd $target"; then
+        builtin cd "$@"
+    else
+        return 1
+    fi
+}
+```
+
+### Shell Init Script
+
+Users add to `.bashrc`:
+```bash
+eval "$(safeshell init -)"
+# Or: source ~/.safeshell/init.bash
+```
+
+This sets up:
+1. PATH with shims directory first
+2. Function overrides for cd, source, eval
+3. Fail-open behavior when daemon not running
+
+### Shim Refresh
+
+When rules.yaml changes, shims need updating:
+```bash
+safeshell refresh
+```
+
+This reads all `commands:` from rules and creates/updates shims.
+
+### Key Files (POC location → Production location)
+
+| POC | Production | Purpose |
+|-----|------------|---------|
+| `src/safeshell/shims/safeshell-shim` | `~/.safeshell/shims/safeshell-shim` | Universal shim script |
+| `src/safeshell/shims/init.bash` | `~/.safeshell/init.bash` | Shell init script |
+| N/A | `src/safeshell/shims/manager.py` | Shim management module |
+
+### Limitations
+
+1. **Shell builtins require function overrides** - Can't shim `echo`, `cd`, etc. via PATH
+2. **One-time .bashrc setup required** - User must add init line
+3. **Shim refresh after rule changes** - Not automatic (like pyenv rehash)
 
 ## Config-Based Rules Architecture
 
