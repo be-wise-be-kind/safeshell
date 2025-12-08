@@ -8,18 +8,33 @@
 
 ## Pre-Demo Setup
 
-### 1. Ensure Claude Code Hook is Installed
+### 1. Ensure Claude Code Hook is Configured
 
 ```bash
-# Check if hook exists
-ls -la ~/.claude/hooks/PreToolUse.py
-
-# If not, install it:
-mkdir -p ~/.claude/hooks
-ln -sf ~/.safeshell/hooks/claude_code_hook.py ~/.claude/hooks/PreToolUse.py
+# Check if hook is configured in settings
+cat ~/.claude/settings.json | grep -A5 "PreToolUse"
 ```
 
-**IMPORTANT**: After installing the hook, you must restart Claude Code for it to take effect.
+If not configured, add to `~/.claude/settings.json`:
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/YOUR_USER/.safeshell/hooks/claude_code_hook.py"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**IMPORTANT**: After adding the hook configuration, you must restart Claude Code for it to take effect.
 
 ### 2. Ensure Daemon is Running
 
@@ -84,19 +99,29 @@ source ~/.safeshell/init.bash
 ```
 
 ### For Claude Code Bash Tool
-The PreToolUse hook must be installed and Claude Code restarted:
+The PreToolUse hook must be configured in settings and Claude Code restarted:
 ```bash
-# Verify hook exists
-ls -la ~/.claude/hooks/PreToolUse.py
-
-# Should show symlink to:
-# ~/.safeshell/hooks/claude_code_hook.py
+# Verify hook is configured
+cat ~/.claude/settings.json | grep -A5 "PreToolUse"
 ```
 
-If hook is missing, install it:
-```bash
-mkdir -p ~/.claude/hooks
-ln -sf ~/.safeshell/hooks/claude_code_hook.py ~/.claude/hooks/PreToolUse.py
+If hook is not configured, add to `~/.claude/settings.json`:
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/YOUR_USER/.safeshell/hooks/claude_code_hook.py"
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
 **Then restart Claude Code** - hooks are only loaded at startup.
