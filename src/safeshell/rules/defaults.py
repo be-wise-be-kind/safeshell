@@ -32,12 +32,12 @@ rules:
     action: deny
     message: "Cannot commit directly to protected branch. Create a feature branch first."
 
-  # Block force push to protected branches
-  - name: block-force-push-protected-branch
+  # Require approval for force push to protected branches
+  - name: approve-force-push-protected-branch
     commands: ["git"]
     conditions:
       - 'echo "$CMD" | grep -qE "^git\\s+push.*(--force|-f|--force-with-lease)"'
       - "git branch --show-current 2>/dev/null | grep -qE '^(main|master|develop)$'"
-    action: deny
-    message: "Force push to protected branch is blocked. This is a destructive operation."
+    action: require_approval
+    message: "Force push to protected branch requires approval. This is a destructive operation."
 """
