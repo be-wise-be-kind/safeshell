@@ -203,12 +203,12 @@ class TestEventPublisherWithManager:
         """Test that command evaluation emits events."""
         import tempfile
 
-        from safeshell.daemon.manager import PluginManager
+        from safeshell.daemon.manager import RuleManager
         from safeshell.models import DaemonRequest, RequestType
 
         bus = EventBus()
         publisher = DaemonEventPublisher(bus)
-        manager = PluginManager(event_publisher=publisher)
+        manager = RuleManager(event_publisher=publisher)
 
         received_events: list[Event] = []
 
@@ -237,10 +237,10 @@ class TestEventPublisherWithManager:
         """Test that evaluation works without event publisher."""
         import tempfile
 
-        from safeshell.daemon.manager import PluginManager
+        from safeshell.daemon.manager import RuleManager
         from safeshell.models import DaemonRequest, Decision, RequestType
 
-        manager = PluginManager()  # No publisher
+        manager = RuleManager()  # No publisher
 
         with tempfile.TemporaryDirectory() as tmpdir:
             request = DaemonRequest(

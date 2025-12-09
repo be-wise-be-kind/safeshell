@@ -1,7 +1,7 @@
 """
 File: src/safeshell/daemon/__init__.py
 Purpose: Daemon package exports
-Exports: DaemonServer, DaemonLifecycle, PluginManager, DaemonEventPublisher,
+Exports: DaemonServer, DaemonLifecycle, RuleManager, DaemonEventPublisher,
          MonitorConnectionHandler, MonitorCommand, MonitorCommandType, MonitorResponse
 Depends: safeshell.daemon.server, safeshell.daemon.lifecycle, safeshell.daemon.manager,
          safeshell.daemon.events, safeshell.daemon.monitor
@@ -14,7 +14,7 @@ from safeshell.daemon.lifecycle import (
     SOCKET_PATH,
     DaemonLifecycle,
 )
-from safeshell.daemon.manager import PluginManager
+from safeshell.daemon.manager import RuleManager
 from safeshell.daemon.monitor import (
     MonitorCommand,
     MonitorCommandType,
@@ -27,7 +27,7 @@ from safeshell.daemon.server import DaemonServer
 __all__ = [
     "DaemonServer",
     "DaemonLifecycle",
-    "PluginManager",
+    "RuleManager",
     "DaemonEventPublisher",
     "MonitorConnectionHandler",
     "MonitorCommand",

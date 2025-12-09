@@ -7,6 +7,7 @@ Overview: Provides install command with setup instructions for AI tools
 """
 
 import sys
+from pathlib import Path
 
 import typer
 from rich.console import Console
@@ -74,9 +75,6 @@ def _get_wrapper_path() -> str:
     Returns:
         Path to wrapper, or instruction if not found
     """
-    # Try to find safeshell-wrapper in the same location as python
-    from pathlib import Path
-
     # Check if we're in a poetry/venv environment
     python_path = Path(sys.executable)
     bin_dir = python_path.parent
