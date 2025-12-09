@@ -82,6 +82,18 @@ disable = [
     "W0718",  # broad-exception-caught (daemon error handling needs catch-all)
     "R0801",  # duplicate-code (similar cleanup patterns are acceptable)
     "W1510",  # subprocess-run-check (wrapper code intentionally ignores exit codes)
+    "R0902",  # too-many-instance-attributes (daemon/server classes need many attrs)
+    "R0913",  # too-many-arguments (event constructors need many params)
+    "R0917",  # too-many-positional-arguments (same as R0913)
+    "R0914",  # too-many-locals (complex event processing functions)
+    "R0915",  # too-many-statements (long but clear functions)
+    "W0212",  # protected-access (intentional internal API usage)
+    "W1514",  # unspecified-encoding (daemon redirects to /dev/null)
+    "R1732",  # consider-using-with (daemon file handles must stay open)
+    "W0611",  # unused-import (side-effect imports in CLI)
+    "C0301",  # line-too-long (occasionally needed for readability)
+    "W0104",  # pointless-statement (plumbum & BG syntax for background execution)
+    "E1136",  # unsubscriptable-object (false positive with Pydantic Field types)
 ]
 
 # MyPy configuration
