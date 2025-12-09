@@ -171,13 +171,30 @@ mv .roadmap/planning/[feature-name] .roadmap/in-progress/
 
 ## Continuing an Existing Roadmap
 
-### Step 1: Find Active Roadmaps
+### Step 1: Find Roadmaps
+
+**Check BOTH directories** - the roadmap might be in either location:
 
 ```bash
+# Check in-progress roadmaps (active development)
 ls .roadmap/in-progress/
+
+# Check planned roadmaps (not yet started)
+ls .roadmap/planning/
 ```
 
-### Step 2: Read PROGRESS_TRACKER.md
+### Step 2: Move from Planning to In-Progress (If Needed)
+
+**CRITICAL**: If the roadmap is in `planning/`, you MUST move it to `in-progress/` before starting any implementation work:
+
+```bash
+# Only run this if roadmap is in planning/
+mv .roadmap/planning/[feature-name] .roadmap/in-progress/
+```
+
+**Why this matters**: The `planning/` directory is for roadmaps still being designed. Once you start implementing PRs, the roadmap must be in `in-progress/` to signal active development.
+
+### Step 3: Read PROGRESS_TRACKER.md
 
 **Always read this document FIRST:**
 
@@ -191,11 +208,11 @@ Key sections to review:
 - **Prerequisites** - What must be done first
 - **Notes** - Important context or blockers
 
-### Step 3: Follow Next PR Instructions
+### Step 4: Follow Next PR Instructions
 
 Go to `PR_BREAKDOWN.md` and find the PR number from PROGRESS_TRACKER.md. Follow the detailed steps.
 
-### Step 4: Update PROGRESS_TRACKER.md
+### Step 5: Update PROGRESS_TRACKER.md
 
 **After completing each PR**, update:
 
@@ -265,15 +282,17 @@ When user says:
 - "Continue with..."
 - "What's next in..."
 - "Resume work on..."
+- "Let's continue working on..."
 
 **AI Agent Actions**:
-1. Check `.roadmap/in-progress/` for active roadmaps
-2. Read the roadmap's PROGRESS_TRACKER.md FIRST
-3. Go to "Next PR to Implement" section
-4. Reference PR_BREAKDOWN.md for detailed steps
-5. Implement the PR
-6. Update PROGRESS_TRACKER.md
-7. Commit changes
+1. **Check BOTH** `.roadmap/in-progress/` AND `.roadmap/planning/` for roadmaps
+2. **If in planning/**: Move to `in-progress/` FIRST (this signals implementation has begun)
+3. Read the roadmap's PROGRESS_TRACKER.md FIRST
+4. Go to "Next PR to Implement" section
+5. Reference PR_BREAKDOWN.md for detailed steps
+6. Implement the PR
+7. Update PROGRESS_TRACKER.md (status, commit hash, next PR)
+8. Commit changes
 
 ## Best Practices
 
@@ -304,8 +323,8 @@ When user says:
 ## Troubleshooting
 
 ### Issue: Can't find active roadmaps
-**Check**: `.roadmap/in-progress/` directory
-**Solution**: If empty, no roadmaps are active. Check planning/ or complete/
+**Check**: BOTH `.roadmap/in-progress/` AND `.roadmap/planning/` directories
+**Solution**: Roadmap might be in planning/ if implementation hasn't started yet. Move to in-progress/ before starting work.
 
 ### Issue: PROGRESS_TRACKER.md doesn't show next PR
 **Check**: "Next PR to Implement" section

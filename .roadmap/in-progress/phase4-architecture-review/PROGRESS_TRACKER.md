@@ -28,13 +28,13 @@ This is the **PRIMARY HANDOFF DOCUMENT** for AI agents working on the Architectu
 4. **Update this document** after completing each PR
 
 ## Current Status
-**Current PR**: Not started
+**Current PR**: PR1 Complete
 **Infrastructure State**: MVP complete with all core features functional
 **Feature Target**: Production-ready codebase with validated architecture and minimal technical debt
 
 ## Required Documents Location
 ```
-.roadmap/planning/phase4-architecture-review/
+.roadmap/in-progress/phase4-architecture-review/
 ├── AI_CONTEXT.md          # Overall feature architecture and context
 ├── PR_BREAKDOWN.md        # Detailed instructions for each PR
 ├── PROGRESS_TRACKER.md    # THIS FILE - Current progress and handoff notes
@@ -42,36 +42,29 @@ This is the **PRIMARY HANDOFF DOCUMENT** for AI agents working on the Architectu
 
 ## Next PR to Implement
 
-### START HERE: PR1 - Architecture Review Document
+### START HERE: PR2 - Code Cleanup - Dead Code & Imports
 
 **Quick Summary**:
-Conduct comprehensive architecture review of SafeShell POC. Create detailed analysis document covering daemon architecture, rules engine, shim system, approval workflow, module dependencies, and technical debt catalog. This is a pure analysis PR with no code changes.
+Remove dead code, unused imports, and commented-out code blocks. Clean up TODO/FIXME comments. Low-risk changes to clean up codebase.
 
 **Pre-flight Checklist**:
-- [ ] Read AI_CONTEXT.md to understand architecture components
-- [ ] Read PR_BREAKDOWN.md PR1 section for detailed steps
-- [ ] Verify access to all source directories:
-  - `src/safeshell/daemon/`
-  - `src/safeshell/rules/`
-  - `src/safeshell/shims/`
-  - `src/safeshell/wrapper/`
-- [ ] Have systematic approach for reviewing each component
-- [ ] Prepared to document findings, not make changes
+- [ ] Read PR_BREAKDOWN.md PR2 section for detailed steps
+- [ ] Reference artifacts/ARCHITECTURE_REVIEW.md for technical debt catalog
+- [ ] Run ruff to identify any remaining issues
+- [ ] Have systematic approach for cleanup
 
 **Prerequisites Complete**:
-- [x] MVP features functional
-- [x] Daemon with asyncio Unix socket server operational
-- [x] Rules engine with YAML schema working
-- [x] Shim system intercepting commands
-- [x] Approval workflow functional
+- [x] PR1 Architecture Review complete
+- [x] Architecture review document created at artifacts/ARCHITECTURE_REVIEW.md
+- [x] Technical debt catalogued with severity ratings
 
 ---
 
 ## Overall Progress
-**Total Completion**: 0% (0/5 PRs completed)
+**Total Completion**: 20% (1/5 PRs completed)
 
 ```
-[--------------------] 0% Complete
+[####----------------] 20% Complete
 ```
 
 ---
@@ -80,7 +73,7 @@ Conduct comprehensive architecture review of SafeShell POC. Create detailed anal
 
 | PR | Title | Status | Completion | Complexity | Priority | Notes |
 |----|-------|--------|------------|------------|----------|-------|
-| PR1 | Architecture Review Document | 🔴 Not Started | 0% | Medium | High | Analysis only, no code changes |
+| PR1 | Architecture Review Document | 🟢 Complete | 100% | Medium | High | Analysis complete (commit ec0fcb3) |
 | PR2 | Code Cleanup - Dead Code & Imports | 🔴 Not Started | 0% | Low | High | Low-risk cleanup |
 | PR3 | Code Cleanup - Consistency & Consolidation | 🔴 Not Started | 0% | Medium | High | Medium-risk refactoring |
 | PR4 | Refactoring & Module Boundaries | 🔴 Not Started | 0% | High | High | High-impact refactoring |
@@ -101,65 +94,65 @@ Conduct comprehensive architecture review of SafeShell POC. Create detailed anal
 Conduct comprehensive architecture review and create detailed analysis document. Review daemon architecture, rules engine, shim system, approval workflow, and catalog technical debt.
 
 ### Checklist
-- [ ] Review daemon architecture (asyncio, Unix socket, event system)
-  - [ ] Analyze server.py connection handling
-  - [ ] Analyze manager.py lifecycle management
-  - [ ] Analyze protocol.py message format
-  - [ ] Document design rationale and alternatives
-  - [ ] Identify strengths and weaknesses
-  - [ ] Provide specific recommendations
-- [ ] Review rules engine (YAML schema, bash conditions, performance)
-  - [ ] Analyze schema.py Pydantic models
-  - [ ] Analyze evaluator.py matching algorithm
-  - [ ] Analyze loader.py file loading strategy
-  - [ ] Document design rationale and alternatives
-  - [ ] Identify strengths and weaknesses
-  - [ ] Provide specific recommendations
-- [ ] Review shim system (symlinks, shell functions, compatibility)
-  - [ ] Analyze manager.py shim generation
-  - [ ] Analyze init.bash shell function overrides
-  - [ ] Document design rationale and alternatives
-  - [ ] Identify strengths and weaknesses
-  - [ ] Provide specific recommendations
-- [ ] Review approval workflow (blocking flow, timeouts, state)
-  - [ ] Analyze shell.py command interception
-  - [ ] Analyze client.py daemon communication
-  - [ ] Document design rationale and alternatives
-  - [ ] Identify strengths and weaknesses
-  - [ ] Provide specific recommendations
-- [ ] Create module dependency graph
-  - [ ] Analyze module coupling and cohesion
-  - [ ] Identify circular dependencies (if any)
-  - [ ] Document interface clarity
-  - [ ] Validate dependency direction
-- [ ] Catalog technical debt
-  - [ ] Search for all TODO/FIXME comments
-  - [ ] Identify unused imports and dead code
-  - [ ] Note inconsistent patterns
-  - [ ] Document intentional POC shortcuts
-  - [ ] Rate severity of each debt item
-  - [ ] Estimate resolution effort
-- [ ] Create docs/ARCHITECTURE_REVIEW.md
-  - [ ] Executive summary
-  - [ ] Component analysis sections
-  - [ ] Design decision documentation
-  - [ ] Technical debt catalog
-  - [ ] Refactoring recommendations
+- [x] Review daemon architecture (asyncio, Unix socket, event system)
+  - [x] Analyze server.py connection handling
+  - [x] Analyze manager.py lifecycle management
+  - [x] Analyze protocol.py message format
+  - [x] Document design rationale and alternatives
+  - [x] Identify strengths and weaknesses
+  - [x] Provide specific recommendations
+- [x] Review rules engine (YAML schema, bash conditions, performance)
+  - [x] Analyze schema.py Pydantic models
+  - [x] Analyze evaluator.py matching algorithm
+  - [x] Analyze loader.py file loading strategy
+  - [x] Document design rationale and alternatives
+  - [x] Identify strengths and weaknesses
+  - [x] Provide specific recommendations
+- [x] Review shim system (symlinks, shell functions, compatibility)
+  - [x] Analyze manager.py shim generation
+  - [x] Analyze init.bash shell function overrides
+  - [x] Document design rationale and alternatives
+  - [x] Identify strengths and weaknesses
+  - [x] Provide specific recommendations
+- [x] Review approval workflow (blocking flow, timeouts, state)
+  - [x] Analyze shell.py command interception
+  - [x] Analyze client.py daemon communication
+  - [x] Document design rationale and alternatives
+  - [x] Identify strengths and weaknesses
+  - [x] Provide specific recommendations
+- [x] Create module dependency graph
+  - [x] Analyze module coupling and cohesion
+  - [x] Identify circular dependencies (if any)
+  - [x] Document interface clarity
+  - [x] Validate dependency direction
+- [x] Catalog technical debt
+  - [x] Search for all TODO/FIXME comments
+  - [x] Identify unused imports and dead code
+  - [x] Note inconsistent patterns
+  - [x] Document intentional POC shortcuts
+  - [x] Rate severity of each debt item
+  - [x] Estimate resolution effort
+- [x] Create docs/ARCHITECTURE_REVIEW.md
+  - [x] Executive summary
+  - [x] Component analysis sections
+  - [x] Design decision documentation
+  - [x] Technical debt catalog
+  - [x] Refactoring recommendations
 
 ### Testing Requirements
-- [ ] Architecture review is comprehensive
-- [ ] All modules analyzed systematically
-- [ ] Design rationale documented for key decisions
-- [ ] Technical debt catalog is complete
-- [ ] Review document is readable and well-structured
+- [x] Architecture review is comprehensive
+- [x] All modules analyzed systematically
+- [x] Design rationale documented for key decisions
+- [x] Technical debt catalog is complete
+- [x] Review document is readable and well-structured
 
 ### Success Criteria
-- [ ] Architecture review document created at docs/ARCHITECTURE_REVIEW.md
-- [ ] All four core components reviewed
-- [ ] Alternatives documented for each design decision
-- [ ] Technical debt catalog with severity ratings
-- [ ] Specific recommendations for each component
-- [ ] Module dependency graph created
+- [x] Architecture review document created at docs/ARCHITECTURE_REVIEW.md
+- [x] All four core components reviewed
+- [x] Alternatives documented for each design decision
+- [x] Technical debt catalog with severity ratings
+- [x] Specific recommendations for each component
+- [x] Module dependency graph created
 
 ### Notes
 - This PR makes NO code changes
@@ -167,6 +160,12 @@ Conduct comprehensive architecture review and create detailed analysis document.
 - Be thorough and systematic in review
 - Document both strengths and weaknesses
 - Consider alternatives and trade-offs
+
+### Completion Notes
+- PR1 completed on feature/phase4-architecture-review branch
+- Architecture review document: .roadmap/in-progress/phase4-architecture-review/artifacts/ARCHITECTURE_REVIEW.md
+- Key findings: Clean codebase with minimal technical debt (4 items identified, all low-medium severity)
+- No TODO/FIXME comments found, no unused imports
 
 ---
 
@@ -197,6 +196,9 @@ Remove dead code, unused imports, and commented-out code blocks. Clean up TODO/F
   - [ ] Create GitHub issues if needed
   - [ ] Remove or update comments
   - [ ] Document in technical debt catalog if needed
+- [ ] Remove backward compatibility aliases
+  - [ ] Remove `PluginManager = RuleManager` alias in manager.py
+  - [ ] Remove hardcoded development path in init.bash
 
 ### Testing Requirements
 - [ ] All existing tests pass
@@ -242,6 +244,10 @@ Improve code consistency and consolidate duplicate logic. Standardize naming, er
   - [ ] Implement consistent logging pattern
   - [ ] Apply appropriate log levels
   - [ ] Ensure consistent logger names
+  - [ ] Add daemon logging infrastructure
+    - [ ] Configurable log file location (`~/.safeshell/daemon.log`)
+    - [ ] Clear log levels (debug, info, warning, error)
+    - [ ] Add `safeshell daemon logs` command for easy access
 - [ ] Consolidate duplicate logic
   - [ ] Identify duplicate socket communication code
   - [ ] Extract shared socket utilities
@@ -266,6 +272,7 @@ Improve code consistency and consolidate duplicate logic. Standardize naming, er
 - [ ] Consistent naming conventions throughout
 - [ ] Standardized error handling patterns
 - [ ] Consistent logging strategy implemented
+- [ ] Daemon logging infrastructure added (log file, levels, `daemon logs` command)
 - [ ] Duplicate code consolidated
 - [ ] All public APIs have proper docstrings
 - [ ] Tests pass with 100% success rate
@@ -296,18 +303,26 @@ Refactor code based on architecture review findings. Improve module boundaries, 
   - [ ] Update connection usage throughout codebase
   - [ ] Add connection logging
 - [ ] Refactor rule evaluation
-  - [ ] Add caching for condition evaluation
+  - [ ] Add rule caching with file modification time check
+  - [ ] Add condition result caching for repeated commands
   - [ ] Implement timeout enforcement
   - [ ] Add performance profiling hooks
   - [ ] Document rule precedence
+- [ ] Add rule validation command
+  - [ ] Add `safeshell rules validate` CLI command
+  - [ ] Use Pydantic validation with clear error messages
+  - [ ] Validate YAML structure and condition syntax
 - [ ] Improve module interfaces
   - [ ] Define DaemonInterface abstract class
   - [ ] Define RuleEngineInterface
   - [ ] Define clear public APIs
   - [ ] Document interface contracts
 - [ ] Refactor approval workflow
+  - [ ] Add "don't ask again" option (Claude Code-style: Yes / Yes, don't ask again / No)
+  - [ ] Add session-scoped approval memory per caller
+  - [ ] Key decisions by rule pattern + caller identifier
+  - [ ] Reset memory on session end or daemon restart
   - [ ] Add approval history tracking
-  - [ ] Implement batch approval consideration
   - [ ] Improve timeout handling
   - [ ] Add state persistence for pending approvals
 
@@ -321,9 +336,12 @@ Refactor code based on architecture review findings. Improve module boundaries, 
 ### Success Criteria
 - [ ] Common utilities module created and used
 - [ ] Connection handling improved
-- [ ] Rule evaluation optimized
+- [ ] Rule caching implemented (file mod time check)
+- [ ] Condition result caching implemented
+- [ ] `safeshell rules validate` command added
 - [ ] Clear module interfaces defined
-- [ ] Approval workflow enhanced
+- [ ] "Don't ask again" approval option implemented
+- [ ] Session-scoped approval memory working
 - [ ] Tests pass with 100% success rate
 - [ ] Architecture review recommendations implemented
 

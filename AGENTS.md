@@ -54,11 +54,17 @@ For detailed CLI navigation, see `.ai/howtos/how-to-use-safeshell-cli.md`.
 
 When users want to plan features or continue roadmap work:
 
-**Read `.ai/howtos/how-to-roadmap.md`** for complete instructions.
+**Detection patterns:**
+- Planning: "plan", "roadmap", "break down", "create a roadmap"
+- Continuing: "continue", "resume", "what's next", "let's continue", "continue working on"
 
-Quick reference:
-- Planning: "plan", "roadmap", "break down" → Create in `.roadmap/planning/`
-- Continuing: "continue", "resume", "what's next" → Check `.roadmap/in-progress/`
+**Read `.ai/howtos/how-to-roadmap.md`** for complete instructions - specifically the "Continuing an Existing Roadmap" and "For Continuation Requests" sections.
+
+**Quick reference:**
+- Check BOTH `.roadmap/in-progress/` AND `.roadmap/planning/`
+- Move from `planning/` to `in-progress/` before starting implementation
+- Read `PROGRESS_TRACKER.md` FIRST to find "Next PR to Implement"
+- Update `PROGRESS_TRACKER.md` after completing each PR (status, commit hash)
 
 ---
 
