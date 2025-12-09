@@ -188,9 +188,7 @@ class DaemonResponse(BaseModel):
     approval_pending: bool = Field(
         default=False, description="Whether command is awaiting human approval"
     )
-    approval_id: str | None = Field(
-        default=None, description="ID for pending approval request"
-    )
+    approval_id: str | None = Field(default=None, description="ID for pending approval request")
     is_intermediate: bool = Field(
         default=False, description="True if more responses will follow (e.g., waiting for approval)"
     )

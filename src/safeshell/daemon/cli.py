@@ -7,6 +7,7 @@ Overview: Provides start, stop, status commands for daemon management
 """
 
 # ruff: noqa: SIM115 - open() for daemonization must stay open for process lifetime
+# ruff: noqa: PTH123 - Must use open() for daemon stdio redirect (pathlib doesn't work here)
 
 import asyncio
 import os
@@ -126,6 +127,7 @@ def _daemonize() -> None:
     # IMPORTANT: Reconfigure loguru to use the new stderr (which is /dev/null)
     # Loguru captures the original stderr at import time, so we must reconfigure it
     from loguru import logger
+
     logger.remove()  # Remove default handler pointing to original stderr
     logger.add(sys.stderr, level="DEBUG")  # Add new handler to /dev/null stderr
 

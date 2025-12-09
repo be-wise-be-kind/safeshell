@@ -3,7 +3,6 @@ File: tests/monitor/test_app.py
 Purpose: Tests for MonitorApp
 """
 
-
 import pytest
 
 from safeshell.monitor.app import MonitorApp

@@ -10,6 +10,7 @@ Overview: The script that AI tools invoke as their shell (SHELL=/path/to/safeshe
 
 import os
 import sys
+from pathlib import Path
 from typing import NoReturn
 
 from loguru import logger
@@ -73,7 +74,7 @@ def _evaluate_and_execute(command: str) -> int:
         # Evaluate command
         response = client.evaluate(
             command=command,
-            working_dir=os.getcwd(),
+            working_dir=str(Path.cwd()),
             env=dict(os.environ),
             execution_context=execution_context,
         )
@@ -117,7 +118,7 @@ def _execute(command: str, shell: str) -> int:
 
     try:
         real_shell = local[shell]
-        retcode, stdout, stderr = real_shell["-c", command].run(retcode=None)
+        retcode_raw, stdout, stderr = real_shell["-c", command].run(retcode=None)
 
         # Write output to stdout/stderr
         if stdout:
@@ -125,6 +126,8 @@ def _execute(command: str, shell: str) -> int:
         if stderr:
             sys.stderr.write(stderr)
 
+        # Ensure we return an int (plumbum returns Any)
+        retcode: int = int(retcode_raw) if retcode_raw is not None else 0
         return retcode
 
     except ProcessExecutionError as e:

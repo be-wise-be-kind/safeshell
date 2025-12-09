@@ -211,6 +211,7 @@ class DaemonClient:
 
             # Run in background using plumbum's BG
             from plumbum import BG
+
             safeshell & BG
 
         except ProcessExecutionError as e:

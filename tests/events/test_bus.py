@@ -181,6 +181,7 @@ class TestEventBus:
 
         async def slow_handler(event: Event) -> None:
             import time
+
             start = time.monotonic()
             await asyncio.sleep(0.01)  # 10ms delay
             call_times.append(time.monotonic() - start)
@@ -191,6 +192,7 @@ class TestEventBus:
         await bus.subscribe(slow_handler)
 
         import time
+
         start = time.monotonic()
         event = Event.command_received("test", "/home/user")
         await bus.publish(event)

@@ -151,8 +151,14 @@ class HistoryPane(Static):
             self._history = self._history[:50]
         self._render_history()
 
-    def update_command(self, command: str, status: str, decision: str | None = None,
-                       reason: str | None = None, approval_id: str | None = None) -> None:
+    def update_command(
+        self,
+        command: str,
+        status: str,
+        decision: str | None = None,
+        reason: str | None = None,
+        approval_id: str | None = None,
+    ) -> None:
         """Update the status of a command in history.
 
         Args:

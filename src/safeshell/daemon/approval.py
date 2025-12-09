@@ -149,9 +149,7 @@ class ApprovalManager:
         )
 
         # Start timeout task
-        timeout_task = asyncio.create_task(
-            self._handle_timeout(approval_id, timeout_seconds)
-        )
+        timeout_task = asyncio.create_task(self._handle_timeout(approval_id, timeout_seconds))
         pending.timeout_task = timeout_task
 
         # Wait for resolution
@@ -233,8 +231,10 @@ class ApprovalManager:
             reason=reason,
         )
 
-        logger.info(f"Denied: {approval_id[:8]}... for '{pending.command}'" +
-                   (f" (reason: {reason})" if reason else ""))
+        logger.info(
+            f"Denied: {approval_id[:8]}... for '{pending.command}'"
+            + (f" (reason: {reason})" if reason else "")
+        )
         return True
 
     async def _handle_timeout(self, approval_id: str, timeout_seconds: float) -> None:
@@ -265,10 +265,7 @@ class ApprovalManager:
                 reason="Approval timed out",
             )
 
-            logger.warning(
-                f"Approval timed out: {approval_id[:8]}... "
-                f"after {timeout_seconds}s"
-            )
+            logger.warning(f"Approval timed out: {approval_id[:8]}... " f"after {timeout_seconds}s")
 
             # Resolve as timeout (after publishing event)
             pending.future.set_result((ApprovalResult.TIMEOUT, None))

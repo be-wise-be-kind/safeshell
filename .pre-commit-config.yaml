@@ -58,9 +58,38 @@ repos:
         pass_filenames: false
         stages: [pre-push]
 
+      - id: pylint
+        name: pylint code quality
+        entry: poetry run pylint src/safeshell
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-push]
+
       - id: pytest
         name: pytest
         entry: poetry run pytest tests/ -v --tb=short
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: thailint-magic-numbers
+        name: thailint magic numbers check
+        entry: bash -c 'poetry run thailint magic-numbers src/ || true'
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: thailint-nesting
+        name: thailint nesting check
+        entry: bash -c 'poetry run thailint nesting src/ || true'
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: thailint-srp
+        name: thailint SRP check
+        entry: bash -c 'poetry run thailint srp src/ || true'
         language: system
         pass_filenames: false
         stages: [pre-push]

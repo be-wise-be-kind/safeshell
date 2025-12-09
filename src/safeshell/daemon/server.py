@@ -11,7 +11,6 @@ Overview: Main daemon server that accepts connections, processes command evaluat
 # ruff: noqa: SIM105, S110 - contextlib.suppress doesn't work with await; best-effort error responses
 
 import asyncio
-import os
 import signal
 import time
 from collections.abc import Awaitable, Callable
@@ -146,7 +145,7 @@ class DaemonServer:
             self._handle_wrapper_client,
             path=str(self.socket_path),
         )
-        os.chmod(self.socket_path, 0o600)
+        self.socket_path.chmod(0o600)
         logger.info(f"Wrapper server started on {self.socket_path}")
 
         # Create and start monitor server (event streaming)
@@ -154,7 +153,7 @@ class DaemonServer:
             self._monitor_handler.handle_monitor,
             path=str(self.monitor_socket_path),
         )
-        os.chmod(self.monitor_socket_path, 0o600)
+        self.monitor_socket_path.chmod(0o600)
         logger.info(f"Monitor server started on {self.monitor_socket_path}")
 
         logger.info("Rule-based evaluation enabled")

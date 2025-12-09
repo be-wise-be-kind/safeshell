@@ -125,9 +125,7 @@ class RuleManager:
 
         # Emit command received event
         if self._event_publisher:
-            await self._event_publisher.command_received(
-                request.command, request.working_dir
-            )
+            await self._event_publisher.command_received(request.command, request.working_dir)
 
         # Load rules for the working directory
         rules = load_rules(request.working_dir)
@@ -156,18 +154,14 @@ class RuleManager:
 
         # Emit evaluation started event
         if self._event_publisher:
-            await self._event_publisher.evaluation_started(
-                request.command, len(rules)
-            )
+            await self._event_publisher.evaluation_started(request.command, len(rules))
 
         # Evaluate against rules
         result = await evaluator.evaluate(context)
 
         # Handle REQUIRE_APPROVAL decision
         if result.decision == Decision.REQUIRE_APPROVAL:
-            result = await self._handle_approval(
-                request.command, result, send_intermediate
-            )
+            result = await self._handle_approval(request.command, result, send_intermediate)
 
         results = [result]
 
@@ -231,9 +225,7 @@ class RuleManager:
 
         if self._approval_manager is None:
             # No approval manager configured - treat as deny
-            logger.warning(
-                f"REQUIRE_APPROVAL for '{command}' but no ApprovalManager configured"
-            )
+            logger.warning(f"REQUIRE_APPROVAL for '{command}' but no ApprovalManager configured")
             return EvaluationResult(
                 decision=Decision.DENY,
                 plugin_name=result.plugin_name,
@@ -242,6 +234,7 @@ class RuleManager:
 
         # Generate approval ID first so we can include it in the waiting message
         import uuid
+
         approval_id = str(uuid.uuid4())
 
         # Send "waiting for approval" message to client
