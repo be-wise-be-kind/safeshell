@@ -45,12 +45,6 @@ __safeshell_find_wrapper() {
         [[ -x "$loc" ]] && echo "$loc" && return
     done
 
-    # Development: try poetry
-    if [[ -f "$HOME/Projects/safeshell/pyproject.toml" ]]; then
-        (cd "$HOME/Projects/safeshell" && poetry run which safeshell-wrapper 2>/dev/null)
-        return
-    fi
-
     return 1
 }
 

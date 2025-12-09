@@ -276,7 +276,3 @@ class RuleManager:
             plugin_name=result.plugin_name,
             reason=denial_reason or result.reason,
         )
-
-
-# Backward compatibility alias
-PluginManager = RuleManager
