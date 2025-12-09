@@ -125,9 +125,7 @@ class TestApprovalManager:
         assert resolved_events[0].data["approved"] is True
 
     @pytest.mark.asyncio
-    async def test_request_approval_and_deny(
-        self, manager: ApprovalManager, bus: EventBus
-    ) -> None:
+    async def test_request_approval_and_deny(self, manager: ApprovalManager, bus: EventBus) -> None:
         """Test requesting approval and denying it with reason."""
         received_events: list[Event] = []
 
@@ -215,9 +213,7 @@ class TestApprovalManager:
         assert success is False
 
     @pytest.mark.asyncio
-    async def test_approve_already_resolved_returns_false(
-        self, manager: ApprovalManager
-    ) -> None:
+    async def test_approve_already_resolved_returns_false(self, manager: ApprovalManager) -> None:
         """Test that approving already-resolved approval returns False."""
         # Start approval request
         request_task = asyncio.create_task(

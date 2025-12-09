@@ -155,9 +155,7 @@ class TestDaemonEventPublisher:
             received_events.append(event)
 
         await publisher.bus.subscribe(handler)
-        count = await publisher.approval_resolved(
-            "abc123", approved=False, reason="Too risky"
-        )
+        count = await publisher.approval_resolved("abc123", approved=False, reason="Too risky")
 
         assert count == 1
         assert len(received_events) == 1

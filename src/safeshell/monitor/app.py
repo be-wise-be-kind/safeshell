@@ -153,11 +153,13 @@ class MonitorApp(App[None]):
 
                 # Add to history (debug mode only)
                 if history_pane:
-                    history_pane.add_command(CommandHistoryItem(
-                        command=command,
-                        timestamp=datetime.now(),
-                        status="pending",
-                    ))
+                    history_pane.add_command(
+                        CommandHistoryItem(
+                            command=command,
+                            timestamp=datetime.now(),
+                            status="pending",
+                        )
+                    )
 
             elif event_type == EventType.EVALUATION_STARTED.value:
                 plugin_count = data.get("plugin_count", 0)
@@ -196,12 +198,14 @@ class MonitorApp(App[None]):
                 self._log_debug(f"  ID: {approval_id[:12]}...", "debug")
                 self._log_debug(f"  Reason: {reason}", "info")
 
-                approval_pane.add_pending_approval({
-                    "approval_id": approval_id,
-                    "command": command,
-                    "reason": reason,
-                    "plugin_name": plugin_name,
-                })
+                approval_pane.add_pending_approval(
+                    {
+                        "approval_id": approval_id,
+                        "command": command,
+                        "reason": reason,
+                        "plugin_name": plugin_name,
+                    }
+                )
 
                 if history_pane:
                     history_pane.update_command(
@@ -235,9 +239,7 @@ class MonitorApp(App[None]):
             else:
                 self._log_debug(f"Error: {msg}", "error")
 
-    async def on_approval_pane_approval_action(
-        self, event: ApprovalPane.ApprovalAction
-    ) -> None:
+    async def on_approval_pane_approval_action(self, event: ApprovalPane.ApprovalAction) -> None:
         """Handle approval/denial from the approval pane.
 
         Args:

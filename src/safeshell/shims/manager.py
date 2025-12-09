@@ -53,6 +53,7 @@ def get_commands_from_rules(working_dir: str | Path | None = None) -> set[str]:
         # Load only global rules
         if GLOBAL_RULES_PATH.exists():
             from safeshell.rules.loader import _load_rule_file
+
             rules = _load_rule_file(GLOBAL_RULES_PATH)
         else:
             rules = []

@@ -131,60 +131,52 @@ class TestMonitorConnectionHandler:
         assert response.message == "pong"
 
     @pytest.mark.asyncio
-    async def test_process_approve_missing_id(
-        self, handler: MonitorConnectionHandler
-    ) -> None:
+    async def test_process_approve_missing_id(self, handler: MonitorConnectionHandler) -> None:
         """Test approve command without approval_id."""
         response = await handler._process_command({"type": "approve"})
         assert response.success is False
         assert "approval_id" in response.error.lower()
 
     @pytest.mark.asyncio
-    async def test_process_deny_missing_id(
-        self, handler: MonitorConnectionHandler
-    ) -> None:
+    async def test_process_deny_missing_id(self, handler: MonitorConnectionHandler) -> None:
         """Test deny command without approval_id."""
         response = await handler._process_command({"type": "deny"})
         assert response.success is False
         assert "approval_id" in response.error.lower()
 
     @pytest.mark.asyncio
-    async def test_process_invalid_command(
-        self, handler: MonitorConnectionHandler
-    ) -> None:
+    async def test_process_invalid_command(self, handler: MonitorConnectionHandler) -> None:
         """Test processing an invalid command."""
         response = await handler._process_command({"type": "invalid"})
         assert response.success is False
         assert response.error is not None
 
     @pytest.mark.asyncio
-    async def test_approve_without_callback(
-        self, handler: MonitorConnectionHandler
-    ) -> None:
+    async def test_approve_without_callback(self, handler: MonitorConnectionHandler) -> None:
         """Test approve when no callback is set."""
-        response = await handler._process_command({
-            "type": "approve",
-            "approval_id": "test123",
-        })
+        response = await handler._process_command(
+            {
+                "type": "approve",
+                "approval_id": "test123",
+            }
+        )
         assert response.success is False
         assert "not configured" in response.error.lower()
 
     @pytest.mark.asyncio
-    async def test_deny_without_callback(
-        self, handler: MonitorConnectionHandler
-    ) -> None:
+    async def test_deny_without_callback(self, handler: MonitorConnectionHandler) -> None:
         """Test deny when no callback is set."""
-        response = await handler._process_command({
-            "type": "deny",
-            "approval_id": "test123",
-        })
+        response = await handler._process_command(
+            {
+                "type": "deny",
+                "approval_id": "test123",
+            }
+        )
         assert response.success is False
         assert "not configured" in response.error.lower()
 
     @pytest.mark.asyncio
-    async def test_approve_with_callback(
-        self, handler: MonitorConnectionHandler
-    ) -> None:
+    async def test_approve_with_callback(self, handler: MonitorConnectionHandler) -> None:
         """Test approve with callback set."""
         approved_ids: list[str] = []
 
@@ -196,17 +188,17 @@ class TestMonitorConnectionHandler:
 
         handler.set_approval_callbacks(approve_callback, deny_callback)
 
-        response = await handler._process_command({
-            "type": "approve",
-            "approval_id": "test123",
-        })
+        response = await handler._process_command(
+            {
+                "type": "approve",
+                "approval_id": "test123",
+            }
+        )
         assert response.success is True
         assert "test123" in approved_ids
 
     @pytest.mark.asyncio
-    async def test_deny_with_callback(
-        self, handler: MonitorConnectionHandler
-    ) -> None:
+    async def test_deny_with_callback(self, handler: MonitorConnectionHandler) -> None:
         """Test deny with callback set."""
         denied: list[tuple[str, str | None]] = []
 
@@ -218,10 +210,12 @@ class TestMonitorConnectionHandler:
 
         handler.set_approval_callbacks(approve_callback, deny_callback)
 
-        response = await handler._process_command({
-            "type": "deny",
-            "approval_id": "test123",
-            "reason": "Too risky",
-        })
+        response = await handler._process_command(
+            {
+                "type": "deny",
+                "approval_id": "test123",
+                "reason": "Too risky",
+            }
+        )
         assert response.success is True
         assert ("test123", "Too risky") in denied

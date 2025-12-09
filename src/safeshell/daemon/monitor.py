@@ -257,9 +257,7 @@ class MonitorConnectionHandler:
         except Exception as e:
             return MonitorResponse.err(f"Failed to approve: {e}")
 
-    async def _handle_deny(
-        self, approval_id: str, reason: str | None
-    ) -> MonitorResponse:
+    async def _handle_deny(self, approval_id: str, reason: str | None) -> MonitorResponse:
         """Handle a deny command.
 
         Args:

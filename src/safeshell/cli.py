@@ -138,10 +138,12 @@ def monitor(
     # Suppress loguru output for TUI - redirect to /dev/null instead of stderr
     # This preserves stderr for Textual while silencing our logs
     from loguru import logger
+
     logger.remove()  # Remove default stderr handler
     logger.add(os.devnull, level="DEBUG")  # Send all logs to /dev/null
 
     from safeshell.monitor.app import MonitorApp
+
     monitor_app = MonitorApp(debug_mode=debug)
     monitor_app.run()
 

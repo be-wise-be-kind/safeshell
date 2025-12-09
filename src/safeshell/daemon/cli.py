@@ -127,6 +127,7 @@ def _daemonize() -> None:
     # IMPORTANT: Reconfigure loguru to use the new stderr (which is /dev/null)
     # Loguru captures the original stderr at import time, so we must reconfigure it
     from loguru import logger
+
     logger.remove()  # Remove default handler pointing to original stderr
     logger.add(sys.stderr, level="DEBUG")  # Add new handler to /dev/null stderr
 

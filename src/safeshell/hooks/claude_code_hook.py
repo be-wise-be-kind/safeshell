@@ -85,10 +85,7 @@ def check_command(command: str) -> tuple[bool, str]:
         return True, "SafeShell wrapper not found, allowing command"
 
     # Check if daemon socket exists
-    socket_path = Path(os.environ.get(
-        "SAFESHELL_SOCKET",
-        Path.home() / ".safeshell/daemon.sock"
-    ))
+    socket_path = Path(os.environ.get("SAFESHELL_SOCKET", Path.home() / ".safeshell/daemon.sock"))
     if not socket_path.exists():
         # Daemon not running - fail open
         return True, "SafeShell daemon not running, allowing command"

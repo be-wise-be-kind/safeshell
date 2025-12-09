@@ -109,9 +109,7 @@ class DaemonEventPublisher:
         Returns:
             Number of subscribers that received the event
         """
-        event = Event.approval_needed(
-            approval_id, command, plugin_name, reason, challenge_code
-        )
+        event = Event.approval_needed(approval_id, command, plugin_name, reason, challenge_code)
         logger.info(f"Publishing approval_needed: {command} (id={approval_id[:8]}...)")
         return await self._bus.publish(event)
 
@@ -154,8 +152,6 @@ class DaemonEventPublisher:
         Returns:
             Number of subscribers that received the event
         """
-        event = Event.daemon_status(
-            status, uptime_seconds, commands_processed, active_connections
-        )
+        event = Event.daemon_status(status, uptime_seconds, commands_processed, active_connections)
         logger.debug(f"Publishing daemon_status: {status}")
         return await self._bus.publish(event)
