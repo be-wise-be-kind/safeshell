@@ -73,7 +73,7 @@ Remove dead code, unused imports, and commented-out code blocks. Clean up TODO/F
 
 | PR | Title | Status | Completion | Complexity | Priority | Notes |
 |----|-------|--------|------------|------------|----------|-------|
-| PR1 | Architecture Review Document | 🟢 Complete | 100% | Medium | High | Analysis only, no code changes |
+| PR1 | Architecture Review Document | 🟢 Complete | 100% | Medium | High | Analysis complete (commit ec0fcb3) |
 | PR2 | Code Cleanup - Dead Code & Imports | 🔴 Not Started | 0% | Low | High | Low-risk cleanup |
 | PR3 | Code Cleanup - Consistency & Consolidation | 🔴 Not Started | 0% | Medium | High | Medium-risk refactoring |
 | PR4 | Refactoring & Module Boundaries | 🔴 Not Started | 0% | High | High | High-impact refactoring |
@@ -196,6 +196,9 @@ Remove dead code, unused imports, and commented-out code blocks. Clean up TODO/F
   - [ ] Create GitHub issues if needed
   - [ ] Remove or update comments
   - [ ] Document in technical debt catalog if needed
+- [ ] Remove backward compatibility aliases
+  - [ ] Remove `PluginManager = RuleManager` alias in manager.py
+  - [ ] Remove hardcoded development path in init.bash
 
 ### Testing Requirements
 - [ ] All existing tests pass
@@ -241,6 +244,10 @@ Improve code consistency and consolidate duplicate logic. Standardize naming, er
   - [ ] Implement consistent logging pattern
   - [ ] Apply appropriate log levels
   - [ ] Ensure consistent logger names
+  - [ ] Add daemon logging infrastructure
+    - [ ] Configurable log file location (`~/.safeshell/daemon.log`)
+    - [ ] Clear log levels (debug, info, warning, error)
+    - [ ] Add `safeshell daemon logs` command for easy access
 - [ ] Consolidate duplicate logic
   - [ ] Identify duplicate socket communication code
   - [ ] Extract shared socket utilities
@@ -265,6 +272,7 @@ Improve code consistency and consolidate duplicate logic. Standardize naming, er
 - [ ] Consistent naming conventions throughout
 - [ ] Standardized error handling patterns
 - [ ] Consistent logging strategy implemented
+- [ ] Daemon logging infrastructure added (log file, levels, `daemon logs` command)
 - [ ] Duplicate code consolidated
 - [ ] All public APIs have proper docstrings
 - [ ] Tests pass with 100% success rate
@@ -295,18 +303,26 @@ Refactor code based on architecture review findings. Improve module boundaries, 
   - [ ] Update connection usage throughout codebase
   - [ ] Add connection logging
 - [ ] Refactor rule evaluation
-  - [ ] Add caching for condition evaluation
+  - [ ] Add rule caching with file modification time check
+  - [ ] Add condition result caching for repeated commands
   - [ ] Implement timeout enforcement
   - [ ] Add performance profiling hooks
   - [ ] Document rule precedence
+- [ ] Add rule validation command
+  - [ ] Add `safeshell rules validate` CLI command
+  - [ ] Use Pydantic validation with clear error messages
+  - [ ] Validate YAML structure and condition syntax
 - [ ] Improve module interfaces
   - [ ] Define DaemonInterface abstract class
   - [ ] Define RuleEngineInterface
   - [ ] Define clear public APIs
   - [ ] Document interface contracts
 - [ ] Refactor approval workflow
+  - [ ] Add "don't ask again" option (Claude Code-style: Yes / Yes, don't ask again / No)
+  - [ ] Add session-scoped approval memory per caller
+  - [ ] Key decisions by rule pattern + caller identifier
+  - [ ] Reset memory on session end or daemon restart
   - [ ] Add approval history tracking
-  - [ ] Implement batch approval consideration
   - [ ] Improve timeout handling
   - [ ] Add state persistence for pending approvals
 
@@ -320,9 +336,12 @@ Refactor code based on architecture review findings. Improve module boundaries, 
 ### Success Criteria
 - [ ] Common utilities module created and used
 - [ ] Connection handling improved
-- [ ] Rule evaluation optimized
+- [ ] Rule caching implemented (file mod time check)
+- [ ] Condition result caching implemented
+- [ ] `safeshell rules validate` command added
 - [ ] Clear module interfaces defined
-- [ ] Approval workflow enhanced
+- [ ] "Don't ask again" approval option implemented
+- [ ] Session-scoped approval memory working
 - [ ] Tests pass with 100% success rate
 - [ ] Architecture review recommendations implemented
 

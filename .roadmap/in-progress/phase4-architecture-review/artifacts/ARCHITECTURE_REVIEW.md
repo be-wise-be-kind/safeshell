@@ -18,10 +18,10 @@ SafeShell demonstrates a well-architected command interception system with clear
 - Good test coverage foundation (51%+)
 
 ### Key Weaknesses
-- Dual protection paths (shims vs hooks) add complexity
-- Blocking approval flow may impact UX for rapid command sequences
-- No rule caching across evaluations
-- Limited observability/metrics infrastructure
+- Rules reload per-request adds latency (optimization needed)
+- No condition result caching for repeated evaluations
+- Limited observability/logging infrastructure (agents can't find logs)
+- Blocking approval flow lacks "don't ask again" option for session
 
 ### Overall Assessment
 The architecture is production-ready with minor improvements needed. The POC achieved its goals of validating the interception approach while maintaining code quality.
@@ -72,11 +72,13 @@ The daemon uses Python's asyncio with Unix domain sockets for IPC. Two separate 
 
 ### Weaknesses
 
-1. **Rules reload per-request**: `load_rules()` is called for every evaluation (line 131 in manager.py). This is correct for picking up rule changes but has overhead.
+1. **Rules reload per-request**: `load_rules()` is called for every evaluation (line 131 in manager.py). This is correct for picking up rule changes but has significant overhead that could slow down rapid command sequences. **Needs optimization.**
 
-2. **No connection pooling or limits**: The daemon accepts unlimited connections without backpressure.
+2. **Limited observability**: Agents troubleshooting issues cannot easily locate daemon logs. No configurable log file location or clear logging strategy. **Needs addressing.**
 
-3. **Limited daemon metrics**: Only tracks uptime and command count; no latency percentiles, error rates, or rule evaluation timing.
+3. **No connection pooling or limits**: The daemon accepts unlimited connections without backpressure.
+
+4. **Limited daemon metrics**: Only tracks uptime and command count; no latency percentiles, error rates, or rule evaluation timing.
 
 ### Alternatives Considered
 
@@ -89,10 +91,11 @@ The daemon uses Python's asyncio with Unix domain sockets for IPC. Two separate 
 
 ### Recommendations
 
-1. **Add rule caching**: Cache loaded rules with file modification time check; invalidate on change
-2. **Add connection limits**: Implement max connections and queue depth
-3. **Add metrics collection**: Track evaluation latency, rule match counts, approval times
-4. **Consider health endpoint**: Simple status endpoint for monitoring integration
+1. **Add rule caching**: Cache loaded rules with file modification time check; invalidate on change. **Priority: High** - performance critical
+2. **Add daemon logging infrastructure**: Configurable log file (`~/.safeshell/daemon.log`), clear log levels, possibly `safeshell daemon logs` command. **Priority: High** - needed for debugging
+3. **Add connection limits**: Implement max connections and queue depth
+4. **Add metrics collection**: Track evaluation latency, rule match counts, approval times
+5. **Consider health endpoint**: Simple status endpoint for monitoring integration
 
 ---
 
@@ -137,13 +140,15 @@ YAML-based rule configuration with bash subprocess conditions. Rules are loaded 
 
 ### Weaknesses
 
-1. **Subprocess overhead**: Each bash condition spawns a process. Multiple conditions compound this cost.
+1. **Subprocess overhead**: Each bash condition spawns a process. Multiple conditions compound this cost. **Needs optimization** - latency is critical for a command interceptor.
 
-2. **No condition result caching**: Same condition on same command re-executes each time.
+2. **No condition result caching**: Same condition on same command re-executes each time. **Needs optimization** - repeated commands should be fast.
 
-3. **Security surface**: Bash execution from YAML config requires trust in config file source.
+3. **Limited rule validation**: Schema validates structure but not condition syntax. **Needs addressing** - users will author custom rules and need clear error messages.
 
-4. **Limited rule validation**: Schema validates structure but not condition syntax.
+### Design Notes
+
+**Security surface**: Bash execution from YAML config is acceptable because SafeShell is designed for **cooperative agents** (Claude Code, etc.), not adversarial attackers. Users control their own `rules.yaml` - they're not loading untrusted configs.
 
 ### Alternatives Considered
 
@@ -156,10 +161,9 @@ YAML-based rule configuration with bash subprocess conditions. Rules are loaded 
 
 ### Recommendations
 
-1. **Add condition caching**: Cache (command, condition) -> result for repeated commands
-2. **Add rule validation command**: `safeshell rules validate` to check syntax and test rules
+1. **Add condition caching**: Cache (command, condition) -> result for repeated commands. **Priority: High** - performance critical
+2. **Add rule validation command**: `safeshell rules validate` to check syntax and test rules using Pydantic validation with clear error messages. **Priority: High** - needed for user-authored rules
 3. **Add rule profiling**: Time each condition execution for optimization insights
-4. **Document security model**: Clarify that rules.yaml must be user-controlled
 
 ---
 
@@ -171,6 +175,12 @@ Symlink-based command interception with shell function overrides for builtins:
 
 1. **External commands** (git, rm, etc.): Symlinks in `~/.safeshell/shims/` pointing to `safeshell-shim` script
 2. **Shell builtins** (cd, source, eval, echo): Function overrides in `init.bash`
+
+**Note on dual protection paths**: The codebase has two interception mechanisms (shims/builtins for shell + hooks for Claude Code). This is intentional and necessary:
+- Shell builtins cannot be intercepted via PATH/symlinks - they require function overrides
+- Claude Code doesn't invoke commands through a normal shell session (uses direct subprocess execution) - it requires the PreToolUse hook integration
+
+These are fundamentally different execution contexts requiring different mechanisms.
 
 **Key Files:**
 - `src/safeshell/shims/manager.py` - Shim creation, removal, and refresh
@@ -274,13 +284,15 @@ Blocking approval flow where commands requiring approval pause execution until h
 
 ### Weaknesses
 
-1. **Blocking nature**: Rapid command sequences each require separate approval wait
+1. **No "don't ask again" option**: Users want Claude Code-style approval (1: Yes, 2: Yes and don't ask again, 3: No). Currently each command requires individual approval. **Needs addressing** - significant UX friction.
 
-2. **No batch approval**: Cannot approve "all git commands" or similar patterns
+2. **Blocking nature**: Rapid command sequences each require separate approval wait.
 
-3. **Single monitor support**: Currently assumes one monitor; multiple monitors could cause race
+3. **No session-scoped memory**: Cannot remember approval decisions per caller per session.
 
-4. **No approval persistence**: Pending approvals lost on daemon restart
+4. **Single monitor support**: Currently assumes one monitor; multiple monitors could cause race.
+
+5. **No approval persistence**: Pending approvals lost on daemon restart.
 
 ### Alternatives Considered
 
@@ -293,10 +305,11 @@ Blocking approval flow where commands requiring approval pause execution until h
 
 ### Recommendations
 
-1. **Add batch approval option**: "Approve all from this rule for 5 minutes"
-2. **Persist pending approvals**: Survive daemon restart for long-running approvals
-3. **Add approval audit log**: Record all approval decisions for review
-4. **Multi-monitor coordination**: Define behavior when multiple monitors connected
+1. **Add "don't ask again" option**: Implement Claude Code-style approval flow (Yes / Yes, don't ask again / No) with session-scoped memory per caller. **Priority: High** - critical UX improvement
+2. **Add session-scoped approval memory**: Remember decisions keyed by rule pattern + caller identifier, reset on session end
+3. **Persist pending approvals**: Survive daemon restart for long-running approvals
+4. **Add approval audit log**: Record all approval decisions for review
+5. **Multi-monitor coordination**: Define behavior when multiple monitors connected
 
 ---
 
@@ -429,24 +442,32 @@ Blocking approval flow where commands requiring approval pause execution until h
 
 ### Immediate (PR2-PR4 Scope)
 
-1. Remove `PluginManager` backward compatibility alias
-2. Make wrapper client timeout derived from config
-3. Remove hardcoded development path in init.bash
+**Performance Critical:**
+1. Add rule caching with file modification time check (PR4)
+2. Add condition result caching for repeated evaluations (PR4)
+
+**Observability:**
+3. Add daemon logging infrastructure - configurable log file, clear levels, `safeshell daemon logs` command (PR3)
+
+**User Experience:**
+4. Add "don't ask again" approval option with session-scoped memory (PR4)
+5. Add `safeshell rules validate` command with Pydantic validation (PR3/PR4)
+
+**Cleanup:**
+6. Remove `PluginManager` backward compatibility alias (PR2)
+7. Make wrapper client timeout derived from config (PR3)
+8. Remove hardcoded development path in init.bash (PR2)
 
 ### Near-Term (Future PRs)
 
-1. Add rule caching with file modification time check
-2. Add `safeshell rules validate` command
-3. Add metrics collection (latency, error rates)
-4. Add approval audit logging
-5. Document security model for rules.yaml
+1. Add metrics collection (latency, error rates)
+2. Add approval audit logging
+3. Rule condition profiling and optimization
 
 ### Long-Term (Future Phases)
 
 1. Multi-shell support (fish, nushell)
-2. Batch approval patterns
-3. Rule condition profiling and optimization
-4. Distributed daemon support for team environments
+2. Distributed daemon support for team environments
 
 ---
 
