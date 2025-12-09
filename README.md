@@ -34,24 +34,24 @@ flowchart TB
     end
 
     subgraph Interception["Interception Layer"]
-        Shims["Command Shims<br/>~/.safeshell/shims/"]
-        Wrapper["Shell Wrapper<br/>SHELL=safeshell-wrapper"]
-        Hook["Claude Code Hook<br/>PreToolUse"]
+        Shims["Command Shims"]
+        Wrapper["Shell Wrapper"]
+        Hook["Claude Code Hook"]
     end
 
     subgraph Core["SafeShell Daemon"]
         Server["Unix Socket Server"]
-        Rules["Rules Engine<br/>YAML Configuration"]
+        Rules["Rules Engine"]
         Approval["Approval Manager"]
     end
 
     subgraph Actions["Enforcement"]
-        Allow["✓ Allow"]
-        Deny["✗ Deny"]
-        Require["⏳ Require Approval"]
+        Allow["Allow"]
+        Deny["Deny"]
+        Require["Require Approval"]
     end
 
-    Monitor["Monitor TUI<br/>Real-time visibility"]
+    Monitor["Monitor TUI"]
 
     Human --> Shims
     Claude --> Hook
