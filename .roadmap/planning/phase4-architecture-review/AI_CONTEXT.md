@@ -216,7 +216,8 @@ Some shortcuts and technical debt accumulated during POC:
 - All TODO/FIXME comments addressed or documented
 - Consistent naming conventions across all modules
 - All modules have clear boundaries
-- Test coverage maintained or improved
+- Test coverage improved from 51% to 80%+
+- CI coverage threshold increased to 80%
 
 ## Technical Constraints
 
@@ -227,8 +228,9 @@ Some shortcuts and technical debt accumulated during POC:
 
 ### Testing Requirements
 - All existing tests must pass after refactoring
-- No reduction in test coverage
+- Test coverage must be improved from 51% to 80%+
 - Integration tests validate end-to-end functionality
+- CI coverage threshold to be increased to 80% after PR5
 
 ### Performance Requirements
 - Refactoring should not degrade performance

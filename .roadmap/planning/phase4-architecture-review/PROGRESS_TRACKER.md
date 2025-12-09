@@ -68,7 +68,7 @@ Conduct comprehensive architecture review of SafeShell POC. Create detailed anal
 ---
 
 ## Overall Progress
-**Total Completion**: 0% (0/4 PRs completed)
+**Total Completion**: 0% (0/5 PRs completed)
 
 ```
 [--------------------] 0% Complete
@@ -84,6 +84,7 @@ Conduct comprehensive architecture review of SafeShell POC. Create detailed anal
 | PR2 | Code Cleanup - Dead Code & Imports | 🔴 Not Started | 0% | Low | High | Low-risk cleanup |
 | PR3 | Code Cleanup - Consistency & Consolidation | 🔴 Not Started | 0% | Medium | High | Medium-risk refactoring |
 | PR4 | Refactoring & Module Boundaries | 🔴 Not Started | 0% | High | High | High-impact refactoring |
+| PR5 | Test Coverage Improvement | 🔴 Not Started | 0% | Medium | High | Increase coverage to 80%+, update CI threshold |
 
 ### Status Legend
 - 🔴 Not Started
@@ -334,6 +335,72 @@ Refactor code based on architecture review findings. Improve module boundaries, 
 
 ---
 
+## PR5: Test Coverage Improvement
+
+### Description
+Improve test coverage from 51% to 80%+ to enable stricter CI/CD coverage thresholds. Focus on untested modules and critical code paths. Update CI coverage threshold after achieving target.
+
+### Current Coverage Analysis
+Based on Phase 2 CI/CD analysis:
+- **0% coverage**: `shims/manager.py`, `wrapper/shell.py`, `hooks/claude_code_hook.py`
+- **21-29% coverage**: `monitor/app.py`, `wrapper/cli.py`, `monitor/widgets.py`
+- **51-54% coverage**: `wrapper/client.py`, `monitor/client.py`
+- **90%+ coverage**: `models.py`, `rules/evaluator.py`, `rules/loader.py`, `rules/schema.py`
+
+### Checklist
+- [ ] Add tests for shim system
+  - [ ] Create tests/shims/test_manager.py
+  - [ ] Test shim creation
+  - [ ] Test shim removal
+  - [ ] Test shim refresh from rules
+  - [ ] Test directory creation
+- [ ] Add tests for wrapper shell
+  - [ ] Create tests/wrapper/test_shell.py
+  - [ ] Test command interception
+  - [ ] Test command allowed/denied flows
+  - [ ] Test daemon connection failure handling
+- [ ] Add tests for Claude Code hook
+  - [ ] Create tests/hooks/test_claude_code_hook.py
+  - [ ] Test hook allow/deny/approval behaviors
+  - [ ] Test output format compliance
+- [ ] Expand tests for monitor TUI
+  - [ ] Expand tests/monitor/test_app.py
+  - [ ] Create tests/monitor/test_widgets.py
+  - [ ] Test app startup and event display
+  - [ ] Test approval buttons functionality
+- [ ] Add integration tests
+  - [ ] Create tests/integration/test_full_workflow.py
+  - [ ] Test command-to-approval flow
+  - [ ] Test rule evaluation to action
+  - [ ] Test shim-to-daemon communication
+- [ ] Update CI coverage threshold
+  - [ ] Verify coverage is 80%+
+  - [ ] Update .github/workflows/test.yml threshold to 80%
+  - [ ] Verify CI passes with new threshold
+
+### Testing Requirements
+- [ ] All new tests pass
+- [ ] Coverage increased to 80%+
+- [ ] No existing tests broken
+- [ ] Integration tests validate end-to-end functionality
+- [ ] Tests are maintainable and well-documented
+
+### Success Criteria
+- [ ] Test coverage increased from 51% to 80%+
+- [ ] All 0% coverage modules have meaningful tests
+- [ ] CI coverage threshold updated to 80%
+- [ ] Integration tests cover critical workflows
+- [ ] Tests are reliable (no flaky tests)
+- [ ] Test execution time remains reasonable (< 60 seconds)
+
+### Notes
+- Focus on testing critical code paths first
+- Use mocking for daemon/socket interactions
+- Consider using pytest fixtures for common setup
+- Ensure tests are independent and can run in isolation
+
+---
+
 ## Implementation Strategy
 
 ### Sequential Approach
@@ -341,6 +408,7 @@ Refactor code based on architecture review findings. Improve module boundaries, 
 2. **PR2 (Cleanup)**: Remove technical debt, low-risk changes
 3. **PR3 (Consistency)**: Standardize patterns, medium-risk refactoring
 4. **PR4 (Refactoring)**: Implement improvements, high-risk changes
+5. **PR5 (Testing)**: Improve coverage to 80%+, update CI threshold
 
 ### Risk Mitigation
 - Run full test suite after each change
@@ -450,11 +518,19 @@ The Architecture Review & Refactoring phase is considered complete when:
 - [ ] Tests pass 100%
 - [ ] Performance maintained or improved
 
+### PR5 Complete
+- [ ] Test coverage increased from 51% to 80%+
+- [ ] All 0% coverage modules have meaningful tests
+- [ ] CI coverage threshold updated to 80%
+- [ ] Integration tests cover critical workflows
+- [ ] Tests are reliable (no flaky tests)
+
 ### Overall Phase Complete
-- [ ] All 4 PRs merged
+- [ ] All 5 PRs merged
 - [ ] Codebase is production-ready
 - [ ] Architecture is validated and documented
 - [ ] Technical debt is minimal and documented
 - [ ] Code quality is high and consistent
+- [ ] Test coverage at 80%+ with CI enforcement
 - [ ] No functionality broken
 - [ ] Performance maintained or improved
