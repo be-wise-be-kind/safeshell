@@ -1,0 +1,71 @@
+# ==============================================================================
+# File: .github/workflows/security.yml
+#
+# Purpose: Automated security vulnerability scanning
+#
+# Triggers: push to main, pull_request to main, weekly schedule, workflow_dispatch
+#
+# Jobs:
+#   - security: Run Bandit, Safety, pip-audit, and Gitleaks
+#
+# Tools:
+#   - Bandit: Python code security scanning
+#   - Safety: Dependency vulnerability checking
+#   - pip-audit: OSV database scanning
+#   - Gitleaks: Secret detection in git history
+#
+# Notes:
+#   - Security scans run non-blocking (|| true) to warn without failing builds
+#   - Weekly scheduled scans catch newly disclosed vulnerabilities
+#   - Gitleaks requires fetch-depth: 0 for full history scanning
+# ==============================================================================
+
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sundays at midnight UTC
+  workflow_dispatch:
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for gitleaks to scan commits properly
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 2.1.4
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Install dependencies
+        run: poetry install --no-interaction
+
+      - name: Run Bandit (security scanner)
+        run: poetry run bandit -r src/ -c pyproject.toml || true
+
+      - name: Run Safety (dependency vulnerabilities)
+        run: poetry run safety check --json || true
+
+      - name: Run pip-audit (OSV database)
+        run: poetry run pip-audit || true
+
+      - name: Run Gitleaks (secret scanning)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

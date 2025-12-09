@@ -28,6 +28,8 @@ bandit = "^1.8.0"
 pre-commit = "^4.0.0"
 thailint = "^0.4.6"
 radon = "^6.0.0"
+pip-audit = "^2.10.0"
+safety = "3.5.1"
 
 [tool.poetry.scripts]
 safeshell = "safeshell.cli:app"

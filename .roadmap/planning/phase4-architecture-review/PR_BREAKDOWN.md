@@ -819,6 +819,175 @@ class ApprovalManager:
 - Optimize based on findings
 - Enhance core functionality
 
+## PR5: Test Coverage Improvement
+
+### Scope
+Improve test coverage from 51% to 80%+ to enable stricter CI/CD coverage thresholds. Focus on untested modules and critical code paths.
+
+### Files to Modify
+- Tests in `tests/` directory (new and expanded)
+- `.github/workflows/test.yml` (update coverage threshold)
+
+### Current Coverage Analysis
+Based on CI/CD Phase 2 analysis:
+- **0% coverage**: `shims/manager.py`, `wrapper/shell.py`, `hooks/claude_code_hook.py`, `shims/__init__.py`
+- **21-29% coverage**: `monitor/app.py`, `wrapper/cli.py`, `monitor/widgets.py`
+- **51-54% coverage**: `wrapper/client.py`, `monitor/client.py`
+- **90%+ coverage**: `models.py`, `rules/evaluator.py`, `rules/loader.py`, `rules/schema.py`
+
+### Detailed Steps
+
+#### Step 1: Add Tests for Shim System
+Create comprehensive tests for `src/safeshell/shims/`:
+
+**New test file:** `tests/shims/test_manager.py`
+```python
+"""Tests for shim manager module."""
+
+def test_create_shim():
+    """Test shim creation for a command."""
+    ...
+
+def test_remove_shim():
+    """Test shim removal."""
+    ...
+
+def test_refresh_shims():
+    """Test shim refresh from rules."""
+    ...
+
+def test_shim_directory_creation():
+    """Test shims directory is created if missing."""
+    ...
+```
+
+#### Step 2: Add Tests for Wrapper Shell
+Create tests for `src/safeshell/wrapper/shell.py`:
+
+**New test file:** `tests/wrapper/test_shell.py`
+```python
+"""Tests for shell wrapper module."""
+
+def test_command_interception():
+    """Test command is intercepted and sent to daemon."""
+    ...
+
+def test_command_allowed():
+    """Test allowed command executes."""
+    ...
+
+def test_command_denied():
+    """Test denied command is blocked."""
+    ...
+
+def test_daemon_connection_failure():
+    """Test graceful handling of daemon connection failure."""
+    ...
+```
+
+#### Step 3: Add Tests for Claude Code Hook
+Create tests for `src/safeshell/hooks/claude_code_hook.py`:
+
+**New test file:** `tests/hooks/test_claude_code_hook.py`
+```python
+"""Tests for Claude Code hook integration."""
+
+def test_pretooluse_hook_allow():
+    """Test hook allows safe commands."""
+    ...
+
+def test_pretooluse_hook_deny():
+    """Test hook denies dangerous commands."""
+    ...
+
+def test_pretooluse_hook_approval():
+    """Test hook triggers approval flow."""
+    ...
+
+def test_hook_output_format():
+    """Test hook output matches Claude Code expectations."""
+    ...
+```
+
+#### Step 4: Add Tests for Monitor TUI
+Expand tests for `src/safeshell/monitor/`:
+
+**Expand:** `tests/monitor/test_app.py`
+```python
+"""Tests for monitor TUI application."""
+
+def test_app_startup():
+    """Test TUI application starts correctly."""
+    ...
+
+def test_event_display():
+    """Test events are displayed in TUI."""
+    ...
+
+def test_approval_buttons():
+    """Test approve/deny buttons function correctly."""
+    ...
+```
+
+**New:** `tests/monitor/test_widgets.py`
+```python
+"""Tests for monitor TUI widgets."""
+
+def test_event_panel_rendering():
+    """Test event panel renders correctly."""
+    ...
+
+def test_approval_dialog():
+    """Test approval dialog displays correctly."""
+    ...
+```
+
+#### Step 5: Add Integration Tests
+Create end-to-end integration tests:
+
+**New test file:** `tests/integration/test_full_workflow.py`
+```python
+"""Integration tests for complete approval workflow."""
+
+def test_command_interception_to_approval():
+    """Test full flow from command to approval."""
+    ...
+
+def test_rule_evaluation_to_action():
+    """Test rule matching triggers correct action."""
+    ...
+
+def test_shim_to_daemon_communication():
+    """Test shim properly communicates with daemon."""
+    ...
+```
+
+#### Step 6: Update CI Coverage Threshold
+After achieving 80%+ coverage:
+
+**Update `.github/workflows/test.yml`:**
+```yaml
+- name: Check coverage threshold
+  run: poetry run coverage report --fail-under=80
+```
+
+### Testing Requirements
+- [ ] All new tests pass
+- [ ] Coverage increased to 80%+
+- [ ] No existing tests broken
+- [ ] Integration tests validate end-to-end functionality
+- [ ] Tests are maintainable and well-documented
+
+### Success Criteria
+- [ ] Test coverage increased from 51% to 80%+
+- [ ] All 0% coverage modules have meaningful tests
+- [ ] CI coverage threshold updated to 80%
+- [ ] Integration tests cover critical workflows
+- [ ] Tests are reliable (no flaky tests)
+- [ ] Test execution time remains reasonable (< 60 seconds)
+
+---
+
 ## Success Metrics
 
 ### Launch Metrics
@@ -826,6 +995,7 @@ class ApprovalManager:
 - [ ] Zero dead code remaining
 - [ ] Consistent patterns throughout codebase
 - [ ] All review recommendations addressed
+- [ ] Test coverage at 80%+
 - [ ] Tests pass with 100% success rate
 - [ ] No performance regression
 
@@ -834,3 +1004,4 @@ class ApprovalManager:
 - [ ] Debugging is easier with consistent patterns
 - [ ] New contributors can understand architecture
 - [ ] Technical debt is documented and managed
+- [ ] Coverage threshold enforced in CI
