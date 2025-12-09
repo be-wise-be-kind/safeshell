@@ -7,6 +7,7 @@ Overview: Provides start, stop, status commands for daemon management
 """
 
 # ruff: noqa: SIM115 - open() for daemonization must stay open for process lifetime
+# ruff: noqa: PTH123 - Must use open() for daemon stdio redirect (pathlib doesn't work here)
 
 import asyncio
 import os

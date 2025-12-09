@@ -190,7 +190,7 @@ def refresh_shims(working_dir: str | Path | None = None) -> dict[str, list[str]]
     Returns:
         Dict with "created", "removed", and "unchanged" lists of command names
     """
-    result = {
+    result: dict[str, list[str]] = {
         "created": [],
         "removed": [],
         "unchanged": [],

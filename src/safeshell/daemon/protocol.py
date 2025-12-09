@@ -40,7 +40,8 @@ def decode_message(data: bytes) -> dict[str, Any]:
         ProtocolError: If JSON parsing fails
     """
     try:
-        return json.loads(data.decode("utf-8"))
+        result: dict[str, Any] = json.loads(data.decode("utf-8"))
+        return result
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
         raise ProtocolError(f"Failed to decode message: {e}") from e
 

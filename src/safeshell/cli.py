@@ -8,6 +8,7 @@ Overview: Provides version, check, status commands and registers daemon/wrapper 
 
 import os
 import sys
+from pathlib import Path
 
 import typer
 from rich.console import Console
@@ -56,7 +57,7 @@ def check(command: str) -> None:
     try:
         response = client.evaluate(
             command=command,
-            working_dir=os.getcwd(),
+            working_dir=str(Path.cwd()),
             env=dict(os.environ),
         )
 
@@ -219,7 +220,7 @@ def refresh() -> None:
     from safeshell.shims import refresh_shims
 
     console.print("[dim]Refreshing shims...[/dim]")
-    result = refresh_shims(working_dir=os.getcwd())
+    result = refresh_shims(working_dir=str(Path.cwd()))
 
     if result["created"]:
         console.print(f"[green]Created:[/green] {', '.join(result['created'])}")

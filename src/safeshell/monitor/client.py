@@ -165,7 +165,8 @@ class MonitorClient:
             line = await asyncio.wait_for(self._reader.readline(), timeout=5.0)
             if line:
                 response = decode_message(line.strip())
-                return response.get("success", False)
+                success: bool = response.get("success", False)
+                return success
             return False
 
         except Exception as e:

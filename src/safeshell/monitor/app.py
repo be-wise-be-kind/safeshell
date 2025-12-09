@@ -255,7 +255,7 @@ class MonitorApp(App[None]):
             if not success:
                 self._log_debug("Failed to send denial", "error")
 
-    def action_quit(self) -> None:
+    async def action_quit(self) -> None:
         """Quit the application."""
         self.exit()
 
