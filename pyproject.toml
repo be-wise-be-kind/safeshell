@@ -30,6 +30,7 @@ thailint = "^0.4.6"
 radon = "^6.0.0"
 pip-audit = "^2.10.0"
 safety = "3.5.1"
+types-pyyaml = "^6.0.0"  # Type stubs for PyYAML
 
 [tool.poetry.scripts]
 safeshell = "safeshell.cli:app"
@@ -45,18 +46,42 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "RET", "S"]
-ignore = ["S101"]  # Allow assert in tests
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "A",   # flake8-builtins
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+    "RET", # flake8-return
+    "S",   # flake8-bandit
+    "PTH", # flake8-use-pathlib (modern path handling)
+]
+ignore = [
+    "S101",  # Allow assert in tests
+]
 
 [tool.ruff.lint.per-file-ignores]
 "src/safeshell/cli.py" = ["F401"]  # Allow unused imports for side-effect registration
+"tests/*" = ["S101"]  # Allow assert in tests
 
 # Pylint configuration
 [tool.pylint.main]
 max-line-length = 100
+
+[tool.pylint.messages_control]
 disable = [
-    "R0903",  # too-few-public-methods
-    "C0415",  # import-outside-toplevel: Intentional for CLI lazy loading
+    "R0903",  # too-few-public-methods (Pydantic models are intentionally simple DTOs)
+    "C0415",  # import-outside-toplevel (CLI lazy loading for performance)
+    "R0912",  # too-many-branches (validation logic often requires many branches)
+    "R0911",  # too-many-return-statements (early returns improve readability)
+    "W0718",  # broad-exception-caught (daemon error handling needs catch-all)
+    "R0801",  # duplicate-code (similar cleanup patterns are acceptable)
+    "W1510",  # subprocess-run-check (wrapper code intentionally ignores exit codes)
 ]
 
 # MyPy configuration
@@ -66,6 +91,21 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
+# Allow relaxed rules in tests (testing patterns often need flexibility)
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+# Plumbum lacks type stubs - ignore missing imports
+[[tool.mypy.overrides]]
+module = ["plumbum", "plumbum.*"]
+ignore_missing_imports = true
 
 # Pytest configuration
 [tool.pytest.ini_options]
@@ -81,7 +121,14 @@ markers = [
 # Bandit configuration
 [tool.bandit]
 exclude_dirs = ["tests"]
-skips = ["B101"]  # Allow assert
+skips = [
+    "B101",  # Allow assert
+    "B110",  # try-except-pass: Daemon cleanup code intentionally ignores errors
+    "B404",  # subprocess import: Required for shell wrapping functionality
+    "B603",  # subprocess without shell: Safe - we control the command list
+    "B606",  # start process no shell: Safe - intentional for exec replacement
+    "B607",  # partial path: Safe - using poetry run for development utilities
+]
 
 # Radon configuration
 [tool.radon]
