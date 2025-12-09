@@ -54,11 +54,33 @@ For detailed CLI navigation, see `.ai/howtos/how-to-use-safeshell-cli.md`.
 
 When users want to plan features or continue roadmap work:
 
-**Read `.ai/howtos/how-to-roadmap.md`** for complete instructions.
+**Detection patterns:**
+- Planning: "plan", "roadmap", "break down", "create a roadmap"
+- Continuing: "continue", "resume", "what's next", "let's continue", "continue working on"
 
-Quick reference:
-- Planning: "plan", "roadmap", "break down" → Create in `.roadmap/planning/`
-- Continuing: "continue", "resume", "what's next" → Check `.roadmap/in-progress/`
+**For continuation requests, you MUST:**
+
+1. **Check `.roadmap/in-progress/`** for active roadmaps
+2. **Read `PROGRESS_TRACKER.md` FIRST** - this is the primary handoff document
+3. **Find "Next PR to Implement"** section - this tells you what to do
+4. **Read `PR_BREAKDOWN.md`** for detailed implementation steps
+5. **Implement the PR** following the detailed steps
+6. **Update `PROGRESS_TRACKER.md`** immediately after completing:
+   - Change PR status: 🔴 → 🟢
+   - Add commit hash to Notes column
+   - Update "Next PR to Implement" to next PR
+   - Update overall progress percentage
+7. **Commit the progress tracker update**
+
+**For planning requests:**
+- Read `.ai/howtos/how-to-roadmap.md` for complete instructions
+- Create roadmap in `.roadmap/planning/[feature-name]/`
+
+**Resources:**
+- Guide: `.ai/howtos/how-to-roadmap.md`
+- Active roadmaps: `.roadmap/in-progress/`
+- Planned roadmaps: `.roadmap/planning/`
+- Completed roadmaps: `.roadmap/complete/`
 
 ---
 
