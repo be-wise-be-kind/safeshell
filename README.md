@@ -26,8 +26,49 @@ SafeShell provides:
 SafeShell uses a hybrid shim + daemon architecture for comprehensive command interception:
 
 ```mermaid
-graph TD
-    A[Test] --> B[Works]
+flowchart TB
+    subgraph Sources["Command Sources"]
+        Human["Human Terminal"]
+        Claude["Claude Code"]
+        Scripts["Shell Scripts"]
+    end
+
+    subgraph Interception["Interception Layer"]
+        Shims["Command Shims"]
+        Wrapper["Shell Wrapper"]
+        Hook["Claude Code Hook"]
+    end
+
+    subgraph Core["SafeShell Daemon"]
+        Server["Unix Socket Server"]
+        Rules["Rules Engine"]
+        Approval["Approval Manager"]
+    end
+
+    subgraph Actions["Enforcement"]
+        Allow["Allow"]
+        Deny["Deny"]
+        Require["Require Approval"]
+    end
+
+    Monitor["Monitor TUI"]
+
+    Human --> Shims
+    Claude --> Hook
+    Claude --> Wrapper
+    Scripts --> Shims
+
+    Shims --> Server
+    Wrapper --> Server
+    Hook --> Server
+
+    Server --> Rules
+    Rules --> Allow
+    Rules --> Deny
+    Rules --> Approval
+    Approval --> Require
+
+    Server -.-> Monitor
 ```
 
 ### Component Overview
