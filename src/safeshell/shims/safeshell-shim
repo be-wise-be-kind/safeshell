@@ -6,6 +6,22 @@
 # Get the command name from how we were invoked
 CMD_NAME=$(basename "$0")
 
+# Skip shim processing for hook-protected AI tools (they already validated)
+# This prevents double-approval issues with Claude Code, etc.
+if [[ -n "$CLAUDECODE" ]]; then
+    # Find and exec the real command directly
+    SHIM_DIR=$(dirname "$(readlink -f "$0")")
+    IFS=':' read -ra PATH_DIRS <<< "$PATH"
+    for dir in "${PATH_DIRS[@]}"; do
+        [[ "$dir" == "$SHIM_DIR" ]] && continue
+        if [[ -x "$dir/$CMD_NAME" ]]; then
+            exec "$dir/$CMD_NAME" "$@"
+        fi
+    done
+    echo "[SafeShell] Error: Could not find real '$CMD_NAME' in PATH" >&2
+    exit 127
+fi
+
 # Find the real command (skip our shim directory in PATH)
 SHIM_DIR=$(dirname "$(readlink -f "$0")")
 REAL_CMD=""
