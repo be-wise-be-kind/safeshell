@@ -33,25 +33,36 @@ flowchart TB
         Scripts["Shell Scripts"]
     end
 
+    subgraph Install["Installation (choose one)"]
+        Pyenv["pyenv + pip install"]
+        Pipx["pipx install"]
+        Poetry["poetry install (dev)"]
+    end
+
     subgraph Interception["Interception Layer"]
-        Shims["Command Shims"]
-        Wrapper["Shell Wrapper"]
-        Hook["Claude Code Hook"]
+        Shims["Command Shims<br/>~/.safeshell/shims/"]
+        Wrapper["Shell Wrapper<br/>safeshell-wrapper"]
+        Hook["Claude Code Hook<br/>~/.safeshell/hooks/"]
     end
 
     subgraph Core["SafeShell Daemon"]
         Server["Unix Socket Server"]
         Rules["Rules Engine"]
         Approval["Approval Manager"]
+        Memory["Session Memory"]
     end
 
     subgraph Actions["Enforcement"]
-        Allow["Allow"]
-        Deny["Deny"]
-        Require["Require Approval"]
+        Allow["✓ Allow"]
+        Deny["✗ Deny"]
+        Require["? Require Approval"]
     end
 
-    Monitor["Monitor TUI"]
+    Monitor["Monitor TUI<br/>safeshell monitor"]
+
+    Pyenv --> Wrapper
+    Pipx --> Wrapper
+    Poetry --> Wrapper
 
     Human --> Shims
     Claude --> Hook
@@ -66,9 +77,11 @@ flowchart TB
     Rules --> Allow
     Rules --> Deny
     Rules --> Approval
-    Approval --> Require
+    Approval --> Memory
+    Memory --> Require
 
     Server -.-> Monitor
+    Monitor -.->|approve/deny| Approval
 ```
 
 ### Component Overview
@@ -155,20 +168,28 @@ safeshell monitor
 
 ### Prerequisites
 - Python 3.11 or higher
-- Poetry (for development installation)
 
-### From Source
+### Option 1: pipx (Recommended for Users)
 
 ```bash
-git clone https://github.com/be-wise-be-kind/safeshell.git
-cd safeshell
-poetry install
+pipx install safeshell
+safeshell init
 ```
 
-### Development Installation
+### Option 2: pyenv + pip
 
 ```bash
-# Clone and install with dev dependencies
+# Ensure you have a pyenv Python version active
+pyenv install 3.13.2
+pyenv global 3.13.2
+
+pip install safeshell
+safeshell init
+```
+
+### Option 3: Poetry (Development)
+
+```bash
 git clone https://github.com/be-wise-be-kind/safeshell.git
 cd safeshell
 poetry install --with dev
@@ -179,6 +200,15 @@ poetry run pytest
 # Run linting
 poetry run ruff check src/
 ```
+
+### Hook Executable Discovery
+
+The Claude Code hook automatically finds `safeshell-wrapper` in this order:
+1. **pyenv versions** - Direct lookup in `~/.pyenv/versions/*/bin/` (avoids shim issues)
+2. **pipx location** - `~/.local/bin/safeshell-wrapper`
+3. **System location** - `/usr/local/bin/safeshell-wrapper`
+4. **PATH** - Any other location (excluding pyenv shims)
+5. **Poetry** - Falls back to `poetry run` for development
 
 ## Configuration
 
