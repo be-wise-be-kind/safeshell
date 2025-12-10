@@ -179,9 +179,7 @@ class RuleCache:
 
         return files
 
-    def _load_rules_with_mtimes(
-        self, working_dir: str
-    ) -> tuple[list[Rule], dict[Path, float]]:
+    def _load_rules_with_mtimes(self, working_dir: str) -> tuple[list[Rule], dict[Path, float]]:
         """Load rules and track source file modification times.
 
         Args:

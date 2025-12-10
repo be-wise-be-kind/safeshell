@@ -240,9 +240,7 @@ class MonitorConnectionHandler:
 
         return MonitorResponse.err(f"Unknown command type: {command.type}")
 
-    async def _handle_approve(
-        self, approval_id: str, remember: bool = False
-    ) -> MonitorResponse:
+    async def _handle_approve(self, approval_id: str, remember: bool = False) -> MonitorResponse:
         """Handle an approve command.
 
         Args:

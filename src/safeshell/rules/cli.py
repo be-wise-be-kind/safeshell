@@ -95,9 +95,7 @@ def _validate_all_rules(verbose: bool) -> None:
     if GLOBAL_RULES_PATH.exists():
         try:
             rules = _load_rule_file(GLOBAL_RULES_PATH)
-            console.print(
-                f"[green]Valid:[/green] {GLOBAL_RULES_PATH} ({len(rules)} rules)"
-            )
+            console.print(f"[green]Valid:[/green] {GLOBAL_RULES_PATH} ({len(rules)} rules)")
             total_rules += len(rules)
             all_rules.extend(rules)
         except RuleLoadError as e:
@@ -130,9 +128,7 @@ def _validate_all_rules(verbose: bool) -> None:
     # Summary
     console.print()
     if errors:
-        console.print(
-            f"[red]Validation failed:[/red] {len(errors)} file(s) with errors"
-        )
+        console.print(f"[red]Validation failed:[/red] {len(errors)} file(s) with errors")
         raise typer.Exit(1)
 
     console.print(f"[green]All rules valid:[/green] {total_rules} total rules")

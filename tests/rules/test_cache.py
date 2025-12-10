@@ -90,9 +90,7 @@ class TestRuleCache:
             rules_path.write_text("rules: []")
 
             with (
-                patch(
-                    "safeshell.rules.cache._load_rule_file", return_value=sample_rules
-                ),
+                patch("safeshell.rules.cache._load_rule_file", return_value=sample_rules),
                 patch("safeshell.rules.cache.GLOBAL_RULES_PATH", rules_path),
             ):
                 # First request - cache miss
@@ -117,9 +115,7 @@ class TestRuleCache:
             rules_path.write_text("rules: []")
 
             with (
-                patch(
-                    "safeshell.rules.cache._load_rule_file", return_value=sample_rules
-                ),
+                patch("safeshell.rules.cache._load_rule_file", return_value=sample_rules),
                 patch("safeshell.rules.cache.GLOBAL_RULES_PATH", rules_path),
             ):
                 # First request - cache miss
@@ -136,9 +132,7 @@ class TestRuleCache:
 
         assert cache.stats["misses"] == 2
 
-    def test_cache_invalidation_on_file_deletion(
-        self, sample_rules: list[Rule]
-    ) -> None:
+    def test_cache_invalidation_on_file_deletion(self, sample_rules: list[Rule]) -> None:
         """Test cache is invalidated when rule file is deleted."""
         cache = RuleCache()
 
@@ -148,9 +142,7 @@ class TestRuleCache:
             rules_path.write_text("rules: []")
 
             with (
-                patch(
-                    "safeshell.rules.cache._load_rule_file", return_value=sample_rules
-                ),
+                patch("safeshell.rules.cache._load_rule_file", return_value=sample_rules),
                 patch("safeshell.rules.cache.GLOBAL_RULES_PATH", rules_path),
             ):
                 # First request - cache miss
@@ -180,9 +172,7 @@ class TestRuleCache:
             rules2 = Path(tmpdir2) / "rules.yaml"
             rules2.write_text("rules: []")
 
-            with patch(
-                "safeshell.rules.cache._load_rule_file", return_value=sample_rules
-            ):
+            with patch("safeshell.rules.cache._load_rule_file", return_value=sample_rules):
                 # Populate cache for both directories
                 with patch("safeshell.rules.cache.GLOBAL_RULES_PATH", rules1):
                     cache.get_rules(tmpdir1)
@@ -209,9 +199,7 @@ class TestRuleCache:
             rules2 = Path(tmpdir2) / "rules.yaml"
             rules2.write_text("rules: []")
 
-            with patch(
-                "safeshell.rules.cache._load_rule_file", return_value=sample_rules
-            ):
+            with patch("safeshell.rules.cache._load_rule_file", return_value=sample_rules):
                 # Populate cache for both directories
                 with patch("safeshell.rules.cache.GLOBAL_RULES_PATH", rules1):
                     cache.get_rules(tmpdir1)
@@ -224,9 +212,7 @@ class TestRuleCache:
                 cache.invalidate(tmpdir1)
                 assert cache.stats["cached_entries"] == 1
 
-    def test_different_working_dirs_cached_separately(
-        self, sample_rules: list[Rule]
-    ) -> None:
+    def test_different_working_dirs_cached_separately(self, sample_rules: list[Rule]) -> None:
         """Test different working directories have separate cache entries."""
         cache = RuleCache()
 
