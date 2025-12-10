@@ -12,13 +12,14 @@ Overview: Main daemon server that accepts connections, processes command evaluat
 
 import asyncio
 import signal
+import sys
 import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 from loguru import logger
 
-from safeshell.config import load_config
+from safeshell.config import SafeShellConfig, load_config
 from safeshell.daemon.approval import ApprovalManager
 from safeshell.daemon.events import DaemonEventPublisher
 from safeshell.daemon.lifecycle import (
@@ -275,10 +276,52 @@ class DaemonServer:
             return DaemonResponse.error(f"Invalid request: {e}")
 
 
+def configure_logging(config: SafeShellConfig) -> None:
+    """Configure loguru logging for daemon.
+
+    Sets up file logging in addition to stderr output.
+
+    Args:
+        config: Configuration containing log settings
+    """
+    # Remove default handler to reconfigure
+    logger.remove()
+
+    # Add stderr handler with configured level
+    stderr_format = (
+        "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | "
+        "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+    )
+    logger.add(
+        sys.stderr,
+        level=config.log_level,
+        format=stderr_format,
+    )
+
+    # Add file handler
+    log_path = config.get_log_file_path()
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    logger.add(
+        log_path,
+        level=config.log_level,
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+        rotation="10 MB",
+        retention="7 days",
+        compression="gz",
+    )
+
+    logger.info(f"Logging configured: level={config.log_level}, file={log_path}")
+
+
 async def run_daemon() -> None:
     """Run the daemon server.
 
     Entry point for running the daemon in foreground mode.
     """
+    # Load config and configure logging before starting server
+    config = load_config()
+    configure_logging(config)
+
     server = DaemonServer()
     await server.start()

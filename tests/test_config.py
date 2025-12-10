@@ -32,18 +32,22 @@ class TestSafeShellConfig:
         assert config.unreachable_behavior == UnreachableBehavior.FAIL_CLOSED
         assert config.delegate_shell == "/bin/bash"
         assert config.log_level == "INFO"
+        assert config.log_file is None
 
-    def test_custom_values(self) -> None:
+    def test_custom_values(self, tmp_path: Path) -> None:
         """Test configuration with custom values."""
         # Use /bin/bash which is guaranteed to exist
+        log_file = tmp_path / "test.log"
         config = SafeShellConfig(
             unreachable_behavior=UnreachableBehavior.FAIL_OPEN,
             delegate_shell="/bin/bash",
             log_level="DEBUG",
+            log_file=log_file,
         )
         assert config.unreachable_behavior == UnreachableBehavior.FAIL_OPEN
         assert config.delegate_shell == "/bin/bash"
         assert config.log_level == "DEBUG"
+        assert config.log_file == log_file
 
     def test_detect_default_shell(self) -> None:
         """Test shell detection."""
@@ -51,6 +55,35 @@ class TestSafeShellConfig:
         # Should return a valid path
         assert shell.startswith("/")
         assert Path(shell).exists() or shell == "/bin/bash"
+
+    def test_log_level_validation_uppercase(self) -> None:
+        """Test that log level is normalized to uppercase."""
+        config = SafeShellConfig(log_level="debug")
+        assert config.log_level == "DEBUG"
+
+    def test_log_level_validation_invalid(self) -> None:
+        """Test that invalid log level defaults to INFO."""
+        config = SafeShellConfig(log_level="invalid")
+        assert config.log_level == "INFO"
+
+    def test_log_level_validation_all_valid_levels(self) -> None:
+        """Test all valid log levels are accepted."""
+        for level in ["DEBUG", "INFO", "WARNING", "ERROR"]:
+            config = SafeShellConfig(log_level=level)
+            assert config.log_level == level
+
+    def test_get_log_file_path_default(self) -> None:
+        """Test default log file path."""
+        config = SafeShellConfig()
+        log_path = config.get_log_file_path()
+        assert log_path.name == "daemon.log"
+        assert ".safeshell" in str(log_path)
+
+    def test_get_log_file_path_custom(self, tmp_path: Path) -> None:
+        """Test custom log file path."""
+        custom_path = tmp_path / "custom.log"
+        config = SafeShellConfig(log_file=custom_path)
+        assert config.get_log_file_path() == custom_path
 
 
 class TestLoadConfig:

@@ -78,13 +78,3 @@ async def write_message(writer: asyncio.StreamWriter, msg: BaseModel) -> None:
     """
     writer.write(encode_message(msg))
     await writer.drain()
-
-
-def sync_encode_message(msg: BaseModel) -> bytes:
-    """Synchronous version of encode_message for wrapper client."""
-    return encode_message(msg)
-
-
-def sync_decode_message(data: bytes) -> dict[str, Any]:
-    """Synchronous version of decode_message for wrapper client."""
-    return decode_message(data)

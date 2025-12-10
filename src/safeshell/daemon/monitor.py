@@ -179,7 +179,7 @@ class MonitorConnectionHandler:
             # Connection closed, will be handled by main loop
             raise
         except Exception as e:
-            logger.error(f"Failed to send event: {e}")
+            logger.exception(f"Failed to send event: {e}")
 
     async def _handle_commands(
         self,
@@ -203,7 +203,7 @@ class MonitorConnectionHandler:
                 # Connection closed
                 raise
             except Exception as e:
-                logger.error(f"Error processing monitor command: {e}")
+                logger.exception(f"Error processing monitor command: {e}")
                 error_response = MonitorResponse.err(str(e))
                 try:
                     await write_message(writer, error_response)

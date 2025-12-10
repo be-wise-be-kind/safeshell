@@ -14,6 +14,7 @@ from pathlib import Path
 
 from loguru import logger
 
+from safeshell.config import load_config
 from safeshell.daemon.lifecycle import SOCKET_PATH
 from safeshell.exceptions import DaemonNotRunningError, DaemonStartError
 from safeshell.models import DaemonRequest, DaemonResponse, RequestType
@@ -29,6 +30,7 @@ class DaemonClient:
     MAX_START_WAIT: float = 5.0  # seconds to wait for daemon startup
     POLL_INTERVAL: float = 0.05  # 50ms between connection attempts
     RECV_BUFFER: int = 65536  # Buffer size for receiving response
+    TIMEOUT_MULTIPLIER: float = 2.0  # Socket timeout = approval_timeout * this
 
     def __init__(self, socket_path: Path | None = None) -> None:
         """Initialize client.
@@ -37,6 +39,8 @@ class DaemonClient:
             socket_path: Path to daemon socket (defaults to standard location)
         """
         self.socket_path = socket_path or SOCKET_PATH
+        # Load config to get approval timeout for socket timeout calculation
+        self._config = load_config()
 
     def evaluate(
         self,
@@ -102,9 +106,9 @@ class DaemonClient:
 
         try:
             with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
-                # Timeout set to 10 minutes to accommodate approval waits
-                # (default approval timeout is 5 minutes)
-                sock.settimeout(600.0)
+                # Timeout based on approval timeout from config (with safety margin)
+                socket_timeout = self._config.approval_timeout_seconds * self.TIMEOUT_MULTIPLIER
+                sock.settimeout(socket_timeout)
                 sock.connect(str(self.socket_path))
 
                 # Send request as JSON line
