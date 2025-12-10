@@ -86,6 +86,88 @@ def restart() -> None:
     console.print("[green]Daemon restarted[/green]")
 
 
+@app.command()
+def logs(
+    follow: bool = typer.Option(False, "--follow", "-f", help="Follow log output (like tail -f)"),
+    lines: int = typer.Option(50, "--lines", "-n", help="Number of lines to show"),
+) -> None:
+    """View daemon log file.
+
+    Shows the daemon log from ~/.safeshell/daemon.log.
+    Use --follow to continuously watch for new log entries.
+    """
+    from safeshell.config import load_config
+
+    config = load_config()
+    log_path = config.get_log_file_path()
+
+    if not log_path.exists():
+        console.print(f"[yellow]Log file not found:[/yellow] {log_path}")
+        console.print("The daemon may not have been started yet.")
+        raise typer.Exit(1)
+
+    if follow:
+        # Use subprocess to run tail -f for following
+        import shutil
+        import subprocess
+
+        console.print(f"[dim]Following {log_path} (Ctrl+C to stop)[/dim]")
+
+        # Find tail in PATH - all inputs are trusted (config path and int lines)
+        tail_path = shutil.which("tail")
+        if tail_path:
+            import contextlib
+
+            with contextlib.suppress(KeyboardInterrupt):
+                # S603: inputs are trusted - log_path from config, lines is int
+                subprocess.run(  # noqa: S603
+                    [tail_path, "-f", "-n", str(lines), str(log_path)],
+                    check=True,
+                )
+        else:
+            # tail not available, fall back to manual following
+            console.print("[yellow]'tail' command not available, using Python fallback[/yellow]")
+            _follow_log(log_path, lines)
+    else:
+        # Read and display last N lines
+        try:
+            content = log_path.read_text()
+            all_lines = content.strip().split("\n")
+            display_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
+            for line in display_lines:
+                console.print(line)
+        except Exception as e:
+            console.print(f"[red]Error reading log file:[/red] {e}")
+            raise typer.Exit(1) from e
+
+
+def _follow_log(log_path: "os.PathLike[str]", initial_lines: int) -> None:
+    """Follow a log file using Python (fallback when tail is unavailable).
+
+    Args:
+        log_path: Path to the log file
+        initial_lines: Number of initial lines to display
+    """
+    import time
+
+    # Show initial lines
+    with open(log_path) as f:
+        lines = f.readlines()
+        for line in lines[-initial_lines:]:
+            console.print(line.rstrip())
+
+        # Follow new content
+        try:
+            while True:
+                line = f.readline()
+                if line:
+                    console.print(line.rstrip())
+                else:
+                    time.sleep(0.1)
+        except KeyboardInterrupt:
+            pass
+
+
 def _daemonize() -> None:
     """Fork and run daemon in background.
 

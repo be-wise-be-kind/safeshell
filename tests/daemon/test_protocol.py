@@ -5,8 +5,6 @@ import pytest
 from safeshell.daemon.protocol import (
     decode_message,
     encode_message,
-    sync_decode_message,
-    sync_encode_message,
 )
 from safeshell.exceptions import ProtocolError
 from safeshell.models import DaemonRequest, DaemonResponse, RequestType
@@ -38,11 +36,6 @@ class TestEncodeMessage:
         assert encoded.endswith(b"\n")
         assert b"allow" in encoded
 
-    def test_sync_encode_same_as_encode(self) -> None:
-        """Test sync_encode_message produces same output."""
-        request = DaemonRequest(type=RequestType.PING)
-        assert encode_message(request) == sync_encode_message(request)
-
 
 class TestDecodeMessage:
     """Tests for decode_message function."""
@@ -70,11 +63,6 @@ class TestDecodeMessage:
         """Test decoding invalid UTF-8 raises ProtocolError."""
         with pytest.raises(ProtocolError):
             decode_message(b"\xff\xfe")
-
-    def test_sync_decode_same_as_decode(self) -> None:
-        """Test sync_decode_message produces same output."""
-        data = b'{"key": "value"}'
-        assert decode_message(data) == sync_decode_message(data)
 
 
 class TestRoundTrip:

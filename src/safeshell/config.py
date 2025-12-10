@@ -1,7 +1,7 @@
 """
 File: src/safeshell/config.py
 Purpose: Configuration loading and validation
-Exports: SafeShellConfig, UnreachableBehavior, load_config, CONFIG_PATH
+Exports: SafeShellConfig, UnreachableBehavior, load_config, CONFIG_PATH, SAFESHELL_DIR
 Depends: pydantic, pyyaml, pathlib, os
 Overview: Loads and validates SafeShell configuration from ~/.safeshell/config.yaml
 """
@@ -14,9 +14,10 @@ import yaml
 from loguru import logger
 from pydantic import BaseModel, Field, field_validator
 
-from safeshell.daemon.lifecycle import SAFESHELL_DIR
 from safeshell.exceptions import ConfigError
 
+# Base directory for SafeShell data (also defined in daemon.lifecycle for daemon-specific paths)
+SAFESHELL_DIR = Path.home() / ".safeshell"
 CONFIG_PATH = SAFESHELL_DIR / "config.yaml"
 
 
@@ -45,7 +46,12 @@ class SafeShellConfig(BaseModel):
 
     log_level: str = Field(
         default="INFO",
-        description="Logging level for daemon",
+        description="Logging level for daemon (DEBUG, INFO, WARNING, ERROR)",
+    )
+
+    log_file: Path | None = Field(
+        default=None,
+        description="Log file path (defaults to ~/.safeshell/daemon.log)",
     )
 
     condition_timeout_ms: int = Field(
@@ -61,6 +67,27 @@ class SafeShellConfig(BaseModel):
         ge=10.0,
         le=3600.0,
     )
+
+    @field_validator("log_level")
+    @classmethod
+    def validate_log_level(cls, v: str) -> str:
+        """Validate that log level is valid."""
+        valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR"}
+        v_upper = v.upper()
+        if v_upper not in valid_levels:
+            logger.warning(f"Invalid log level '{v}', using INFO")
+            return "INFO"
+        return v_upper
+
+    def get_log_file_path(self) -> Path:
+        """Get the log file path, using default if not set.
+
+        Returns:
+            Path to log file (either configured or default)
+        """
+        if self.log_file is not None:
+            return self.log_file
+        return SAFESHELL_DIR / "daemon.log"
 
     @field_validator("delegate_shell")
     @classmethod

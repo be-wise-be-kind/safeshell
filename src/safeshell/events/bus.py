@@ -124,7 +124,7 @@ class EventBus:
             await callback(event)
             return True
         except Exception as e:
-            logger.error(f"Error delivering event to {sub_id[:8]}...: {e}")
+            logger.exception(f"Error delivering event to {sub_id[:8]}...: {e}")
             return False
 
     @property
