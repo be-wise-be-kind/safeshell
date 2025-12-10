@@ -165,10 +165,10 @@ class TestEvaluateCommand:
         git_protect_rule: Rule,
     ) -> None:
         """Test git commit is blocked on main branch with rules."""
-        # Mock load_rules to return our test rule
-        with patch("safeshell.daemon.manager.load_rules") as mock_load:
-            mock_load.return_value = [git_protect_rule]
-
+        # Mock RuleCache.get_rules to return our test rule
+        with patch.object(
+            manager._rule_cache, "get_rules", return_value=([git_protect_rule], False)
+        ):
             request = DaemonRequest(
                 type=RequestType.EVALUATE,
                 command="git commit -m 'test'",
@@ -188,10 +188,10 @@ class TestEvaluateCommand:
         git_protect_rule: Rule,
     ) -> None:
         """Test git commit is allowed on feature branch."""
-        # Mock load_rules to return our test rule
-        with patch("safeshell.daemon.manager.load_rules") as mock_load:
-            mock_load.return_value = [git_protect_rule]
-
+        # Mock RuleCache.get_rules to return our test rule
+        with patch.object(
+            manager._rule_cache, "get_rules", return_value=([git_protect_rule], False)
+        ):
             request = DaemonRequest(
                 type=RequestType.EVALUATE,
                 command="git commit -m 'test'",
@@ -207,9 +207,9 @@ class TestEvaluateCommand:
         self, manager: RuleManager, git_repo_main: Path, git_protect_rule: Rule
     ) -> None:
         """Test non-git commands are allowed in git repo."""
-        with patch("safeshell.daemon.manager.load_rules") as mock_load:
-            mock_load.return_value = [git_protect_rule]
-
+        with patch.object(
+            manager._rule_cache, "get_rules", return_value=([git_protect_rule], False)
+        ):
             request = DaemonRequest(
                 type=RequestType.EVALUATE,
                 command="ls -la",
@@ -239,18 +239,22 @@ class TestDecisionAggregation:
             message="Deny git",
         )
 
-        with patch("safeshell.daemon.manager.load_rules") as mock_load:
-            mock_load.return_value = [allow_rule, deny_rule]
+        with (
+            patch.object(
+                manager._rule_cache,
+                "get_rules",
+                return_value=([allow_rule, deny_rule], False),
+            ),
+            tempfile.TemporaryDirectory() as tmpdir,
+        ):
+            request = DaemonRequest(
+                type=RequestType.EVALUATE,
+                command="git status",
+                working_dir=tmpdir,
+            )
+            response = await manager.process_request(request)
 
-            with tempfile.TemporaryDirectory() as tmpdir:
-                request = DaemonRequest(
-                    type=RequestType.EVALUATE,
-                    command="git status",
-                    working_dir=tmpdir,
-                )
-                response = await manager.process_request(request)
-
-                # Should have at least one result
-                assert len(response.results) >= 1
-                # Final decision should be DENY (most restrictive wins)
-                assert response.final_decision == Decision.DENY
+            # Should have at least one result
+            assert len(response.results) >= 1
+            # Final decision should be DENY (most restrictive wins)
+            assert response.final_decision == Decision.DENY

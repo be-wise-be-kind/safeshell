@@ -22,11 +22,12 @@ from safeshell.models import (
     EvaluationResult,
     RequestType,
 )
-from safeshell.rules import RuleEvaluator, load_rules
+from safeshell.rules import RuleCache, RuleEvaluator
 
 if TYPE_CHECKING:
     from safeshell.daemon.approval import ApprovalManager
     from safeshell.daemon.events import DaemonEventPublisher
+    from safeshell.daemon.session_memory import SessionMemory
 
 
 class RuleManager:
@@ -42,6 +43,7 @@ class RuleManager:
         event_publisher: DaemonEventPublisher | None = None,
         approval_manager: ApprovalManager | None = None,
         condition_timeout_ms: int = 100,
+        session_memory: SessionMemory | None = None,
     ) -> None:
         """Initialize rule manager.
 
@@ -49,12 +51,15 @@ class RuleManager:
             event_publisher: Optional publisher for emitting evaluation events
             approval_manager: Optional manager for handling REQUIRE_APPROVAL decisions
             condition_timeout_ms: Timeout for bash conditions in milliseconds
+            session_memory: Optional session memory for "don't ask again" approvals
         """
         self._event_publisher = event_publisher
         self._approval_manager = approval_manager
         self._condition_timeout_ms = condition_timeout_ms
+        self._session_memory = session_memory
         self._evaluator: RuleEvaluator | None = None
         self._rule_count: int = 0
+        self._rule_cache = RuleCache()
 
     @property
     def rule_count(self) -> int:
@@ -127,8 +132,8 @@ class RuleManager:
         if self._event_publisher:
             await self._event_publisher.command_received(request.command, request.working_dir)
 
-        # Load rules for the working directory
-        rules = load_rules(request.working_dir)
+        # Load rules for the working directory (with caching)
+        rules, cache_hit = self._rule_cache.get_rules(request.working_dir)
         self._rule_count = len(rules)
 
         # Create evaluator
@@ -136,6 +141,7 @@ class RuleManager:
             rules=rules,
             condition_timeout_ms=self._condition_timeout_ms,
         )
+        logger.debug(f"Rules: {len(rules)} (cache_hit={cache_hit})")
 
         # Build command context
         context = CommandContext.from_command(
@@ -212,6 +218,9 @@ class RuleManager:
     ) -> EvaluationResult:
         """Handle REQUIRE_APPROVAL decision by waiting for approval.
 
+        Checks session memory first for "don't ask again" decisions.
+        If not found in memory, requests approval from user.
+
         Args:
             command: The command awaiting approval
             result: Original evaluation result with REQUIRE_APPROVAL
@@ -222,6 +231,24 @@ class RuleManager:
         """
         # Import here to avoid circular dependency at runtime
         from safeshell.daemon.approval import ApprovalResult
+
+        # Check session memory first for "don't ask again" decisions
+        if self._session_memory is not None:
+            if self._session_memory.is_pre_approved(result.plugin_name, command):
+                logger.info(f"Auto-approved via session memory: {command}")
+                return EvaluationResult(
+                    decision=Decision.ALLOW,
+                    plugin_name=result.plugin_name,
+                    reason=f"Auto-approved (remembered): {result.reason}",
+                )
+
+            if self._session_memory.is_pre_denied(result.plugin_name, command):
+                logger.info(f"Auto-denied via session memory: {command}")
+                return EvaluationResult(
+                    decision=Decision.DENY,
+                    plugin_name=result.plugin_name,
+                    reason=f"Auto-denied (remembered): {result.reason}",
+                )
 
         if self._approval_manager is None:
             # No approval manager configured - treat as deny
@@ -256,7 +283,15 @@ class RuleManager:
             approval_id=approval_id,
         )
 
-        if approval_result == ApprovalResult.APPROVED:
+        # Handle approval results - check for "remember" variants
+        if approval_result in (ApprovalResult.APPROVED, ApprovalResult.APPROVED_REMEMBER):
+            # Store in session memory if "remember" was selected
+            if (
+                approval_result == ApprovalResult.APPROVED_REMEMBER
+                and self._session_memory is not None
+            ):
+                self._session_memory.remember_approval(result.plugin_name, command)
+
             logger.info(f"Command approved: {command}")
             return EvaluationResult(
                 decision=Decision.ALLOW,
@@ -264,11 +299,17 @@ class RuleManager:
                 reason=f"Approved: {result.reason}",
             )
 
-        # Denied or timed out
+        # Denied, denied_remember, or timed out
         if approval_result == ApprovalResult.TIMEOUT:
             denial_reason = "Approval timed out"
             logger.warning(f"Command timed out waiting for approval: {command}")
         else:
+            # Store denial in session memory if "remember" was selected
+            if (
+                approval_result == ApprovalResult.DENIED_REMEMBER
+                and self._session_memory is not None
+            ):
+                self._session_memory.remember_denial(result.plugin_name, command)
             logger.info(f"Command denied: {command}")
 
         return EvaluationResult(
