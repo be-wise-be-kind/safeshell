@@ -16,6 +16,7 @@ from rich.table import Table
 
 from safeshell.exceptions import RuleLoadError
 from safeshell.rules.loader import GLOBAL_RULES_PATH, _find_repo_rules, _load_rule_file
+from safeshell.rules.schema import Rule
 
 app = typer.Typer(
     name="rules",
@@ -134,7 +135,7 @@ def _validate_all_rules(verbose: bool) -> None:
     console.print(f"[green]All rules valid:[/green] {total_rules} total rules")
 
 
-def _show_rules_table(rules: list) -> None:
+def _show_rules_table(rules: list[Rule]) -> None:
     """Display rules in a table.
 
     Args:

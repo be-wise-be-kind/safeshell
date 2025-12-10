@@ -12,7 +12,7 @@ from pathlib import Path
 
 from loguru import logger
 
-from safeshell.daemon.lifecycle import SAFESHELL_DIR
+from safeshell.common import SAFESHELL_DIR
 from safeshell.rules.loader import GLOBAL_RULES_PATH, load_rules
 
 # Shim directory location
