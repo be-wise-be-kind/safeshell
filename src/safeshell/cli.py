@@ -16,6 +16,7 @@ from rich.console import Console
 from safeshell.daemon.cli import _daemonize
 from safeshell.daemon.cli import app as daemon_app
 from safeshell.daemon.lifecycle import DaemonLifecycle
+from safeshell.rules.cli import app as rules_app
 from safeshell.wrapper.cli import app as wrapper_app
 
 app = typer.Typer(
@@ -28,6 +29,7 @@ console = Console()
 # Register subcommands
 app.add_typer(daemon_app, name="daemon")
 app.add_typer(wrapper_app, name="wrapper")
+app.add_typer(rules_app, name="rules")
 
 
 @app.command()

@@ -246,8 +246,9 @@ class MonitorApp(App[None]):
             event: The approval action event
         """
         if event.approved:
-            self._log_debug(f"Approving {event.approval_id[:12]}...", "info")
-            success = await self._client.approve(event.approval_id)
+            remember_msg = " (remember)" if event.remember else ""
+            self._log_debug(f"Approving{remember_msg} {event.approval_id[:12]}...", "info")
+            success = await self._client.approve(event.approval_id, remember=event.remember)
             if not success:
                 self._log_debug("Failed to send approval", "error")
         else:

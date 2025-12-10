@@ -173,11 +173,12 @@ class MonitorClient:
             logger.error(f"Ping failed: {e}")
             return False
 
-    async def approve(self, approval_id: str) -> bool:
+    async def approve(self, approval_id: str, remember: bool = False) -> bool:
         """Approve a pending command.
 
         Args:
             approval_id: ID of the approval to approve
+            remember: Whether to remember decision for session
 
         Returns:
             True if approved successfully
@@ -189,10 +190,12 @@ class MonitorClient:
             command = MonitorCommand(
                 type=MonitorCommandType.APPROVE,
                 approval_id=approval_id,
+                remember=remember,
             )
             self._writer.write(encode_message(command))
             await self._writer.drain()
-            logger.info(f"Sent approve for {approval_id[:8]}...")
+            action = "approve (remember)" if remember else "approve"
+            logger.info(f"Sent {action} for {approval_id[:8]}...")
             return True
 
         except Exception as e:

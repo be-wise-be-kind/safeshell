@@ -241,10 +241,13 @@ class DaemonResponse(BaseModel):
             approval_id=approval_id,
             is_intermediate=True,
             status_message=(
-                f"[SafeShell] Waiting for approval in Monitor TUI...\n"
+                f"[SafeShell] APPROVAL REQUIRED\n"
                 f"Command: {command}\n"
                 f"Rule: {rule_name}\n"
-                f"Reason: {reason}"
+                f"Reason: {reason}\n\n"
+                f"ACTION NEEDED: Tell the user they must approve this command in the "
+                f"SafeShell Monitor TUI before it can execute. The command is blocked "
+                f"until the user approves it."
             ),
         )
 

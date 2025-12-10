@@ -260,6 +260,10 @@ class ApprovalPane(Static):
         background: $success;
     }
 
+    ApprovalPane #approve-remember-btn {
+        background: $success-darken-2;
+    }
+
     ApprovalPane #deny-btn {
         background: $error;
     }
@@ -279,18 +283,26 @@ class ApprovalPane(Static):
     class ApprovalAction(Message):
         """Message sent when an approval action is taken."""
 
-        def __init__(self, approved: bool, approval_id: str, reason: str | None = None) -> None:
+        def __init__(
+            self,
+            approved: bool,
+            approval_id: str,
+            reason: str | None = None,
+            remember: bool = False,
+        ) -> None:
             """Initialize the approval action message.
 
             Args:
                 approved: Whether the command was approved
                 approval_id: The approval ID
                 reason: Reason for denial (if denied)
+                remember: Whether to remember this decision for session
             """
             super().__init__()
             self.approved = approved
             self.approval_id = approval_id
             self.reason = reason
+            self.remember = remember
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize the approval pane."""
@@ -307,6 +319,7 @@ class ApprovalPane(Static):
         yield Input(placeholder="Reason for denial (optional)", id="denial-reason")
         yield Horizontal(
             Button("Approve", id="approve-btn", variant="success"),
+            Button("Yes, Remember", id="approve-remember-btn", variant="success"),
             Button("Deny", id="deny-btn", variant="error"),
             id="button-row",
         )
@@ -346,6 +359,7 @@ class ApprovalPane(Static):
         reason = self.query_one("#approval-reason", Static)
         denial_input = self.query_one("#denial-reason", Input)
         approve_btn = self.query_one("#approve-btn", Button)
+        approve_remember_btn = self.query_one("#approve-remember-btn", Button)
         deny_btn = self.query_one("#deny-btn", Button)
 
         if self._current_approval:
@@ -355,6 +369,7 @@ class ApprovalPane(Static):
             reason.update(f"Reason: {self._current_approval.get('reason', 'No reason given')}")
             denial_input.display = True
             approve_btn.disabled = False
+            approve_remember_btn.disabled = False
             deny_btn.disabled = False
             command.display = True
             reason.display = True
@@ -364,6 +379,7 @@ class ApprovalPane(Static):
             reason.update("")
             denial_input.display = False
             approve_btn.disabled = True
+            approve_remember_btn.disabled = True
             deny_btn.disabled = True
             command.display = False
             reason.display = False
@@ -375,14 +391,15 @@ class ApprovalPane(Static):
 
         approval_id = self._current_approval.get("approval_id", "")
 
-        if event.button.id == "approve-btn":
+        if event.button.id in ("approve-btn", "approve-remember-btn"):
+            remember = event.button.id == "approve-remember-btn"
             # Remove from pending immediately to prevent double-click
             self._pending_approvals = [
                 a for a in self._pending_approvals if a.get("approval_id") != approval_id
             ]
             self._current_approval = self._pending_approvals[0] if self._pending_approvals else None
             self._update_display()
-            self.post_message(self.ApprovalAction(True, approval_id))
+            self.post_message(self.ApprovalAction(True, approval_id, remember=remember))
         elif event.button.id == "deny-btn":
             denial_input = self.query_one("#denial-reason", Input)
             reason = denial_input.value or None

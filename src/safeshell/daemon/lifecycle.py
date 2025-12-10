@@ -2,7 +2,7 @@
 File: src/safeshell/daemon/lifecycle.py
 Purpose: Daemon process lifecycle management
 Exports: DaemonLifecycle, SOCKET_PATH, MONITOR_SOCKET_PATH, PID_PATH, SAFESHELL_DIR
-Depends: pathlib, os, signal, socket
+Depends: pathlib, os, signal, socket, safeshell.common
 Overview: Manages daemon start/stop, PID files, and socket cleanup
 """
 
@@ -14,8 +14,9 @@ from pathlib import Path
 
 from loguru import logger
 
-# SafeShell directory and file paths
-SAFESHELL_DIR = Path.home() / ".safeshell"
+from safeshell.common import SAFESHELL_DIR
+
+# Daemon-specific paths derived from SAFESHELL_DIR
 SOCKET_PATH = SAFESHELL_DIR / "daemon.sock"
 MONITOR_SOCKET_PATH = SAFESHELL_DIR / "monitor.sock"
 PID_PATH = SAFESHELL_DIR / "daemon.pid"

@@ -30,6 +30,7 @@ from safeshell.daemon.lifecycle import (
 from safeshell.daemon.manager import RuleManager
 from safeshell.daemon.monitor import MonitorConnectionHandler
 from safeshell.daemon.protocol import read_message, write_message
+from safeshell.daemon.session_memory import SessionMemory
 from safeshell.events.bus import EventBus
 from safeshell.exceptions import ProtocolError
 from safeshell.models import DaemonRequest, DaemonResponse
@@ -71,11 +72,17 @@ class DaemonServer:
             deny_callback=self._approval_manager.deny,
         )
 
-        # Rule manager with event publisher, approval manager, and config timeout
+        # Session memory for "don't ask again" approvals
+        self._session_memory = SessionMemory(
+            ttl_seconds=self._config.approval_memory_ttl_seconds,
+        )
+
+        # Rule manager with event publisher, approval manager, session memory, and config timeout
         self.rule_manager = RuleManager(
             event_publisher=self._event_publisher,
             approval_manager=self._approval_manager,
             condition_timeout_ms=self._config.condition_timeout_ms,
+            session_memory=self._session_memory,
         )
 
         # Server state

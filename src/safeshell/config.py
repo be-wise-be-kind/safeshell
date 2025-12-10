@@ -2,7 +2,7 @@
 File: src/safeshell/config.py
 Purpose: Configuration loading and validation
 Exports: SafeShellConfig, UnreachableBehavior, load_config, CONFIG_PATH, SAFESHELL_DIR
-Depends: pydantic, pyyaml, pathlib, os
+Depends: pydantic, pyyaml, pathlib, os, safeshell.common
 Overview: Loads and validates SafeShell configuration from ~/.safeshell/config.yaml
 """
 
@@ -14,10 +14,10 @@ import yaml
 from loguru import logger
 from pydantic import BaseModel, Field, field_validator
 
+from safeshell.common import SAFESHELL_DIR
 from safeshell.exceptions import ConfigError
 
-# Base directory for SafeShell data (also defined in daemon.lifecycle for daemon-specific paths)
-SAFESHELL_DIR = Path.home() / ".safeshell"
+# Config-specific path derived from SAFESHELL_DIR
 CONFIG_PATH = SAFESHELL_DIR / "config.yaml"
 
 
@@ -66,6 +66,13 @@ class SafeShellConfig(BaseModel):
         description="Timeout in seconds for approval requests",
         ge=10.0,
         le=3600.0,
+    )
+
+    approval_memory_ttl_seconds: int = Field(
+        default=300,
+        description="TTL for 'don't ask again' approvals. 0 = session-only (no expiry)",
+        ge=0,
+        le=86400,
     )
 
     @field_validator("log_level")

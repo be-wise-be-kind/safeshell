@@ -46,6 +46,10 @@ class RuleEvaluator:
             for cmd in rule.commands:
                 self._command_index.setdefault(cmd, []).append(rule)
 
+        # Per-evaluation condition cache (cleared at start of each evaluate())
+        # Key: (condition, raw_command, working_dir) -> result
+        self._condition_cache: dict[tuple[str, str, str], bool] = {}
+
         logger.debug(f"RuleEvaluator initialized with {len(rules)} rules")
         logger.debug(f"Command index: {list(self._command_index.keys())}")
 
@@ -53,10 +57,11 @@ class RuleEvaluator:
         """Evaluate a command against all applicable rules.
 
         Evaluation flow:
-        1. Extract executable from command
-        2. Fast-path: if executable not in index, return ALLOW
-        3. For each matching rule, check directory and conditions
-        4. Aggregate matched rules (most restrictive wins)
+        1. Clear condition cache (fresh start per evaluation)
+        2. Extract executable from command
+        3. Fast-path: if executable not in index, return ALLOW
+        4. For each matching rule, check directory and conditions
+        5. Aggregate matched rules (most restrictive wins)
 
         Args:
             context: Command context with parsed command and environment
@@ -64,6 +69,9 @@ class RuleEvaluator:
         Returns:
             EvaluationResult with decision and reasoning
         """
+        # Clear condition cache at start of each evaluation
+        self._condition_cache.clear()
+
         executable = context.executable
 
         # Fast path: no rules for this executable
@@ -134,11 +142,38 @@ class RuleEvaluator:
     async def _check_condition(self, condition: str, context: CommandContext) -> bool:
         """Run a bash condition and return whether it passed.
 
+        Uses per-evaluation caching - identical conditions for the same
+        command/working_dir are only executed once per evaluate() call.
+
         Environment variables available:
         - $CMD: Full command string
         - $ARGS: Arguments after executable
         - $PWD: Working directory
         - $SAFESHELL_RULE: Current rule name
+
+        Args:
+            condition: Bash condition to evaluate
+            context: Command context for variable substitution
+
+        Returns:
+            True if condition exited with code 0, False otherwise
+        """
+        # Check condition cache first
+        cache_key = (condition, context.raw_command, context.working_dir)
+        if cache_key in self._condition_cache:
+            cached_result = self._condition_cache[cache_key]
+            logger.debug(f"Condition cache hit: {condition[:40]}... -> {cached_result}")
+            return cached_result
+
+        # Execute condition
+        result = await self._execute_condition(condition, context)
+
+        # Cache result
+        self._condition_cache[cache_key] = result
+        return result
+
+    async def _execute_condition(self, condition: str, context: CommandContext) -> bool:
+        """Execute a bash condition subprocess.
 
         Args:
             condition: Bash condition to evaluate

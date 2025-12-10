@@ -1,11 +1,12 @@
 """
 File: src/safeshell/rules/__init__.py
 Purpose: Rules module for config-based policy evaluation
-Exports: Rule, RuleAction, RuleSet, RuleEvaluator, load_rules, GLOBAL_RULES_PATH
-Depends: safeshell.rules.schema, safeshell.rules.evaluator, safeshell.rules.loader
+Exports: Rule, RuleAction, RuleSet, RuleEvaluator, RuleCache, load_rules, GLOBAL_RULES_PATH
+Depends: safeshell.rules.schema, safeshell.rules.evaluator, safeshell.rules.loader, cache
 Overview: Public API for the rules module - YAML-based rule configuration system
 """
 
+from safeshell.rules.cache import RuleCache
 from safeshell.rules.defaults import DEFAULT_RULES_YAML
 from safeshell.rules.evaluator import RuleEvaluator
 from safeshell.rules.loader import GLOBAL_RULES_PATH, load_rules
@@ -16,6 +17,7 @@ __all__ = [
     "RuleAction",
     "RuleSet",
     "RuleEvaluator",
+    "RuleCache",
     "load_rules",
     "GLOBAL_RULES_PATH",
     "DEFAULT_RULES_YAML",

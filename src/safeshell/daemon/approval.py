@@ -27,7 +27,9 @@ class ApprovalResult(str, Enum):
     """Result of an approval request."""
 
     APPROVED = "approved"
+    APPROVED_REMEMBER = "approved_remember"  # Approve and remember for session
     DENIED = "denied"
+    DENIED_REMEMBER = "denied_remember"  # Deny and remember for session
     TIMEOUT = "timeout"
 
 
@@ -168,11 +170,12 @@ class ApprovalManager:
             async with self._lock:
                 self._pending.pop(approval_id, None)
 
-    async def approve(self, approval_id: str) -> bool:
+    async def approve(self, approval_id: str, remember: bool = False) -> bool:
         """Approve a pending request.
 
         Args:
             approval_id: ID of the approval to approve
+            remember: If True, use APPROVED_REMEMBER result for session memory
 
         Returns:
             True if approval existed and was resolved, False otherwise
@@ -189,8 +192,9 @@ class ApprovalManager:
                 )
                 return False
 
-            # Resolve the future
-            pending.future.set_result((ApprovalResult.APPROVED, None))
+            # Resolve the future with appropriate result type
+            result = ApprovalResult.APPROVED_REMEMBER if remember else ApprovalResult.APPROVED
+            pending.future.set_result((result, None))
 
         # Publish event (outside lock)
         await self._event_publisher.approval_resolved(
@@ -198,15 +202,19 @@ class ApprovalManager:
             approved=True,
         )
 
-        logger.info(f"Approved: {approval_id[:8]}... for '{pending.command}'")
+        action = "Approved (remember)" if remember else "Approved"
+        logger.info(f"{action}: {approval_id[:8]}... for '{pending.command}'")
         return True
 
-    async def deny(self, approval_id: str, reason: str | None = None) -> bool:
+    async def deny(
+        self, approval_id: str, reason: str | None = None, remember: bool = False
+    ) -> bool:
         """Deny a pending request.
 
         Args:
             approval_id: ID of the approval to deny
             reason: Optional reason for denial
+            remember: If True, use DENIED_REMEMBER result for session memory
 
         Returns:
             True if approval existed and was resolved, False otherwise
@@ -221,8 +229,9 @@ class ApprovalManager:
                 logger.warning(f"Deny called for already-resolved approval: {approval_id[:8]}...")
                 return False
 
-            # Resolve the future
-            pending.future.set_result((ApprovalResult.DENIED, reason))
+            # Resolve the future with appropriate result type
+            result = ApprovalResult.DENIED_REMEMBER if remember else ApprovalResult.DENIED
+            pending.future.set_result((result, reason))
 
         # Publish event (outside lock)
         await self._event_publisher.approval_resolved(
@@ -231,8 +240,9 @@ class ApprovalManager:
             reason=reason,
         )
 
+        action = "Denied (remember)" if remember else "Denied"
         logger.info(
-            f"Denied: {approval_id[:8]}... for '{pending.command}'"
+            f"{action}: {approval_id[:8]}... for '{pending.command}'"
             + (f" (reason: {reason})" if reason else "")
         )
         return True

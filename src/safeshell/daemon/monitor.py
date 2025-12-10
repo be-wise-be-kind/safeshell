@@ -37,6 +37,7 @@ class MonitorCommand(BaseModel):
     type: MonitorCommandType = Field(description="Type of command")
     approval_id: str | None = Field(default=None, description="Approval ID for approve/deny")
     reason: str | None = Field(default=None, description="Reason for denial")
+    remember: bool = Field(default=False, description="Remember decision for session")
 
 
 class MonitorResponse(BaseModel):
@@ -230,20 +231,21 @@ class MonitorConnectionHandler:
         if command.type == MonitorCommandType.APPROVE:
             if not command.approval_id:
                 return MonitorResponse.err("approval_id required")
-            return await self._handle_approve(command.approval_id)
+            return await self._handle_approve(command.approval_id, command.remember)
 
         if command.type == MonitorCommandType.DENY:
             if not command.approval_id:
                 return MonitorResponse.err("approval_id required")
-            return await self._handle_deny(command.approval_id, command.reason)
+            return await self._handle_deny(command.approval_id, command.reason, command.remember)
 
         return MonitorResponse.err(f"Unknown command type: {command.type}")
 
-    async def _handle_approve(self, approval_id: str) -> MonitorResponse:
+    async def _handle_approve(self, approval_id: str, remember: bool = False) -> MonitorResponse:
         """Handle an approve command.
 
         Args:
             approval_id: ID of approval to approve
+            remember: Whether to remember decision for session
 
         Returns:
             Response indicating success or failure
@@ -252,17 +254,21 @@ class MonitorConnectionHandler:
             return MonitorResponse.err("Approval system not configured")
 
         try:
-            await self._approve_callback(approval_id)
-            return MonitorResponse.ok(f"Approved {approval_id[:8]}...")
+            await self._approve_callback(approval_id, remember=remember)
+            action = "Approved (remember)" if remember else "Approved"
+            return MonitorResponse.ok(f"{action} {approval_id[:8]}...")
         except Exception as e:
             return MonitorResponse.err(f"Failed to approve: {e}")
 
-    async def _handle_deny(self, approval_id: str, reason: str | None) -> MonitorResponse:
+    async def _handle_deny(
+        self, approval_id: str, reason: str | None, remember: bool = False
+    ) -> MonitorResponse:
         """Handle a deny command.
 
         Args:
             approval_id: ID of approval to deny
             reason: Optional reason for denial
+            remember: Whether to remember decision for session
 
         Returns:
             Response indicating success or failure
@@ -271,7 +277,8 @@ class MonitorConnectionHandler:
             return MonitorResponse.err("Approval system not configured")
 
         try:
-            await self._deny_callback(approval_id, reason)
-            return MonitorResponse.ok(f"Denied {approval_id[:8]}...")
+            await self._deny_callback(approval_id, reason, remember=remember)
+            action = "Denied (remember)" if remember else "Denied"
+            return MonitorResponse.ok(f"{action} {approval_id[:8]}...")
         except Exception as e:
             return MonitorResponse.err(f"Failed to deny: {e}")

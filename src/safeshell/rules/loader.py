@@ -2,7 +2,7 @@
 File: src/safeshell/rules/loader.py
 Purpose: Load and merge rule files from global and repo locations
 Exports: load_rules, GLOBAL_RULES_PATH
-Depends: safeshell.rules.schema, safeshell.exceptions, pyyaml, pathlib, loguru
+Depends: safeshell.rules.schema, safeshell.exceptions, safeshell.common, pyyaml, pathlib, loguru
 Overview: Loads rules from ~/.safeshell/rules.yaml (global) and .safeshell/rules.yaml (repo)
 """
 
@@ -12,7 +12,7 @@ import yaml
 from loguru import logger
 from pydantic import ValidationError
 
-from safeshell.daemon.lifecycle import SAFESHELL_DIR
+from safeshell.common import SAFESHELL_DIR
 from safeshell.exceptions import RuleLoadError
 from safeshell.rules.schema import Rule, RuleSet
 

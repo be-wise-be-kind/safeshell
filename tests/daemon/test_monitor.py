@@ -178,12 +178,14 @@ class TestMonitorConnectionHandler:
     @pytest.mark.asyncio
     async def test_approve_with_callback(self, handler: MonitorConnectionHandler) -> None:
         """Test approve with callback set."""
-        approved_ids: list[str] = []
+        approved_ids: list[tuple[str, bool]] = []
 
-        async def approve_callback(approval_id: str) -> None:
-            approved_ids.append(approval_id)
+        async def approve_callback(approval_id: str, remember: bool = False) -> None:
+            approved_ids.append((approval_id, remember))
 
-        async def deny_callback(approval_id: str, reason: str | None) -> None:
+        async def deny_callback(
+            approval_id: str, reason: str | None, remember: bool = False
+        ) -> None:
             pass
 
         handler.set_approval_callbacks(approve_callback, deny_callback)
@@ -195,18 +197,20 @@ class TestMonitorConnectionHandler:
             }
         )
         assert response.success is True
-        assert "test123" in approved_ids
+        assert ("test123", False) in approved_ids
 
     @pytest.mark.asyncio
     async def test_deny_with_callback(self, handler: MonitorConnectionHandler) -> None:
         """Test deny with callback set."""
-        denied: list[tuple[str, str | None]] = []
+        denied: list[tuple[str, str | None, bool]] = []
 
-        async def approve_callback(approval_id: str) -> None:
+        async def approve_callback(approval_id: str, remember: bool = False) -> None:
             pass
 
-        async def deny_callback(approval_id: str, reason: str | None) -> None:
-            denied.append((approval_id, reason))
+        async def deny_callback(
+            approval_id: str, reason: str | None, remember: bool = False
+        ) -> None:
+            denied.append((approval_id, reason, remember))
 
         handler.set_approval_callbacks(approve_callback, deny_callback)
 
@@ -218,4 +222,4 @@ class TestMonitorConnectionHandler:
             }
         )
         assert response.success is True
-        assert ("test123", "Too risky") in denied
+        assert ("test123", "Too risky", False) in denied
