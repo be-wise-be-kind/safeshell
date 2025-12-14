@@ -268,6 +268,10 @@ class ApprovalPane(Static):
         background: $error;
     }
 
+    ApprovalPane #deny-remember-btn {
+        background: $error-darken-2;
+    }
+
     ApprovalPane #denial-reason {
         dock: bottom;
         margin: 1 0;
@@ -321,6 +325,7 @@ class ApprovalPane(Static):
             Button("Approve", id="approve-btn", variant="success"),
             Button("Yes, Remember", id="approve-remember-btn", variant="success"),
             Button("Deny", id="deny-btn", variant="error"),
+            Button("No, Remember", id="deny-remember-btn", variant="error"),
             id="button-row",
         )
 
@@ -361,6 +366,7 @@ class ApprovalPane(Static):
         approve_btn = self.query_one("#approve-btn", Button)
         approve_remember_btn = self.query_one("#approve-remember-btn", Button)
         deny_btn = self.query_one("#deny-btn", Button)
+        deny_remember_btn = self.query_one("#deny-remember-btn", Button)
 
         if self._current_approval:
             pending_count = len(self._pending_approvals)
@@ -371,6 +377,7 @@ class ApprovalPane(Static):
             approve_btn.disabled = False
             approve_remember_btn.disabled = False
             deny_btn.disabled = False
+            deny_remember_btn.disabled = False
             command.display = True
             reason.display = True
         else:
@@ -381,6 +388,7 @@ class ApprovalPane(Static):
             approve_btn.disabled = True
             approve_remember_btn.disabled = True
             deny_btn.disabled = True
+            deny_remember_btn.disabled = True
             command.display = False
             reason.display = False
 
@@ -400,7 +408,8 @@ class ApprovalPane(Static):
             self._current_approval = self._pending_approvals[0] if self._pending_approvals else None
             self._update_display()
             self.post_message(self.ApprovalAction(True, approval_id, remember=remember))
-        elif event.button.id == "deny-btn":
+        elif event.button.id in ("deny-btn", "deny-remember-btn"):
+            remember = event.button.id == "deny-remember-btn"
             denial_input = self.query_one("#denial-reason", Input)
             reason = denial_input.value or None
             # Remove from pending immediately to prevent double-click
@@ -409,7 +418,7 @@ class ApprovalPane(Static):
             ]
             self._current_approval = self._pending_approvals[0] if self._pending_approvals else None
             self._update_display()
-            self.post_message(self.ApprovalAction(False, approval_id, reason))
+            self.post_message(self.ApprovalAction(False, approval_id, reason, remember=remember))
             denial_input.value = ""
 
     def approve_current(self) -> None:

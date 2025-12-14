@@ -94,6 +94,14 @@ class TestMonitorClient:
         assert not result
 
     @pytest.mark.asyncio
+    async def test_deny_with_remember_when_not_connected(self) -> None:
+        """Test deny with remember flag returns False when not connected."""
+        client = MonitorClient()
+
+        result = await client.deny("test-approval-id", "test reason", remember=True)
+        assert not result
+
+    @pytest.mark.asyncio
     async def test_start_receiving_without_task(self) -> None:
         """Test that start_receiving creates a task."""
         client = MonitorClient()

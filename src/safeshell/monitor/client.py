@@ -202,12 +202,15 @@ class MonitorClient:
             logger.error(f"Failed to send approve: {e}")
             return False
 
-    async def deny(self, approval_id: str, reason: str | None = None) -> bool:
+    async def deny(
+        self, approval_id: str, reason: str | None = None, remember: bool = False
+    ) -> bool:
         """Deny a pending command.
 
         Args:
             approval_id: ID of the approval to deny
             reason: Optional reason for denial
+            remember: Whether to remember decision for session
 
         Returns:
             True if denied successfully
@@ -220,10 +223,12 @@ class MonitorClient:
                 type=MonitorCommandType.DENY,
                 approval_id=approval_id,
                 reason=reason,
+                remember=remember,
             )
             self._writer.write(encode_message(command))
             await self._writer.drain()
-            logger.info(f"Sent deny for {approval_id[:8]}...")
+            action = "deny (remember)" if remember else "deny"
+            logger.info(f"Sent {action} for {approval_id[:8]}...")
             return True
 
         except Exception as e:
