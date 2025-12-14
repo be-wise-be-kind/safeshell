@@ -89,3 +89,31 @@ class TestApprovalPane:
         assert action.approved is False
         assert action.approval_id == "test-id"
         assert action.reason == "Not authorized"
+
+    def test_approval_action_with_remember_true(self) -> None:
+        """Test ApprovalAction message with remember flag for approval."""
+        action = ApprovalPane.ApprovalAction(
+            approved=True,
+            approval_id="test-id",
+            remember=True,
+        )
+        assert action.approved is True
+        assert action.approval_id == "test-id"
+        assert action.remember is True
+
+    def test_approval_action_deny_with_remember(self) -> None:
+        """Test ApprovalAction message with remember flag for denial."""
+        action = ApprovalPane.ApprovalAction(
+            approved=False,
+            approval_id="test-id",
+            reason="Security risk",
+            remember=True,
+        )
+        assert action.approved is False
+        assert action.approval_id == "test-id"
+        assert action.reason == "Security risk"
+        assert action.remember is True
+
+    def test_css_has_deny_remember_button(self) -> None:
+        """Test that CSS includes styling for deny-remember button."""
+        assert "#deny-remember-btn" in ApprovalPane.DEFAULT_CSS

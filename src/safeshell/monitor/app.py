@@ -252,9 +252,13 @@ class MonitorApp(App[None]):
             if not success:
                 self._log_debug("Failed to send approval", "error")
         else:
+            remember_msg = " (remember)" if event.remember else ""
             reason_msg = f" (reason: {event.reason})" if event.reason else ""
-            self._log_debug(f"Denying {event.approval_id[:12]}...{reason_msg}", "info")
-            success = await self._client.deny(event.approval_id, event.reason)
+            msg = f"Denying{remember_msg} {event.approval_id[:12]}...{reason_msg}"
+            self._log_debug(msg, "info")
+            success = await self._client.deny(
+                event.approval_id, event.reason, remember=event.remember
+            )
             if not success:
                 self._log_debug("Failed to send denial", "error")
 
