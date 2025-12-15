@@ -159,9 +159,7 @@ class EnvEquals(BaseModel):
             value: "ai"
     """
 
-    env_equals: dict[str, str] = Field(
-        description="Dict with 'variable' and 'value' keys"
-    )
+    env_equals: dict[str, str] = Field(description="Dict with 'variable' and 'value' keys")
 
     def evaluate(self, context: CommandContext) -> bool:
         """Check if environment variable equals expected value."""

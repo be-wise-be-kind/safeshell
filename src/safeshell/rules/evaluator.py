@@ -138,9 +138,7 @@ class RuleEvaluator:
         # Check structured conditions (pure Python evaluation)
         for condition in rule.conditions:
             if not condition.evaluate(context):
-                logger.debug(
-                    f"Rule '{rule.name}': condition failed: {type(condition).__name__}"
-                )
+                logger.debug(f"Rule '{rule.name}': condition failed: {type(condition).__name__}")
                 return False
 
         return True
