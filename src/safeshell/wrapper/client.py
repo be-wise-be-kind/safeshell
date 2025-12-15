@@ -163,9 +163,10 @@ class DaemonClient:
         # Lazy import pydantic models
         from safeshell.models import (
             DaemonRequest,
-            DaemonResponse,
-            ExecutionContext as ExecCtx,
             RequestType,
+        )
+        from safeshell.models import (
+            ExecutionContext as ExecCtx,
         )
 
         request = DaemonRequest(
