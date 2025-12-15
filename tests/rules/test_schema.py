@@ -3,6 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
+from safeshell.rules.condition_types import CommandMatches, FileExists
 from safeshell.rules.schema import Rule, RuleAction, RuleSet
 
 
@@ -48,7 +49,10 @@ class TestRule:
             name="full-rule",
             commands=["git", "rm"],
             directory=r"/home/user/.*",
-            conditions=["test -f .gitignore", "git status"],
+            conditions=[
+                FileExists(file_exists=".gitignore"),
+                CommandMatches(command_matches=r"^git\s+status"),
+            ],
             action=RuleAction.REQUIRE_APPROVAL,
             allow_override=False,
             message="Approval needed",
@@ -100,13 +104,15 @@ class TestRule:
         data = {
             "name": "dict-rule",
             "commands": ["git"],
-            "conditions": ["git status"],
+            "conditions": [{"command_matches": r"^git\s+status"}],
             "action": "deny",
             "message": "Blocked",
         }
         rule = Rule.model_validate(data)
         assert rule.name == "dict-rule"
         assert rule.action == RuleAction.DENY
+        assert len(rule.conditions) == 1
+        assert isinstance(rule.conditions[0], CommandMatches)
 
 
 class TestRuleSet:

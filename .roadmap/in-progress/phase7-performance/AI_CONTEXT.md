@@ -2,593 +2,185 @@
 
 **Purpose**: AI agent context document for implementing Phase 7: Performance Optimization
 
-**Scope**: Eliminate bash subprocess overhead through structured Python conditions, then profile and validate
+**Scope**: Eliminate command overhead through daemon-based execution
 
-**Overview**: Phase 7 focuses on eliminating the fundamental performance bottleneck in SafeShell: bash subprocess
-    spawning for condition evaluation. The key insight is that bash condition strings in rules.yaml require
-    subprocess calls (5-20ms each), which cannot be optimized away. The solution is structured Python conditions
-    that evaluate entirely in-process (<0.1ms).
-
-**Dependencies**:
-- Phases 1-5 complete (daemon, rules, context-awareness, monitoring)
-- Python 3.11+ with Pydantic
-- Working SafeShell installation
-
-**Exports**: Structured condition schema, Python condition evaluators, migration tooling, profiling infrastructure
-
-**Related**: PR_BREAKDOWN.md for implementation tasks, PROGRESS_TRACKER.md for current status
-
-**Implementation**: Replace bash conditions with structured Python conditions (PR4-6), then profile (PR3)
+**Current Status**: PR4-6 Complete, PR7 (Daemon-Based Execution) is highest priority
 
 ---
 
-## Overview
-Phase 7 focuses on eliminating the fundamental performance bottleneck in SafeShell: bash subprocess spawning
-for rule condition evaluation. Previous attempts at auto-translation (PR2) proved insufficient because they
-still relied on parsing bash strings and falling back to subprocesses for unrecognized patterns.
+## Quick Links for AI Agents
 
-**The correct solution**: Replace bash condition strings with structured Python conditions in the rule schema.
-This eliminates subprocess spawning entirely and makes conditions fast (<0.1ms), readable, and type-safe.
+| Document | Purpose |
+|----------|---------|
+| **[Architecture Proposal](../../../docs/architecture-proposal.html)** | Detailed design with diagrams for PR7 |
+| **[PROGRESS_TRACKER.md](./PROGRESS_TRACKER.md)** | Current status and requirements |
+| **[docs/](../../../docs/)** | Project documentation |
 
-SafeShell's performance is critical because it intercepts every shell command. The goal is imperceptible
-overhead (< 10ms) while maintaining full functionality.
+---
 
-## Project Background
+## Current State (Post PR4-6)
 
-### SafeShell Performance Context
-SafeShell operates in the critical path of command execution:
-1. User types command
-2. Shell invokes SafeShell shim (not native command)
-3. Shim communicates with daemon via IPC
-4. Daemon evaluates rules
-5. Daemon returns decision (allow/deny/ask)
-6. Shim executes or blocks command accordingly
+### What's Complete
+- **Structured Python Conditions** - All 9 condition types implemented as Pydantic models
+- **Pure Python Evaluation** - No bash subprocess spawning for conditions
+- **Condition Performance** - Evaluation is <0.1ms (was 5-20ms)
 
-Every millisecond of overhead is user-visible, making performance optimization critical for production use.
+### The Remaining Problem
+Even with fast conditions, every command pays **~250ms Python startup overhead**:
 
-### Current State (Pre-Phase 6)
-- Phases 1-5 implemented: Core functionality, daemon, rules, context-awareness, monitoring
-- No comprehensive benchmarking or profiling infrastructure
-- Performance characteristics unknown
-- No performance regression testing
-- Unknown optimization opportunities
-
-### Performance Requirements
-SafeShell must be fast enough that users don't notice the overhead:
-- Target: < 10ms overhead per command (imperceptible)
-- Rule evaluation: < 1ms (runs on every command)
-- Daemon startup: < 100ms (one-time cost, but affects UX)
-- Monitor TUI: < 16ms frame time for 60fps responsiveness
-
-## Feature Vision
-
-Phase 7 delivers production-ready performance through:
-
-1. **Structured Python Conditions (PR4-6)**
-   - Replace bash strings with Pydantic models
-   - Eliminate all subprocess spawning for conditions
-   - Pre-compile regex patterns at rule load time
-   - Type-safe, readable condition syntax
-
-2. **Condition Types**
-   ```yaml
-   # Example structured conditions:
-   conditions:
-     - command_matches: "^git\\s+commit"
-     - git_branch_in: ["main", "master", "develop"]
-     - file_exists: ".gitignore"
-     - env_equals: {variable: "SAFESHELL_CONTEXT", value: "ai"}
-   ```
-
-3. **Migration Path**
-   - Backward compatible (bash strings still work, with warning)
-   - `safeshell migrate-rules` command for auto-conversion
-   - Deprecation timeline for bash conditions
-
-4. **Profiling Infrastructure (PR3, deferred)**
-   - Benchmark suite for validation
-   - Performance regression tests
-   - CI integration
-
-## Current Application Context
-
-### Critical Paths to Profile
-1. **Command Interception → Response** (Most Critical)
-   - Shim intercepts command
-   - IPC to daemon
-   - Rule evaluation
-   - Response to shim
-   - Command execution
-   - Target: < 10ms total overhead
-
-2. **Rule Evaluation** (Critical - Runs Every Command)
-   - Load rules from configuration
-   - Match command against rules
-   - Evaluate context (ai_only/human_only)
-   - Return decision
-   - Target: < 1ms
-
-3. **Daemon Startup** (Important for UX)
-   - Initialize daemon
-   - Load configuration
-   - Set up IPC
-   - Ready to serve requests
-   - Target: < 100ms
-
-4. **Monitor TUI** (Important for Responsiveness)
-   - Event handling
-   - Rendering
-   - Scrolling
-   - Filtering
-   - Target: < 16ms frame time (60fps)
-
-### Existing Performance Considerations
-- Async I/O with Tokio (already in place)
-- Daemon architecture reduces per-command overhead
-- Rule-based system allows for optimization opportunities
-- Monitor runs in separate process (doesn't affect command path)
-
-## Target Architecture
-
-### Core Components
-
-#### 1. Profiling Infrastructure
 ```
-benchmarks/
-├── daemon_startup.rs        # Daemon startup benchmarks
-├── rule_evaluation.rs       # Rule evaluation benchmarks
-├── shim_overhead.rs         # Command path benchmarks
-├── monitor_tui.rs           # TUI responsiveness benchmarks
-├── common/                  # Shared utilities
-└── baseline/                # Baseline measurements
+User: "ls"
+  → Bash shim intercepts
+  → Spawns NEW Python process (safeshell-wrapper)  ← 250ms!
+  → Python imports modules
+  → Wrapper connects to daemon
+  → Daemon evaluates (fast, ~1ms)
+  → Wrapper executes command
+  → Wrapper exits
+
+User: "git status"
+  → Spawns ANOTHER new Python process  ← 250ms AGAIN!
+  → Same cycle repeats...
 ```
 
-**Responsibilities**:
-- Provide reproducible performance measurements
-- Generate flamegraphs for bottleneck identification
-- Track performance over time
-- Enable data-driven optimization
+The daemon is warm (modules loaded), but we spawn a new Python wrapper for every command.
 
-#### 2. Optimization Strategy
-**Priority Order**:
-1. Command path latency (most user-visible)
-2. Rule evaluation (runs on every command)
-3. Daemon startup (affects UX)
-4. Monitor TUI (less critical but important)
+---
 
-**Optimization Techniques**:
-- Lazy initialization (defer work until needed)
-- Caching (rule evaluation results, parsed rules)
-- Algorithmic improvements (O(n) → O(1) lookups)
-- Reduce allocations in hot paths
-- Async I/O optimization
-- Binary size reduction (faster loading)
+## PR7: Daemon-Based Execution
 
-#### 3. Performance Regression Testing
+### The Solution
+Move command execution INTO the daemon. The shim becomes pure socket client (no Python).
+
 ```
-tests/performance/
-├── regression_suite.rs      # Core regression tests
-└── helpers.rs               # Test utilities
+Current: Shim → Python Wrapper (250ms) → Daemon → Wrapper executes
+New:     Shim → Daemon evaluates AND executes (via fork) → Results
 ```
 
-**Responsibilities**:
-- Detect performance regressions before merge
-- Validate performance targets continuously
-- Allow CI integration for automated checking
-- Maintain performance gains over time
+### Requirements
 
-### User Journey
+| Requirement | Target |
+|-------------|--------|
+| Command overhead | **< 1ms** |
+| `ls` command total | **< 1ms** |
+| Logging for allowed commands | **Minimal (DEBUG only)** |
+| Shim implementation | **No Python** (bash + socat) |
 
-#### For Developers Optimizing Performance:
-1. **Profile First**
-   - Run benchmarks: `cargo bench`
-   - Generate flamegraphs: `cargo flamegraph --bench [name]`
-   - Identify top bottlenecks from profiling data
+### Key Files to Modify
 
-2. **Optimize Systematically**
-   - Focus on highest-impact bottlenecks first
-   - Make one optimization at a time
-   - Benchmark after each change
-   - Validate no functionality regressions
+| File | Changes |
+|------|---------|
+| `src/safeshell/models.py` | Add `RequestType.EXECUTE`, response fields for stdout/stderr/exit_code |
+| `src/safeshell/daemon/manager.py` | Add `_handle_execute()` method |
+| `src/safeshell/daemon/executor.py` | NEW: Fork, capture output, return results |
+| `src/safeshell/shims/safeshell-check` | Bash client for socket I/O |
+| `src/safeshell/shims/safeshell-shim` | Update to use bash client |
+| `src/safeshell/shims/init.bash` | Update builtin overrides to use bash client |
 
-3. **Document and Test**
-   - Document optimization technique used
-   - Add regression test if critical path
-   - Update performance documentation
-   - Record new baseline measurements
+### Protocol Changes
 
-#### For End Users:
-- Transparent performance improvements
-- Commands execute with imperceptible overhead
-- Responsive monitor interface
-- Fast daemon startup
-
-### Performance Monitoring Workflow
-```
-Developer makes change
-    ↓
-Run benchmarks locally
-    ↓
-Compare against baseline
-    ↓
-Performance regression?
-    ├─ Yes → Investigate and fix
-    └─ No → Proceed with PR
-        ↓
-    CI runs regression tests
-        ↓
-    Performance validated
-        ↓
-    Merge to main
-        ↓
-    Update baseline measurements
-```
-
-## Key Decisions Made
-
-### Decision 1: Criterion for Benchmarking
-**Rationale**: Criterion is the standard Rust benchmarking library with:
-- Statistical analysis of results
-- HTML report generation
-- Comparison against baselines
-- Low overhead
-- Good documentation
-
-**Alternative Considered**: Custom benchmarking
-**Trade-offs**: Criterion is feature-rich but adds dependency
-
-### Decision 2: Focus on Command Path First
-**Rationale**: Command path latency is most user-visible:
-- Runs on every command
-- Directly affects perceived performance
-- User expectations for responsiveness
-
-**Alternative Considered**: Optimize daemon startup first
-**Trade-offs**: Daemon startup is one-time cost, less impactful
-
-### Decision 3: Target < 10ms Command Overhead
-**Rationale**: 10ms is generally imperceptible to users:
-- Human perception threshold ~100ms
-- Shell latency expectations
-- Allows safety margin for variance
-
-**Alternative Considered**: < 5ms target
-**Trade-offs**: 10ms achievable while maintaining functionality
-
-### Decision 4: Profile Before Optimizing
-**Rationale**: Data-driven optimization avoids:
-- Premature optimization
-- Optimizing wrong code paths
-- Micro-optimizations with no real impact
-- Breaking code for minimal gain
-
-**Alternative Considered**: Optimize obvious bottlenecks
-**Trade-offs**: Profiling takes time but ensures effort well-spent
-
-### Decision 5: Regression Tests in CI
-**Rationale**: Automated performance validation:
-- Catches regressions before merge
-- Maintains performance gains over time
-- Documents expected performance
-- No manual testing required
-
-**Alternative Considered**: Manual performance testing
-**Trade-offs**: CI adds time but provides continuous validation
-
-## Integration Points
-
-### With Existing Features
-
-#### Daemon (Phase 2-3)
-- Profile daemon IPC performance
-- Optimize rule loading and evaluation
-- Reduce daemon startup time
-- Integration: Benchmarks test actual daemon code
-
-#### Rules System (Phase 4)
-- Profile rule evaluation latency
-- Optimize rule matching algorithms
-- Cache rule evaluation results
-- Integration: Benchmarks use real rule configurations
-
-#### Context Awareness (Phase 5)
-- Profile context detection overhead
-- Optimize ai_only/human_only filtering
-- Cache context determination
-- Integration: Benchmarks test context-aware rules
-
-#### Monitor (Phase 5)
-- Profile TUI rendering performance
-- Optimize event handling
-- Implement virtual scrolling for large logs
-- Integration: Benchmarks test monitor responsiveness
-
-### With Development Workflow
-- Benchmarks runnable locally: `cargo bench`
-- Flamegraphs for profiling: `cargo flamegraph --bench [name]`
-- CI integration for regression testing
-- Performance documentation for future developers
-
-### With Production Deployment
-- Performance characteristics documented
-- Known performance limits
-- Tuning options for different environments
-- Troubleshooting guide for performance issues
-
-## Success Metrics
-
-### Technical Metrics
-- **Command overhead**: < 10ms (target met)
-- **Rule evaluation**: < 1ms (target met)
-- **Daemon startup**: < 100ms (target met)
-- **Monitor TUI**: < 16ms frame time (target met)
-- **Memory usage**: < 50MB resident
-- **Binary size**: < 10MB stripped release
-
-### Quality Metrics
-- Comprehensive benchmark coverage for all critical paths
-- Profiling infrastructure documented and usable
-- Performance regression tests in CI
-- Zero performance-related bug reports in testing
-- Performance characteristics documented
-
-### Process Metrics
-- All optimizations validated with benchmarks
-- No functionality regressions from optimization
-- Baseline measurements established and tracked
-- CI catches performance regressions
-
-## Technical Constraints
-
-### Performance Constraints
-- Must maintain < 10ms command overhead
-- Cannot sacrifice functionality for performance
-- Must work on resource-constrained systems
-- Cannot introduce security timing vulnerabilities
-
-### Implementation Constraints
-- Use Rust's zero-cost abstractions where possible
-- Avoid premature optimization (profile first)
-- Maintain code clarity and maintainability
-- Keep binary size reasonable
-
-### Testing Constraints
-- Benchmarks must be reproducible
-- Regression tests must run quickly (< 10s)
-- CI environment may have different performance characteristics
-- Allow for reasonable variance in measurements
-
-### Documentation Constraints
-- Document all performance characteristics
-- Explain optimization techniques used
-- Provide troubleshooting guidance
-- Keep documentation up-to-date with changes
-
-## AI Agent Guidance
-
-### When Implementing PR1 (Profiling Infrastructure)
-1. **Start with benchmark infrastructure**:
-   - Add criterion to Cargo.toml
-   - Create benchmarks/ directory structure
-   - Set up common utilities for test fixtures
-
-2. **Implement benchmarks systematically**:
-   - One benchmark file per critical path
-   - Start with simple test cases, add complexity
-   - Ensure benchmarks are reproducible
-   - Document what each benchmark measures
-
-3. **Establish baselines**:
-   - Run all benchmarks on current implementation
-   - Record measurements with system specs
-   - Store in benchmarks/baseline/measurements.json
-   - Document measurement conditions
-
-4. **Document profiling procedures**:
-   - How to run benchmarks
-   - How to generate flamegraphs
-   - How to interpret results
-   - Common profiling workflows
-
-### When Implementing PR2 (Optimize Hot Paths)
-1. **Profile first, always**:
-   - Run benchmarks from PR1
-   - Generate flamegraphs for each critical path
-   - Identify top 5 bottlenecks
-   - Document findings before optimizing
-
-2. **Optimize highest-impact bottlenecks first**:
-   - Focus on command path latency
-   - Then rule evaluation
-   - Then daemon startup
-   - Finally monitor TUI
-
-3. **One optimization at a time**:
-   - Make single optimization
-   - Run benchmarks
-   - Validate improvement
-   - Run full test suite
-   - Document technique used
-   - Only then proceed to next optimization
-
-4. **Validate continuously**:
-   - Benchmark after each change
-   - Compare against baseline
-   - Ensure no functionality regressions
-   - Document performance gains
-
-### Common Patterns
-
-#### Benchmark Structure
-```rust
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-
-fn benchmark_function(c: &mut Criterion) {
-    c.bench_function("descriptive_name", |b| {
-        // Setup (outside measured section)
-        let test_data = setup_test_data();
-
-        b.iter(|| {
-            // Code to benchmark (measured section)
-            black_box(function_to_benchmark(&test_data))
-        });
-    });
-}
-
-criterion_group!(benches, benchmark_function);
-criterion_main!(benches);
-```
-
-#### Profiling Workflow
-```bash
-# Run benchmarks
-cargo bench
-
-# Generate flamegraph for specific benchmark
-cargo flamegraph --bench daemon_startup
-
-# Compare against baseline
-./scripts/compare-baseline.sh
-
-# Run specific benchmark
-cargo bench --bench rule_evaluation
-```
-
-#### Optimization Pattern
-```rust
-// Before: Allocating in hot path
-fn hot_path(input: &str) -> String {
-    let mut result = String::new(); // Allocation
-    // ... processing ...
-    result
-}
-
-// After: Reuse allocation
-fn hot_path(input: &str, result: &mut String) {
-    result.clear(); // Reuse existing allocation
-    // ... processing ...
+**New Request Type**: `execute`
+```json
+{
+    "type": "execute",
+    "command": "ls -la",
+    "working_dir": "/home/user/project",
+    "env": {"PATH": "...", "HOME": "..."},
+    "execution_context": "human"
 }
 ```
 
-#### Regression Test Pattern
-```rust
-#[test]
-fn test_command_latency_regression() {
-    const MAX_LATENCY_MS: u64 = 10;
-
-    let start = Instant::now();
-    // Execute command through SafeShell
-    let result = execute_command("echo test");
-    let latency = start.elapsed();
-
-    assert!(
-        latency.as_millis() < MAX_LATENCY_MS,
-        "Command latency {}ms exceeds {}ms target",
-        latency.as_millis(),
-        MAX_LATENCY_MS
-    );
-    assert!(result.is_ok());
+**New Response Format**:
+```json
+{
+    "success": true,
+    "decision": "allow",
+    "executed": true,
+    "exit_code": 0,
+    "stdout": "file1.txt\nfile2.txt\n",
+    "stderr": "",
+    "execution_time_ms": 5
 }
 ```
 
-## Risk Mitigation
+### Implementation Steps
 
-### Risk: Performance Optimizations Break Functionality
-**Mitigation**:
-- Run full test suite after each optimization
-- Maintain comprehensive test coverage
-- Use regression tests to validate behavior
-- Code review focuses on correctness first
-- Benchmark validation ensures performance gains real
+1. **Protocol** - Add `RequestType.EXECUTE` and response fields
+2. **Executor** - Create `daemon/executor.py` with fork/exec logic
+3. **Manager** - Add `_handle_execute()` that evaluates then executes
+4. **Bash Client** - Create `safeshell-check` bash script (socket I/O only)
+5. **Shims** - Update to use bash client instead of Python wrapper
+6. **Logging** - Reduce verbosity for allowed commands (DEBUG level)
+7. **Tests** - Add tests for execution flow
+8. **Benchmark** - Verify <1ms overhead
 
-### Risk: Optimizations Make Code Unmaintainable
-**Mitigation**:
-- Document optimization techniques with comments
-- Prefer algorithmic improvements over micro-optimizations
-- Keep code clear and well-structured
-- Profile before optimizing (avoid premature optimization)
-- Code review validates maintainability
+### Open Questions
 
-### Risk: Benchmarks Not Reproducible
-**Mitigation**:
-- Document system specs for baseline
-- Use criterion's statistical analysis
-- Run benchmarks multiple times
-- Isolate benchmark environment
-- Allow for reasonable variance in CI
+See [Architecture Proposal](../../../docs/architecture-proposal.html) Section 8 for:
+1. TTY handling for interactive commands
+2. Environment inheritance (daemon env vs request env)
+3. Streaming vs buffered output
+4. Timeout handling for long-running commands
 
-### Risk: Performance Regressions Undetected
-**Mitigation**:
-- Performance regression tests in CI
-- Automated benchmark comparison
-- Clear performance targets documented
-- Review performance in code review
-- Track performance over time
+---
 
-### Risk: Optimization Introduces Security Issues
-**Mitigation**:
-- Never shortcut approval/denial logic
-- Maintain full audit trail
-- No security-relevant timing differences
-- Security review of performance changes
-- Test security properties after optimization
+## Key Technical Context
 
-## Future Enhancements
+### Why Fork?
+The daemon uses `os.fork()` to create a child process for command execution:
+- Fork is fast (~1-5ms on Linux)
+- Child inherits daemon's Python environment (no startup cost)
+- Child can `chdir` to working directory and `exec` the command
+- Parent daemon continues serving other requests
 
-### Post-Phase 6 Optimization Opportunities
-1. **Advanced Caching**:
-   - Cache rule evaluation results per command
-   - LRU cache for frequently used commands
-   - Persistent cache across daemon restarts
+### Why Not Keep Python Wrapper?
+- Python startup is ~100ms minimum
+- Module imports add another ~150ms
+- This happens for EVERY command
+- The daemon already has Python warm - use it!
 
-2. **Parallel Rule Evaluation**:
-   - Evaluate independent rules in parallel
-   - Use rayon for data parallelism
-   - Balance parallelism overhead vs. gains
+### Logging Requirements
+For allowed commands, logging should be minimal:
+- **DEBUG**: Socket connection, evaluation result
+- **INFO**: Only for DENY or REQUIRE_APPROVAL
+- **No events published** for routine allowed commands (reduces overhead)
 
-3. **JIT Compilation of Rules**:
-   - Compile rules to native code
-   - Use LLVM or similar for optimization
-   - Significant complexity increase
+---
 
-4. **Binary Optimization**:
-   - Profile-guided optimization (PGO)
-   - Link-time optimization (LTO)
-   - Strip unused code more aggressively
+## Files Reference
 
-5. **Memory Optimization**:
-   - Custom allocators for hot paths
-   - Memory pooling for frequent allocations
-   - Reduce memory fragmentation
+### Core Implementation
+```
+src/safeshell/
+├── daemon/
+│   ├── manager.py      # Add _handle_execute()
+│   ├── executor.py     # NEW: Fork and execute
+│   └── server.py       # No changes needed
+├── models.py           # Add EXECUTE request type
+└── shims/
+    ├── safeshell-check # Bash socket client
+    ├── safeshell-shim  # Update to use bash client
+    └── init.bash       # Update builtin overrides
+```
 
-### Performance Monitoring Evolution
-1. **Real-time Performance Monitoring**:
-   - Expose performance metrics in monitor
-   - Track performance over time
-   - Alert on performance degradation
+### Tests
+```
+tests/
+├── daemon/
+│   ├── test_manager.py    # Add execute tests
+│   └── test_executor.py   # NEW: Executor tests
+└── shims/
+    └── test_integration.py # End-to-end tests
+```
 
-2. **Distributed Tracing**:
-   - Detailed tracing of command path
-   - Identify bottlenecks in production
-   - User-specific performance analysis
+---
 
-3. **Continuous Performance Tracking**:
-   - Store benchmark results over time
-   - Generate performance trend graphs
-   - Predictive performance regression detection
+## Success Criteria
 
-### Advanced Profiling
-1. **Production Profiling**:
-   - Sample profiling in production
-   - Aggregate performance data
-   - Identify real-world bottlenecks
-
-2. **Memory Profiling**:
-   - Detailed heap profiling
-   - Memory leak detection
-   - Allocation pattern analysis
-
-3. **I/O Profiling**:
-   - Track I/O operations
-   - Identify unnecessary I/O
-   - Optimize file access patterns
+- [ ] `ls` command completes in <1ms overhead
+- [ ] No Python process spawned for command evaluation
+- [ ] Daemon forks and executes approved commands
+- [ ] Shim is pure bash (no Python imports)
+- [ ] Allowed commands produce no INFO-level logs
+- [ ] All existing tests pass
+- [ ] New tests for execution flow

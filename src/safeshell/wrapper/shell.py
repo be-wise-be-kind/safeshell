@@ -8,17 +8,15 @@ Overview: The script that AI tools invoke as their shell (SHELL=/path/to/safeshe
 
 # ruff: noqa: S606 - os.execv is intentional for shell passthrough
 
+from __future__ import annotations
+
 import os
 import sys
 from pathlib import Path
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
-from loguru import logger
-
-from safeshell.config import UnreachableBehavior, load_config
-from safeshell.exceptions import DaemonNotRunningError, DaemonStartError
-from safeshell.models import ExecutionContext
-from safeshell.wrapper.client import DaemonClient
+if TYPE_CHECKING:
+    from safeshell.models import ExecutionContext
 
 
 def main() -> int:
@@ -32,7 +30,9 @@ def main() -> int:
     Returns:
         Exit code (0 for success, non-zero for failure)
     """
-    # Configure logging (minimal for wrapper - speed is critical)
+    # Lazy import logger - only configure if we actually use it
+    from loguru import logger
+
     logger.remove()
     logger.add(sys.stderr, level="WARNING")
 
@@ -40,6 +40,8 @@ def main() -> int:
     # This prevents recursive evaluation when daemon runs bash conditions
     if os.environ.get("SAFESHELL_BYPASS") == "1":
         if len(sys.argv) >= 3 and sys.argv[1] == "-c":
+            from safeshell.config import load_config
+
             config = load_config()
             return _execute(sys.argv[2], config.delegate_shell)
         return _passthrough()
@@ -62,6 +64,8 @@ def _detect_execution_context() -> ExecutionContext:
     Returns:
         ExecutionContext.AI if in AI-controlled context, ExecutionContext.HUMAN otherwise
     """
+    from safeshell.models import ExecutionContext
+
     # Claude Code sets SAFESHELL_CONTEXT=ai
     if os.environ.get("SAFESHELL_CONTEXT") == "ai":
         return ExecutionContext.AI
@@ -83,6 +87,10 @@ def _evaluate_and_execute(command: str) -> int:
     Returns:
         Exit code from command execution or 1 if denied
     """
+    from safeshell.config import UnreachableBehavior, load_config
+    from safeshell.exceptions import DaemonNotRunningError, DaemonStartError
+    from safeshell.wrapper.client import DaemonClient
+
     config = load_config()
     client = DaemonClient()
 
@@ -168,6 +176,8 @@ def _passthrough() -> NoReturn:
 
     Replaces current process with real shell.
     """
+    from safeshell.config import load_config
+
     config = load_config()
     shell = config.delegate_shell
 

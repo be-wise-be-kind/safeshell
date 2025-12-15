@@ -2,280 +2,209 @@
 
 **Purpose**: Track progress on performance optimization for SafeShell (Python)
 
-**Current Status**: PR4 Pending - Structured Python Conditions
+**Current Status**: PR4-6 Complete, PR7 (Daemon-Based Execution) Pending
 
 ---
 
 ## Current Status
-**Current PR**: PR4 Pending (Highest Priority)
-**Branch**: `feat/phase7-performance`
+**Current PR**: PR7 Pending (Daemon-Based Execution)
+**Branch**: `main`
 **Last Updated**: 2025-12-15
 
 ## Overall Progress
-**Total Completion**: 33% (2/6 PRs completed)
+**Total Completion**: 67% (4/6 PRs completed)
 
 ```
-[██████░░░░░░░░░░░░░░] 33% Complete
+[█████████████░░░░░░░] 67% Complete
 ```
 
 ---
 
 ## PR Status Dashboard
 
-| PR | Title | Status | Branch | Notes |
-|----|-------|--------|--------|-------|
-| PR1 | Caching Infrastructure | 🟢 Complete | `feat/phase7-performance` | Caching for evaluator, conditions, git context |
-| PR2 | Python Condition DSL | 🟡 Partial | `feat/phase7-performance` | Auto-translation insufficient - see PR4-6 |
-| PR3 | Profiling Infrastructure | 🔴 Not Started | - | Deferred until PR4-6 complete |
-| PR4 | Structured Condition Schema | 🔴 Not Started | - | **PRIORITY** - New YAML condition format |
-| PR5 | Condition Evaluators | 🔴 Not Started | - | Python evaluators for all condition types |
-| PR6 | Deprecate Bash Conditions | 🔴 Not Started | - | Migration path, deprecation warnings |
+| PR | Title | Status | Notes |
+|----|-------|--------|-------|
+| PR1 | Caching Infrastructure | 🟢 Complete | Caching for evaluator, conditions, git context |
+| PR2 | Python Condition DSL | 🟡 Superseded | Auto-translation replaced by PR4-6 |
+| PR3 | Profiling Infrastructure | 🔴 Deferred | Until PR7 complete |
+| PR4-6 | Structured Python Conditions | 🟢 Complete | Combined into single implementation |
+| PR7 | Daemon-Based Execution | 🔴 Not Started | **PRIORITY** - Eliminates Python startup overhead |
+
+---
+
+## PR4-6: Structured Python Conditions ✅
+
+**Status**: 🟢 Complete
+**Completed**: 2025-12-15
+
+### What Was Done
+- [x] Created `src/safeshell/rules/condition_types.py` with 9 Pydantic condition models
+- [x] Each condition type has `evaluate(context: CommandContext) -> bool` method
+- [x] Updated `Rule.conditions` from `list[str]` to `list[Condition]`
+- [x] Added field validator for parsing YAML dicts to Condition objects
+- [x] Removed bash subprocess evaluation entirely (no backward compatibility)
+- [x] Updated `src/safeshell/rules/evaluator.py` - pure Python evaluation
+- [x] Updated `src/safeshell/rules/defaults.py` with structured conditions
+- [x] Updated user rules at `~/.safeshell/rules.yaml`
+- [x] Created `tests/rules/test_condition_types.py` (34 tests)
+- [x] Updated all existing tests
+- [x] All 282 tests passing
+
+### Condition Types Implemented
+| Type | YAML Key | Example |
+|------|----------|---------|
+| CommandMatches | `command_matches` | `command_matches: "^git\\s+push"` |
+| CommandContains | `command_contains` | `command_contains: "--force"` |
+| CommandStartswith | `command_startswith` | `command_startswith: "rm -rf"` |
+| GitBranchIn | `git_branch_in` | `git_branch_in: ["main", "master"]` |
+| GitBranchMatches | `git_branch_matches` | `git_branch_matches: "^release/"` |
+| InGitRepo | `in_git_repo` | `in_git_repo: true` |
+| PathMatches | `path_matches` | `path_matches: "/home/.*/projects"` |
+| FileExists | `file_exists` | `file_exists: ".gitignore"` |
+| EnvEquals | `env_equals` | `env_equals: {variable: "X", value: "Y"}` |
+
+### Files Modified
+- `src/safeshell/rules/condition_types.py` - NEW: Pydantic condition models
+- `src/safeshell/rules/schema.py` - Updated conditions field type
+- `src/safeshell/rules/evaluator.py` - Removed bash subprocess code
+- `src/safeshell/rules/defaults.py` - Structured conditions
+- `src/safeshell/daemon/manager.py` - Removed ConditionCache references
+- `src/safeshell/daemon/server.py` - Removed condition_timeout_ms parameter
+- `tests/rules/test_condition_types.py` - NEW: 34 tests
+- `tests/rules/test_evaluator.py` - Updated for new evaluation
+- `tests/rules/test_schema.py` - Updated for structured conditions
+- `tests/daemon/test_manager.py` - Updated fixtures
+- Removed `tests/rules/test_condition_cache.py`
+
+### Performance Impact
+- Condition evaluation: **5-20ms → <0.1ms** (eliminated subprocess spawning)
+- Rule matching: Pure Python, pre-compiled regex patterns
+- **However**: Python wrapper startup still adds ~250ms per command
+
+---
+
+## PR7: Daemon-Based Execution 🔴
+
+**Status**: 🔴 Not Started (HIGHEST PRIORITY)
+**Design Document**: [docs/architecture-proposal.html](../../../docs/architecture-proposal.html)
+
+### Problem Statement
+Even with fast condition evaluation (<0.1ms), every command pays ~250ms Python startup overhead:
+1. User runs `ls`
+2. Bash shim spawns new Python process (safeshell-wrapper)
+3. Python imports modules (~250ms)
+4. Wrapper connects to daemon, gets response
+5. Wrapper executes command and exits
+6. Next command repeats the entire cycle
+
+The daemon is warm (modules loaded), but we spawn a new Python wrapper for every command.
+
+### Solution: Daemon-Based Execution
+Move command execution INTO the daemon. Shim becomes pure socket client (no Python).
+
+```
+Current: Shim → Python Wrapper (250ms) → Daemon → Wrapper executes
+New:     Shim → Daemon evaluates AND executes (via fork) → Results
+```
+
+### Requirements
+
+| Requirement | Target | Notes |
+|-------------|--------|-------|
+| Command overhead | **< 1ms** | Socket + daemon evaluation + fork |
+| `ls` command | **< 1ms total** | Must be imperceptible |
+| Logging | **Minimal** | No INFO logs for allowed commands |
+| Shim | **No Python** | Pure bash + socat/nc |
+
+### Implementation Tasks
+- [ ] Add `RequestType.EXECUTE` to protocol
+- [ ] Add `_handle_execute()` to daemon manager
+- [ ] Create `daemon/executor.py` - fork, capture output, return results
+- [ ] Update response format with stdout/stderr/exit_code
+- [ ] Create `safeshell-check` bash client (socket I/O only)
+- [ ] Update shims to use bash client
+- [ ] Reduce logging verbosity for allowed commands
+- [ ] Add tests for execution flow
+- [ ] Benchmark: verify <1ms overhead
+
+### Open Questions (See Design Doc)
+1. TTY handling for interactive commands
+2. Environment inheritance (daemon env vs request env)
+3. Streaming vs buffered output
+4. Timeout handling for long-running commands
 
 ---
 
 ## PR1: Caching Infrastructure ✅
 
 **Status**: 🟢 Complete
-**Branch**: `feat/phase7-performance`
 
 ### Completed Work
-- [x] Add `ConditionCache` class with TTL-based expiration (5s default)
+- [x] Add `ConditionCache` class with TTL-based expiration
 - [x] Cache `RuleEvaluator` instance when rules haven't changed
-- [x] Persist condition cache across requests (was cleared per evaluate())
 - [x] Pre-compile directory regex patterns at evaluator init
 - [x] Add git context caching with 10-second TTL
-- [x] Add 15 new tests for caching functionality
-- [x] All 256 tests passing
-
-### Files Modified
-- `src/safeshell/rules/evaluator.py` - ConditionCache, regex precompilation
-- `src/safeshell/daemon/manager.py` - Evaluator caching, shared condition cache
-- `src/safeshell/models.py` - Git context caching
-- `tests/rules/test_condition_cache.py` - New test file
-- `tests/test_git_context_cache.py` - New test file
-
-### Performance Impact
-- Evaluator reuse: ~1-2ms saved per request
-- Condition cache hits: ~5-20ms saved per repeated condition
-- Git context cache: ~1-5ms saved per repeated directory
-- **Note**: Primary bottleneck (bash subprocess spawning) still exists
-
----
-
-## PR2: Python Condition DSL 🟡
-
-**Status**: 🟡 Partial (Superseded by PR4-6)
-**Achieved Impact**: Limited - only helps for recognized bash patterns
-
-### What Was Done
-- [x] Created `src/safeshell/rules/conditions.py` with Python condition classes
-- [x] Auto-translation of common bash patterns to Python
-- [x] Added 31 tests
-
-### Why This Was Insufficient
-The auto-translation approach has fundamental limitations:
-1. **Still uses bash strings in YAML** - Users still write bash conditions
-2. **Pattern matching is fragile** - Regex parsing of bash is error-prone
-3. **Unrecognized patterns fall back to bash** - Still spawns subprocesses
-4. **Shell integration overhead** - The `echo`/`eval` overrides in `init.bash` still call the wrapper for every command
-
-### Lessons Learned
-The real fix requires **structured Python conditions** in the rule schema itself, not auto-translation of bash strings. See PR4-6 for the correct approach.
+- [x] All tests passing
 
 ---
 
 ## PR3: Profiling Infrastructure 🔴
 
-**Status**: 🔴 Deferred (until PR4-6 complete)
-**Depends On**: PR6
+**Status**: 🔴 Deferred (until PR7 complete)
 
 ### Objectives
-- [ ] Create `src/safeshell/performance.py` module
-- [ ] Add `PerformanceTracker` class with timing context manager
-- [ ] Instrument critical paths (manager, evaluator, conditions)
+- [ ] Create benchmark scripts for command overhead
 - [ ] Add `safeshell perf-stats` CLI command
-- [ ] Create benchmark scripts
-
----
-
-## PR4: Structured Condition Schema 🔴
-
-**Status**: 🔴 Not Started (HIGHEST PRIORITY)
-**Estimated Impact**: Eliminates bash subprocess spawning entirely
-
-### Objectives
-Replace bash condition strings with structured Python-evaluatable conditions in rules.yaml.
-
-### New Condition Format
-```yaml
-# OLD (bash strings - spawns subprocess):
-conditions:
-  - 'echo "$CMD" | grep -qE "^git\\s+commit"'
-  - 'git branch --show-current | grep -qE "^(main|master)$"'
-
-# NEW (structured - pure Python evaluation):
-conditions:
-  - command_matches: "^git\\s+commit"
-  - git_branch_in: ["main", "master", "develop"]
-```
-
-### Supported Condition Types
-| Condition | Description | Example |
-|-----------|-------------|---------|
-| `command_matches` | Regex match on full command | `command_matches: "^git\\s+push"` |
-| `command_contains` | Literal substring match | `command_contains: "--force"` |
-| `command_startswith` | Command prefix match | `command_startswith: "rm -rf"` |
-| `git_branch_in` | Current branch in list | `git_branch_in: ["main", "master"]` |
-| `git_branch_matches` | Regex match on branch | `git_branch_matches: "^release/"` |
-| `in_git_repo` | Is working dir a git repo | `in_git_repo: true` |
-| `path_matches` | Working dir matches pattern | `path_matches: "/home/.*/projects"` |
-| `file_exists` | File exists in working dir | `file_exists: ".gitignore"` |
-| `env_equals` | Environment variable check | `env_equals: {SAFESHELL_CONTEXT: "ai"}` |
-
-### Files to Modify
-- `src/safeshell/rules/schema.py` - Add structured condition types
-- `src/safeshell/rules/defaults.py` - Update default rules to new format
-
-### Tasks
-- [ ] Define Pydantic models for each condition type
-- [ ] Add union type for conditions in Rule schema
-- [ ] Support both old (string) and new (structured) formats temporarily
-- [ ] Update schema validation
-- [ ] Add tests for new condition schema
-
----
-
-## PR5: Condition Evaluators 🔴
-
-**Status**: 🔴 Not Started
-**Depends On**: PR4
-
-### Objectives
-Implement Python evaluators for all structured condition types.
-
-### Files to Modify
-- `src/safeshell/rules/conditions.py` - Evaluator implementations
-- `src/safeshell/rules/evaluator.py` - Use new evaluators
-
-### Architecture
-```python
-class ConditionEvaluator(ABC):
-    @abstractmethod
-    def evaluate(self, context: CommandContext) -> bool: ...
-
-class CommandMatchesEvaluator(ConditionEvaluator):
-    def __init__(self, pattern: str):
-        self._compiled = re.compile(pattern)
-
-    def evaluate(self, context: CommandContext) -> bool:
-        return self._compiled.search(context.raw_command) is not None
-
-class GitBranchInEvaluator(ConditionEvaluator):
-    def __init__(self, branches: list[str]):
-        self._branches = set(branches)
-
-    def evaluate(self, context: CommandContext) -> bool:
-        return context.git_branch in self._branches
-```
-
-### Tasks
-- [ ] Implement evaluator for each condition type
-- [ ] Pre-compile regex patterns at rule load time
-- [ ] Update `_check_condition()` to use structured evaluators
-- [ ] Add comprehensive tests
-- [ ] Benchmark: verify <0.1ms per condition
-
----
-
-## PR6: Deprecate Bash Conditions 🔴
-
-**Status**: 🔴 Not Started
-**Depends On**: PR5
-
-### Objectives
-Provide migration path and deprecate bash condition strings.
-
-### Tasks
-- [ ] Add deprecation warning when bash conditions are used
-- [ ] Create migration guide documentation
-- [ ] Add `safeshell migrate-rules` CLI command to auto-convert
-- [ ] Update all documentation to use new format
-- [ ] Update default rules to new format
-- [ ] Consider removing bash fallback entirely (breaking change)
-
-### Migration Command
-```bash
-# Auto-convert old rules to new format
-safeshell migrate-rules ~/.safeshell/rules.yaml
-```
+- [ ] Instrument critical paths
+- [ ] Performance regression tests in CI
 
 ---
 
 ## Performance Targets
 
-| Metric | Current (Est.) | Target | Status |
-|--------|----------------|--------|--------|
-| Command overhead | 20-50ms | < 10ms | Improved (PR2) |
-| Rule evaluation | 10-30ms | < 1ms | Improved (PR2) |
-| Condition check | 5-20ms | < 0.1ms | ✅ Done (PR2) |
-| Git context | 1-5ms | < 0.1ms | ✅ Done (PR1) |
+| Metric | Before PR4-6 | After PR4-6 | After PR7 (Target) |
+|--------|--------------|-------------|-------------------|
+| Condition check | 5-20ms | <0.1ms ✅ | <0.1ms |
+| Rule evaluation | 10-30ms | ~1ms ✅ | <0.5ms |
+| **Command overhead** | **~300ms** | **~250ms** | **< 1ms** |
+| Logging noise | High | High | Minimal |
 
 ---
 
-## Root Cause Analysis
+## Architecture Evolution
 
-### Why Simple Commands Are Still Slow
-1. **Shell integration overhead** - `init.bash` overrides `echo`, `eval`, etc.
-2. **Every builtin call goes through SafeShell** - Even shell hooks (Warp Precmd, etc.)
-3. **Wrapper → Daemon roundtrip** - Each call requires IPC, even for fast-path allow
-4. **Bash conditions still spawn subprocesses** - PR2's auto-translation only catches some patterns
-
-### The Real Problem
-The fundamental issue is that bash condition strings in `rules.yaml` require either:
-- Bash subprocess spawning (slow: 5-20ms)
-- Complex regex parsing to auto-translate (fragile, incomplete)
-
-### The Correct Solution (PR4-6)
-Replace bash strings with **structured Python conditions** in the rule schema:
-```yaml
-# Instead of this (requires bash or complex parsing):
-conditions:
-  - 'echo "$CMD" | grep -qE "^git\\s+commit"'
-
-# Use this (pure Python, <0.1ms):
-conditions:
-  - command_matches: "^git\\s+commit"
+### Current State (Post PR4-6)
+```
+User Command → Bash Shim → Python Wrapper (250ms startup) → Daemon → Response → Wrapper Executes
 ```
 
-This eliminates bash entirely and makes conditions:
-- Fast (pure Python, no subprocess)
-- Readable (clear intent)
-- Type-safe (validated by Pydantic)
-- Extensible (easy to add new condition types)
+### Target State (Post PR7)
+```
+User Command → Bash Shim → Daemon (already warm) → Fork & Execute → Response
+```
+
+See [Architecture Proposal](../../../docs/architecture-proposal.html) for detailed diagrams.
 
 ---
 
 ## Notes for AI Agents
 
 ### Priority
-**PR4 is the highest priority** - structured condition schema is the foundation.
-PR5 and PR6 build on PR4. PR3 (profiling) is deferred until conditions are fixed.
+**PR7 is the highest priority** - daemon-based execution eliminates the 250ms Python startup.
 
-### Key Files
-- `src/safeshell/rules/schema.py` - Rule schema (modify for PR4)
-- `src/safeshell/rules/conditions.py` - Condition evaluators (modify for PR5)
-- `src/safeshell/rules/evaluator.py` - Core evaluation logic
-- `src/safeshell/rules/defaults.py` - Default rules (update format)
-- `src/safeshell/shims/init.bash` - Shell integration (AI-only mode added)
+### Key Documentation
+- **Architecture Proposal**: `docs/architecture-proposal.html` - Detailed design with diagrams
+- **This File**: Current progress and requirements
+- **AI_CONTEXT.md**: Background and technical context
 
-### Architecture Decision
-Structured conditions use a discriminated union pattern in Pydantic:
-```python
-Condition = Annotated[
-    CommandMatches | CommandContains | GitBranchIn | ...,
-    Field(discriminator="type")
-]
-```
+### Key Insight
+The daemon already has Python warm with all imports loaded. The fix is to stop spawning
+a new Python wrapper for every command. Instead, have the daemon evaluate AND execute,
+with the shim doing only socket I/O.
 
-Each condition type is a Pydantic model with a `type` field for discrimination
-and type-specific fields for the condition parameters.
+### Performance Requirement
+A simple `ls` command must complete in **< 1ms** overhead with **minimal logging**.
+This means:
+- No Python startup (bash shim only)
+- No INFO-level logs for allowed commands
+- Socket round-trip + daemon evaluation + fork must total < 1ms

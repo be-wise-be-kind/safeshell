@@ -42,12 +42,18 @@ class TestDaemonClientInit:
             client = DaemonClient(socket_path=custom_path)
             assert client.socket_path == custom_path
 
-    def test_config_loaded(self) -> None:
-        """Test that config is loaded on initialization."""
+    def test_config_lazy_loaded(self) -> None:
+        """Test that config is lazy loaded when needed."""
         client = DaemonClient()
-        assert client._config is not None
+        # Config starts as None (lazy loading)
+        assert client._config is None
+        # Accessing via _get_config() loads it
+        config = client._get_config()
+        assert config is not None
         # Should have approval_timeout_seconds from config
-        assert hasattr(client._config, "approval_timeout_seconds")
+        assert hasattr(config, "approval_timeout_seconds")
+        # Now _config is cached
+        assert client._config is not None
 
 
 class TestDaemonClientPing:

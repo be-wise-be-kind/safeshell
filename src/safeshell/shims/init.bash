@@ -148,16 +148,11 @@ eval() {
     fi
 }
 
-# Override: echo
-# Use case: Prevent echoing sensitive data or test blocking
-echo() {
-    # Check with SafeShell (fail-open if daemon down)
-    if __safeshell_check "echo $*"; then
-        builtin echo "$@"
-    else
-        return 1
-    fi
-}
+# NOTE: echo builtin is NOT overridden.
+# Reason: echo is used heavily by shell internals (prompts, hooks, etc.)
+# and overriding it causes significant evaluation noise without much
+# security benefit. If you need to block specific echo commands, use
+# a rule with command_startswith: "echo" instead.
 
 # --- Restore tab completion for overridden builtins ---
 # When we override builtins with functions, bash loses default completion

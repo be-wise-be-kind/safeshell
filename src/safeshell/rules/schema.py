@@ -2,13 +2,16 @@
 File: src/safeshell/rules/schema.py
 Purpose: Pydantic models for YAML-based rule configuration
 Exports: RuleAction, Rule, RuleSet
-Depends: pydantic, enum
+Depends: pydantic, enum, condition_types
 Overview: Defines the schema for rules loaded from ~/.safeshell/rules.yaml and .safeshell/rules.yaml
 """
 
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+from safeshell.rules.condition_types import Condition, parse_condition
 
 
 class RuleAction(str, Enum):
@@ -34,7 +37,7 @@ class Rule(BaseModel):
     Rules are matched against commands based on:
     1. Command executable (fast-path filter)
     2. Directory pattern (optional regex)
-    3. Bash conditions (all must exit 0)
+    3. Structured conditions (all must evaluate to True)
 
     When matched, the rule's action is applied.
     """
@@ -47,10 +50,11 @@ class Rule(BaseModel):
         default=None,
         description="Optional regex pattern for working directory",
     )
-    conditions: list[str] = Field(
+    conditions: list[Condition] = Field(
         default_factory=list,
-        description="Bash conditions that must all exit 0 for rule to match",
+        description="Structured conditions that must all pass for rule to match",
     )
+
     action: RuleAction = Field(description="Action to take when rule matches")
     context: RuleContext = Field(
         default=RuleContext.ALL,
@@ -73,6 +77,14 @@ class Rule(BaseModel):
         if not v:
             raise ValueError("At least one command must be specified")
         return v
+
+    @field_validator("conditions", mode="before")
+    @classmethod
+    def parse_conditions(cls, v: list[Any]) -> list[Condition]:
+        """Parse conditions from YAML format to Condition objects."""
+        if not v:
+            return []
+        return [parse_condition(item) if isinstance(item, dict) else item for item in v]
 
     @model_validator(mode="after")
     def validate_redirect_to(self) -> "Rule":

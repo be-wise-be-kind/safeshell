@@ -5,6 +5,7 @@
 import pytest
 
 from safeshell.models import CommandContext, Decision
+from safeshell.rules.condition_types import CommandContains, CommandMatches, GitBranchIn
 from safeshell.rules.evaluator import RuleEvaluator
 from safeshell.rules.schema import Rule, RuleAction
 
@@ -86,8 +87,8 @@ class TestRuleEvaluator:
         assert result.reason == "Needs approval"
 
 
-class TestBashConditions:
-    """Tests for bash condition evaluation."""
+class TestStructuredConditions:
+    """Tests for structured condition evaluation."""
 
     @pytest.mark.asyncio
     async def test_condition_passes(self) -> None:
@@ -96,7 +97,7 @@ class TestBashConditions:
             Rule(
                 name="test-rule",
                 commands=["echo"],
-                conditions=["true"],  # Always exits 0
+                conditions=[CommandContains(command_contains="hello")],
                 action=RuleAction.DENY,
                 message="Blocked",
             )
@@ -115,7 +116,7 @@ class TestBashConditions:
             Rule(
                 name="test-rule",
                 commands=["echo"],
-                conditions=["false"],  # Always exits 1
+                conditions=[CommandContains(command_contains="goodbye")],
                 action=RuleAction.DENY,
                 message="Blocked",
             )
@@ -134,47 +135,31 @@ class TestBashConditions:
         rules = [
             Rule(
                 name="test-rule",
-                commands=["echo"],
-                conditions=["true", "true", "false"],  # Last one fails
+                commands=["git"],
+                conditions=[
+                    CommandMatches(command_matches=r"^git\s+commit"),
+                    CommandContains(command_contains="message"),
+                    CommandContains(command_contains="nonexistent"),  # This fails
+                ],
                 action=RuleAction.DENY,
                 message="Blocked",
             )
         ]
         evaluator = RuleEvaluator(rules)
-        context = CommandContext.from_command("echo hello", "/tmp")
+        context = CommandContext.from_command("git commit -m message", "/tmp")
 
         result = await evaluator.evaluate(context)
 
         assert result.decision == Decision.ALLOW
 
     @pytest.mark.asyncio
-    async def test_condition_timeout(self) -> None:
-        """Test that conditions that take too long time out."""
-        rules = [
-            Rule(
-                name="slow-rule",
-                commands=["echo"],
-                conditions=["sleep 1"],  # Will timeout with 50ms limit
-                action=RuleAction.DENY,
-                message="Blocked",
-            )
-        ]
-        evaluator = RuleEvaluator(rules, condition_timeout_ms=50)
-        context = CommandContext.from_command("echo hello", "/tmp")
-
-        result = await evaluator.evaluate(context)
-
-        # Timeout = condition failed = rule doesn't match
-        assert result.decision == Decision.ALLOW
-
-    @pytest.mark.asyncio
-    async def test_cmd_variable_available(self) -> None:
-        """Test that $CMD variable is available in conditions."""
+    async def test_command_matches_condition(self) -> None:
+        """Test that command_matches condition works."""
         rules = [
             Rule(
                 name="check-cmd",
                 commands=["git"],
-                conditions=["echo \"$CMD\" | grep -q 'commit'"],
+                conditions=[CommandMatches(command_matches=r"commit")],
                 action=RuleAction.DENY,
                 message="Blocked commit",
             )
@@ -188,6 +173,48 @@ class TestBashConditions:
 
         # Should not match - command doesn't contain "commit"
         context = CommandContext.from_command("git status", "/tmp")
+        result = await evaluator.evaluate(context)
+        assert result.decision == Decision.ALLOW
+
+    @pytest.mark.asyncio
+    async def test_git_branch_in_condition(self) -> None:
+        """Test that git_branch_in condition works."""
+        from safeshell.models import ExecutionContext
+
+        rules = [
+            Rule(
+                name="check-branch",
+                commands=["git"],
+                conditions=[GitBranchIn(git_branch_in=["main", "master"])],
+                action=RuleAction.DENY,
+                message="Blocked on protected branch",
+            )
+        ]
+        evaluator = RuleEvaluator(rules)
+
+        # Should match - on main branch
+        context = CommandContext(
+            raw_command="git commit",
+            parsed_args=["git", "commit"],
+            working_dir="/tmp",
+            git_repo_root="/tmp",
+            git_branch="main",
+            environment={},
+            execution_context=ExecutionContext.HUMAN,
+        )
+        result = await evaluator.evaluate(context)
+        assert result.decision == Decision.DENY
+
+        # Should not match - on feature branch
+        context = CommandContext(
+            raw_command="git commit",
+            parsed_args=["git", "commit"],
+            working_dir="/tmp",
+            git_repo_root="/tmp",
+            git_branch="feature/new-thing",
+            environment={},
+            execution_context=ExecutionContext.HUMAN,
+        )
         result = await evaluator.evaluate(context)
         assert result.decision == Decision.ALLOW
 
