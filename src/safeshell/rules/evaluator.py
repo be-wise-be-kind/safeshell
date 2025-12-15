@@ -257,12 +257,16 @@ class RuleEvaluator:
         if self._use_shared_cache and self._condition_cache is not None:
             cached_result = self._condition_cache.get(cache_key)
             if cached_result is not None:
-                logger.debug(f"Condition cache hit (shared): {condition[:40]}... -> {cached_result}")
+                logger.debug(
+                    f"Condition cache hit (shared): {condition[:40]}... -> {cached_result}"
+                )
                 return cached_result
         else:
             if cache_key in self._local_cache:
                 cached_result = self._local_cache[cache_key]
-                logger.debug(f"Condition cache hit (local): {condition[:40]}... -> {cached_result}")
+                logger.debug(
+                    f"Condition cache hit (local): {condition[:40]}... -> {cached_result}"
+                )
                 return cached_result
 
         # Execute condition

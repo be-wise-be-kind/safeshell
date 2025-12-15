@@ -72,8 +72,8 @@ class CommandContext(BaseModel):
         command: str,
         working_dir: str | Path,
         env: dict[str, str] | None = None,
-        execution_context: "ExecutionContext | None" = None,
-    ) -> "CommandContext":
+        execution_context: ExecutionContext | None = None,
+    ) -> CommandContext:
         """Create CommandContext from a command string.
 
         Args:
@@ -253,7 +253,7 @@ class DaemonResponse(BaseModel):
     )
 
     @classmethod
-    def allow(cls) -> "DaemonResponse":
+    def allow(cls) -> DaemonResponse:
         """Create an ALLOW response."""
         return cls(
             success=True,
@@ -262,7 +262,7 @@ class DaemonResponse(BaseModel):
         )
 
     @classmethod
-    def deny(cls, reason: str, plugin_name: str = "unknown") -> "DaemonResponse":
+    def deny(cls, reason: str, plugin_name: str = "unknown") -> DaemonResponse:
         """Create a DENY response with a denial message."""
         result = EvaluationResult(
             decision=Decision.DENY,
@@ -278,7 +278,7 @@ class DaemonResponse(BaseModel):
         )
 
     @classmethod
-    def error(cls, message: str) -> "DaemonResponse":
+    def error(cls, message: str) -> DaemonResponse:
         """Create an error response."""
         return cls(
             success=False,
@@ -289,7 +289,7 @@ class DaemonResponse(BaseModel):
     @classmethod
     def waiting_for_approval(
         cls, command: str, rule_name: str, reason: str, approval_id: str
-    ) -> "DaemonResponse":
+    ) -> DaemonResponse:
         """Create an intermediate 'waiting for approval' response."""
         return cls(
             success=True,
