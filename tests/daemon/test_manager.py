@@ -10,6 +10,7 @@ import pytest
 
 from safeshell.daemon.manager import RuleManager
 from safeshell.models import DaemonRequest, Decision, RequestType
+from safeshell.rules.condition_types import CommandMatches, GitBranchIn
 from safeshell.rules.schema import Rule, RuleAction
 
 
@@ -82,8 +83,8 @@ def git_protect_rule() -> Rule:
         name="block-commit-protected-branch",
         commands=["git"],
         conditions=[
-            'echo "$CMD" | grep -qE "^git\\s+commit"',
-            "git branch --show-current 2>/dev/null | grep -qE '^(main|master|develop)$'",
+            CommandMatches(command_matches=r"^git\s+commit"),
+            GitBranchIn(git_branch_in=["main", "master", "develop"]),
         ],
         action=RuleAction.DENY,
         message="Cannot commit directly to protected branch.",

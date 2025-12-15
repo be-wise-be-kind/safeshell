@@ -77,11 +77,10 @@ class DaemonServer:
             ttl_seconds=self._config.approval_memory_ttl_seconds,
         )
 
-        # Rule manager with event publisher, approval manager, session memory, and config timeout
+        # Rule manager with event publisher, approval manager, and session memory
         self.rule_manager = RuleManager(
             event_publisher=self._event_publisher,
             approval_manager=self._approval_manager,
-            condition_timeout_ms=self._config.condition_timeout_ms,
             session_memory=self._session_memory,
         )
 

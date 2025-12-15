@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeShell Documentation</title>
+    <style>
+        :root {
+            --bg: #fafafa;
+            --surface: #ffffff;
+            --primary: #e0e0e0;
+            --accent: #2563eb;
+            --text: #1f2937;
+            --text-dim: #6b7280;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { color: var(--text); margin-bottom: 0.5rem; }
+        .subtitle { color: var(--text-dim); margin-bottom: 2rem; }
+        .card {
+            background: var(--surface);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--accent);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .card h2 { color: var(--text); margin-bottom: 0.5rem; }
+        .card p { color: var(--text-dim); }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .docs-list { list-style: none; margin-top: 1rem; }
+        .docs-list li { margin-bottom: 0.5rem; }
+        .docs-list a {
+            display: block;
+            padding: 0.75rem 1rem;
+            background: #f3f4f6;
+            border-radius: 4px;
+            transition: background 0.2s;
+            color: var(--text);
+        }
+        .docs-list a:hover { background: #dbeafe; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SafeShell Documentation</h1>
+        <p class="subtitle">Command safety layer for AI-assisted development</p>
+
+        <div class="card">
+            <h2>Architecture Documents</h2>
+            <p>Technical design and process flow documentation</p>
+            <ul class="docs-list">
+                <li><a href="architecture-proposal.html">Architecture Proposal: Daemon-Based Execution</a></li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h2>Quick Links</h2>
+            <p>External resources</p>
+            <ul class="docs-list">
+                <li><a href="https://github.com/be-wise-be-kind/safeshell">GitHub Repository</a></li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
