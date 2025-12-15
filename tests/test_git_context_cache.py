@@ -2,9 +2,8 @@
 Tests for git context caching in CommandContext.
 """
 
-import time
 import tempfile
-import os
+import time
 from pathlib import Path
 
 import pytest
@@ -12,7 +11,6 @@ import pytest
 from safeshell.models import (
     CommandContext,
     _git_context_cache,
-    _GIT_CONTEXT_CACHE_TTL,
 )
 
 
@@ -26,7 +24,7 @@ class TestGitContextCache:
     def test_cache_stores_result(self) -> None:
         """Test that git context detection caches its result."""
         # Use current directory (which is in a git repo)
-        working_dir = os.getcwd()
+        working_dir = str(Path.cwd())
 
         # First call should populate cache
         result1 = CommandContext._detect_git_context(working_dir)
@@ -52,7 +50,7 @@ class TestGitContextCache:
         """Test that cache entries expire after TTL."""
         # This test is tricky because we can't easily change TTL
         # Just verify the cache structure includes timestamp
-        working_dir = os.getcwd()
+        working_dir = str(Path.cwd())
 
         CommandContext._detect_git_context(working_dir)
 
@@ -64,7 +62,7 @@ class TestGitContextCache:
 
     def test_uncached_method_bypasses_cache(self) -> None:
         """Test that _detect_git_context_uncached doesn't use cache."""
-        working_dir = os.getcwd()
+        working_dir = str(Path.cwd())
 
         # Clear cache
         _git_context_cache.clear()
@@ -101,18 +99,20 @@ class TestGitContextCache:
 
     def test_cache_different_directories(self) -> None:
         """Test that different directories are cached independently."""
-        with tempfile.TemporaryDirectory() as tmpdir1:
-            with tempfile.TemporaryDirectory() as tmpdir2:
-                result1 = CommandContext._detect_git_context(tmpdir1)
-                result2 = CommandContext._detect_git_context(tmpdir2)
+        with (
+            tempfile.TemporaryDirectory() as tmpdir1,
+            tempfile.TemporaryDirectory() as tmpdir2,
+        ):
+            result1 = CommandContext._detect_git_context(tmpdir1)
+            result2 = CommandContext._detect_git_context(tmpdir2)
 
-                # Both should be cached
-                assert tmpdir1 in _git_context_cache
-                assert tmpdir2 in _git_context_cache
+            # Both should be cached
+            assert tmpdir1 in _git_context_cache
+            assert tmpdir2 in _git_context_cache
 
-                # Both should return (None, None) since they're not git repos
-                assert result1 == (None, None)
-                assert result2 == (None, None)
+            # Both should return (None, None) since they're not git repos
+            assert result1 == (None, None)
+            assert result2 == (None, None)
 
 
 class TestGitContextCacheIntegration:
@@ -124,7 +124,7 @@ class TestGitContextCacheIntegration:
 
     def test_from_command_uses_cache(self) -> None:
         """Test that CommandContext.from_command uses cached git context."""
-        working_dir = os.getcwd()
+        working_dir = str(Path.cwd())
 
         # Create context (should populate cache)
         ctx1 = CommandContext.from_command(
