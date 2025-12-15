@@ -22,7 +22,8 @@ from typing import TYPE_CHECKING
 _DEFAULT_SOCKET_PATH = Path.home() / ".safeshell" / "daemon.sock"
 
 if TYPE_CHECKING:
-    from safeshell.models import DaemonResponse, ExecutionContext
+    from safeshell.config import SafeShellConfig
+    from safeshell.models import DaemonRequest, DaemonResponse, ExecutionContext
 
 
 def evaluate_fast(
@@ -129,9 +130,9 @@ class DaemonClient:
             socket_path: Path to daemon socket (defaults to standard location)
         """
         self.socket_path = socket_path or _DEFAULT_SOCKET_PATH
-        self._config = None  # Lazy loaded
+        self._config: SafeShellConfig | None = None  # Lazy loaded
 
-    def _get_config(self):
+    def _get_config(self) -> SafeShellConfig:
         """Lazy load config."""
         if self._config is None:
             from safeshell.config import load_config
@@ -194,7 +195,7 @@ class DaemonClient:
         except (DaemonNotRunningError, DaemonStartError):
             return False
 
-    def _send_request(self, request) -> DaemonResponse:
+    def _send_request(self, request: DaemonRequest) -> DaemonResponse:
         """Send a request to the daemon and receive response.
 
         Args:
