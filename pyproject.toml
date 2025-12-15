@@ -75,6 +75,7 @@ ignore = [
 [tool.pylint.main]
 max-line-length = 100
 extension-pkg-whitelist = ["PyQt6"]
+ignore-paths = ["src/safeshell/gui"]  # GUI requires display, skip in CI
 
 [tool.pylint.messages_control]
 disable = [
