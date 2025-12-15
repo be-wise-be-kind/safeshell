@@ -15,6 +15,8 @@ loguru = "^0.7.0"
 pyyaml = "^6.0.0"
 plumbum = "^1.9.0"
 textual = "^6.8.0"
+PyQt6 = "^6.6.0"
+qasync = "^0.27.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
@@ -72,6 +74,8 @@ ignore = [
 # Pylint configuration
 [tool.pylint.main]
 max-line-length = 100
+extension-pkg-whitelist = ["PyQt6"]
+ignore-paths = ["src/safeshell/gui"]  # GUI requires display, skip in CI
 
 [tool.pylint.messages_control]
 disable = [
@@ -119,6 +123,11 @@ disallow_untyped_defs = false
 module = ["plumbum", "plumbum.*"]
 ignore_missing_imports = true
 
+# qasync lacks type stubs - ignore missing imports
+[[tool.mypy.overrides]]
+module = ["qasync"]
+ignore_missing_imports = true
+
 # Pytest configuration
 [tool.pytest.ini_options]
 minversion = "8.0"
@@ -140,6 +149,12 @@ skips = [
     "B603",  # subprocess without shell: Safe - we control the command list
     "B606",  # start process no shell: Safe - intentional for exec replacement
     "B607",  # partial path: Safe - using poetry run for development utilities
+]
+
+# Coverage configuration
+[tool.coverage.run]
+omit = [
+    "src/safeshell/gui/*",  # GUI requires display, tested manually
 ]
 
 # Radon configuration
