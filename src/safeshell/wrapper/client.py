@@ -17,7 +17,7 @@ from loguru import logger
 from safeshell.config import load_config
 from safeshell.daemon.lifecycle import SOCKET_PATH
 from safeshell.exceptions import DaemonNotRunningError, DaemonStartError
-from safeshell.models import DaemonRequest, DaemonResponse, RequestType
+from safeshell.models import DaemonRequest, DaemonResponse, ExecutionContext, RequestType
 
 
 class DaemonClient:
@@ -47,7 +47,7 @@ class DaemonClient:
         command: str,
         working_dir: str,
         env: dict[str, str] | None = None,
-        execution_context: str = "human",
+        execution_context: ExecutionContext = ExecutionContext.HUMAN,
     ) -> DaemonResponse:
         """Send command for evaluation by daemon.
 
@@ -55,7 +55,7 @@ class DaemonClient:
             command: Command string to evaluate
             working_dir: Current working directory
             env: Environment variables
-            execution_context: Who is executing - "ai" or "human"
+            execution_context: Who is executing the command
 
         Returns:
             Response from daemon with evaluation results
@@ -63,16 +63,12 @@ class DaemonClient:
         Raises:
             DaemonNotRunningError: If daemon is not running and auto-start fails
         """
-        from safeshell.models import ExecutionContext
-
-        exec_ctx = ExecutionContext.AI if execution_context == "ai" else ExecutionContext.HUMAN
-
         request = DaemonRequest(
             type=RequestType.EVALUATE,
             command=command,
             working_dir=working_dir,
             env=env or {},
-            execution_context=exec_ctx,
+            execution_context=execution_context,
         )
         return self._send_request(request)
 

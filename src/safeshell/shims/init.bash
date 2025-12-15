@@ -11,8 +11,16 @@
 [[ -n "$SAFESHELL_LOADED" ]] && return
 export SAFESHELL_LOADED=1
 
+# --- Context Detection ---
+# Determine if we're in an AI-controlled context.
+# Add vendor-specific checks here (only place for vendor detection).
+__SAFESHELL_IS_AI=0
+[[ "$SAFESHELL_CONTEXT" == "ai" ]] && __SAFESHELL_IS_AI=1
+[[ "$WARP_AI_AGENT" == "1" ]] && __SAFESHELL_IS_AI=1
+# Add other AI tool detections here:
+# [[ -n "$CURSOR_AI" ]] && __SAFESHELL_IS_AI=1
+
 # --- Tool Pattern Detection ---
-# Different AI tools need different protection strategies.
 # Hook-based tools (Claude Code, etc.) have pre-execution hooks that
 # already validate commands - loading shims would cause double-checking.
 
@@ -24,7 +32,7 @@ if [[ -n "$CLAUDECODE" ]]; then
 fi
 
 # Pattern: Other hook-protected tools can be added here:
-# if [[ -n "$CURSOR_SOMETHING" ]]; then return; fi
+# if [[ -n "$CURSOR_HOOK_PROTECTED" ]]; then return; fi
 
 # Pattern: Interactive shell OR non-interactive without hook protection
 # Load full shim protection below.
@@ -60,6 +68,11 @@ fi
 __safeshell_check() {
     local cmd="$1"
 
+    # Bypass mode - skip evaluation (used for internal condition checks)
+    if [[ "$SAFESHELL_BYPASS" == "1" ]]; then
+        return 0
+    fi
+
     # Quick check: is daemon socket present?
     local socket="${SAFESHELL_SOCKET:-$HOME/.safeshell/daemon.sock}"
     if [[ ! -S "$socket" ]]; then
@@ -76,7 +89,7 @@ __safeshell_check() {
     fi
 
     if [[ $exit_code -ne 0 ]]; then
-        echo "$result" >&2
+        builtin echo "$result" >&2
     fi
 
     return $exit_code

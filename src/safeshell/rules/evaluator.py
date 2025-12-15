@@ -296,6 +296,9 @@ class RuleEvaluator:
             "ARGS": args_str,
             "PWD": context.working_dir,
             "SAFESHELL_RULE": self._current_rule_name,
+            # Bypass SafeShell evaluation for condition subprocess commands
+            # This prevents recursive evaluation when running bash conditions
+            "SAFESHELL_BYPASS": "1",
         }
 
         try:
