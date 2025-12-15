@@ -203,6 +203,7 @@ class RequestType(str, Enum):
     """Types of requests from wrapper to daemon."""
 
     EVALUATE = "evaluate"
+    EXECUTE = "execute"  # Evaluate AND execute command (daemon-based execution)
     PING = "ping"
     STATUS = "status"
 
@@ -246,6 +247,16 @@ class DaemonResponse(BaseModel):
     )
     status_message: str | None = Field(
         default=None, description="Status message to display (e.g., 'Waiting for approval...')"
+    )
+    # Execution-related fields (for RequestType.EXECUTE)
+    executed: bool = Field(
+        default=False, description="Whether command was actually executed by daemon"
+    )
+    exit_code: int | None = Field(default=None, description="Command exit code (if executed)")
+    stdout: str | None = Field(default=None, description="Command stdout (if executed)")
+    stderr: str | None = Field(default=None, description="Command stderr (if executed)")
+    execution_time_ms: float | None = Field(
+        default=None, description="Execution time in milliseconds (if executed)"
     )
 
     @classmethod

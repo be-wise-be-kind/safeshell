@@ -76,7 +76,7 @@ class DebugPane(Static):
         }
         color = color_map.get(level, "white")
 
-        timestamp = datetime.now().strftime("%H:%M:%S")
+        timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]  # Include milliseconds
         log_widget.write(f"[dim]{timestamp}[/dim] [{color}]{message}[/{color}]")
 
 
@@ -194,7 +194,7 @@ class HistoryPane(Static):
 
         for item in self._history[:20]:  # Show last 20
             icon, css_class = status_icons.get(item.status, ("?", "cmd-pending"))
-            time_str = item.timestamp.strftime("%H:%M:%S")
+            time_str = item.timestamp.strftime("%H:%M:%S.%f")[:-3]  # Include milliseconds
             cmd_short = item.command[:40] + "..." if len(item.command) > 40 else item.command
 
             text = f"[{icon}] {time_str} {cmd_short}"

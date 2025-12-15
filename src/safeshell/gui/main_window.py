@@ -223,15 +223,15 @@ class MainWindow(QMainWindow):
         timestamp_str = event.get("timestamp", "")
         data = event.get("data", {})
 
-        # Parse timestamp
+        # Parse timestamp (with milliseconds)
         try:
             if timestamp_str:
                 dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
-                time_display = dt.strftime("%H:%M:%S")
+                time_display = dt.strftime("%H:%M:%S.%f")[:-3]
             else:
-                time_display = datetime.now().strftime("%H:%M:%S")
+                time_display = datetime.now().strftime("%H:%M:%S.%f")[:-3]
         except (ValueError, TypeError):
-            time_display = datetime.now().strftime("%H:%M:%S")
+            time_display = datetime.now().strftime("%H:%M:%S.%f")[:-3]
 
         color = EVENT_COLORS.get(event_type, "#FFFFFF")
 

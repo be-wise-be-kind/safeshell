@@ -259,3 +259,120 @@ class TestDecisionAggregation:
             assert len(response.results) >= 1
             # Final decision should be DENY (most restrictive wins)
             assert response.final_decision == Decision.DENY
+
+
+class TestExecuteRequest:
+    """Tests for RuleManager.process_request() with EXECUTE request type."""
+
+    @pytest.mark.asyncio
+    async def test_execute_simple_command(self, manager: RuleManager) -> None:
+        """Test executing a simple allowed command."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            request = DaemonRequest(
+                type=RequestType.EXECUTE,
+                command="echo hello",
+                working_dir=tmpdir,
+            )
+            response = await manager.process_request(request)
+            assert response.success is True
+            assert response.final_decision == Decision.ALLOW
+            assert response.executed is True
+            assert response.exit_code == 0
+            assert response.stdout is not None
+            assert "hello" in response.stdout
+            assert response.execution_time_ms is not None
+            assert response.execution_time_ms > 0
+
+    @pytest.mark.asyncio
+    async def test_execute_blocked_command(
+        self,
+        manager: RuleManager,
+        git_repo_main: Path,
+        git_protect_rule: Rule,
+    ) -> None:
+        """Test that blocked commands are not executed."""
+        with patch.object(
+            manager._rule_cache, "get_rules", return_value=([git_protect_rule], False)
+        ):
+            request = DaemonRequest(
+                type=RequestType.EXECUTE,
+                command="git commit -m 'test'",
+                working_dir=str(git_repo_main),
+            )
+            response = await manager.process_request(request)
+            assert response.success is True
+            assert response.final_decision == Decision.DENY
+            assert response.executed is False
+            assert response.exit_code is None
+            assert response.stdout is None
+            assert response.denial_message is not None
+
+    @pytest.mark.asyncio
+    async def test_execute_returns_exit_code(self, manager: RuleManager) -> None:
+        """Test that execute returns the command's exit code."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            request = DaemonRequest(
+                type=RequestType.EXECUTE,
+                command="exit 42",
+                working_dir=tmpdir,
+            )
+            response = await manager.process_request(request)
+            assert response.success is True
+            assert response.executed is True
+            assert response.exit_code == 42
+
+    @pytest.mark.asyncio
+    async def test_execute_captures_stderr(self, manager: RuleManager) -> None:
+        """Test that execute captures stderr."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            request = DaemonRequest(
+                type=RequestType.EXECUTE,
+                command="echo error >&2",
+                working_dir=tmpdir,
+            )
+            response = await manager.process_request(request)
+            assert response.success is True
+            assert response.executed is True
+            assert response.stderr is not None
+            assert "error" in response.stderr
+
+    @pytest.mark.asyncio
+    async def test_execute_missing_command(self, manager: RuleManager, tmp_path: Path) -> None:
+        """Test execute request without command."""
+        request = DaemonRequest(
+            type=RequestType.EXECUTE,
+            working_dir=str(tmp_path),
+        )
+        response = await manager.process_request(request)
+        assert response.success is False
+        assert response.error_message is not None
+        assert "command" in response.error_message.lower()
+
+    @pytest.mark.asyncio
+    async def test_execute_missing_working_dir(self, manager: RuleManager) -> None:
+        """Test execute request without working_dir."""
+        request = DaemonRequest(
+            type=RequestType.EXECUTE,
+            command="echo test",
+        )
+        response = await manager.process_request(request)
+        assert response.success is False
+        assert response.error_message is not None
+        assert "directory" in response.error_message.lower()
+
+    @pytest.mark.asyncio
+    async def test_execute_respects_working_dir(self, manager: RuleManager) -> None:
+        """Test that execute runs command in specified working directory."""
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            request = DaemonRequest(
+                type=RequestType.EXECUTE,
+                command="pwd",
+                working_dir=tmpdir,
+            )
+            response = await manager.process_request(request)
+            assert response.success is True
+            assert response.executed is True
+            # Resolve symlinks for comparison
+            assert os.path.realpath(response.stdout.strip()) == os.path.realpath(tmpdir)
