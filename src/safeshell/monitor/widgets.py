@@ -1,7 +1,7 @@
 """
 File: src/safeshell/monitor/widgets.py
 Purpose: Custom Textual widgets for the Monitor TUI
-Exports: DebugPane, HistoryPane, ApprovalPane, CommandHistoryItem
+Exports: DebugPane, HistoryPane, ApprovalPane, HelpPanel, CommandHistoryItem
 Depends: textual, datetime, safeshell.events.types
 Overview: Provides the three-pane layout widgets for monitoring SafeShell daemon activity
 """
@@ -11,7 +11,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 from textual.app import ComposeResult
-from textual.containers import Horizontal, ScrollableContainer
+from textual.containers import Horizontal, ScrollableContainer, Vertical
 from textual.message import Message
 from textual.widgets import Button, Input, RichLog, Static
 
@@ -27,6 +27,75 @@ class CommandHistoryItem(BaseModel):
     approval_id: str | None = Field(default=None, description="Approval ID if waiting")
 
 
+class HelpPanel(Static):
+    """Help panel showing keyboard shortcuts and usage instructions.
+
+    Toggle visibility with 'h' or '?' key.
+    """
+
+    def compose(self) -> ComposeResult:
+        """Compose the help panel content."""
+        yield Static("SafeShell Monitor Help", classes="help-title")
+
+        # Keyboard shortcuts section
+        yield Static("Keyboard Shortcuts", classes="help-section-title")
+        yield Vertical(
+            Static("[yellow]a[/yellow]  Approve current command", classes="help-shortcut"),
+            Static("[yellow]d[/yellow]  Deny current command", classes="help-shortcut"),
+            Static("[yellow]r[/yellow]  Reconnect to daemon", classes="help-shortcut"),
+            Static("[yellow]h[/yellow]  Toggle this help panel", classes="help-shortcut"),
+            Static("[yellow]q[/yellow]  Quit monitor", classes="help-shortcut"),
+            classes="help-section",
+        )
+
+        # Approval workflow section
+        yield Static("Approval Workflow", classes="help-section-title")
+        yield Vertical(
+            Static(
+                "When a command requires approval, it will\n"
+                "appear in the approval pane. You can:",
+                classes="help-description",
+            ),
+            Static(""),
+            Static(
+                "[green]Approve[/green] - Allow command to run",
+                classes="help-shortcut",
+            ),
+            Static(
+                "[green]Yes, Remember[/green] - Allow and remember\n"
+                "  for this session",
+                classes="help-shortcut",
+            ),
+            Static(
+                "[red]Deny[/red] - Block command execution",
+                classes="help-shortcut",
+            ),
+            Static(
+                "[red]No, Remember[/red] - Block and remember\n"
+                "  for this session",
+                classes="help-shortcut",
+            ),
+            classes="help-section",
+        )
+
+        # Status icons section
+        yield Static("Status Icons", classes="help-section-title")
+        yield Vertical(
+            Static("[green]\u2713[/green]  Command allowed", classes="help-shortcut"),
+            Static("[red]\u2717[/red]  Command blocked", classes="help-shortcut"),
+            Static("[yellow]\u23f3[/yellow]  Awaiting approval", classes="help-shortcut"),
+            classes="help-section",
+        )
+
+        # Tips section
+        yield Static(
+            "Tip: Use --debug flag to show event log\n"
+            "and command history panes.\n\n"
+            "Press [yellow]h[/yellow] to close this panel.",
+            classes="help-tip",
+        )
+
+
 class DebugPane(Static):
     """Debug log pane showing daemon events.
 
@@ -37,19 +106,14 @@ class DebugPane(Static):
     DEFAULT_CSS = """
     DebugPane {
         height: 100%;
-        border: solid green;
-        padding: 0 1;
     }
 
     DebugPane > RichLog {
         height: 100%;
-        scrollbar-gutter: stable;
     }
 
     DebugPane .pane-title {
         text-style: bold;
-        color: green;
-        margin-bottom: 1;
     }
     """
 
@@ -63,7 +127,7 @@ class DebugPane(Static):
 
         Args:
             message: Log message to display
-            level: Log level (info, warning, error, debug)
+            level: Log level (info, warning, error, debug, success)
         """
         log_widget = self.query_one("#debug-log", RichLog)
 
@@ -87,45 +151,24 @@ class HistoryPane(Static):
     - Pending (hourglass)
     - Allowed (checkmark)
     - Blocked (x)
-    - Waiting approval (question mark)
+    - Waiting approval (hourglass)
     """
 
     DEFAULT_CSS = """
     HistoryPane {
         height: 100%;
-        border: solid blue;
-        padding: 0 1;
     }
 
     HistoryPane > ScrollableContainer {
         height: 100%;
-        scrollbar-gutter: stable;
     }
 
     HistoryPane .pane-title {
         text-style: bold;
-        color: dodgerblue;
-        margin-bottom: 1;
     }
 
     HistoryPane .history-item {
         margin-bottom: 1;
-    }
-
-    HistoryPane .cmd-allowed {
-        color: green;
-    }
-
-    HistoryPane .cmd-blocked {
-        color: red;
-    }
-
-    HistoryPane .cmd-pending {
-        color: yellow;
-    }
-
-    HistoryPane .cmd-waiting {
-        color: orange;
     }
     """
 
@@ -185,11 +228,12 @@ class HistoryPane(Static):
         container = self.query_one("#history-container", ScrollableContainer)
         container.remove_children()
 
+        # Status icons - using Unicode symbols for consistency
         status_icons = {
-            "pending": ("...", "cmd-pending"),
-            "allowed": ("OK", "cmd-allowed"),
-            "blocked": ("XX", "cmd-blocked"),
-            "waiting": ("??", "cmd-waiting"),
+            "pending": ("\u23f3", "cmd-pending"),  # Hourglass
+            "allowed": ("\u2713", "cmd-allowed"),  # Check mark
+            "blocked": ("\u2717", "cmd-blocked"),  # X mark
+            "waiting": ("\u23f3", "cmd-waiting"),  # Hourglass
         }
 
         for item in self._history[:20]:  # Show last 20
@@ -215,18 +259,13 @@ class ApprovalPane(Static):
     DEFAULT_CSS = """
     ApprovalPane {
         height: 100%;
-        border: solid yellow;
-        padding: 0 1;
     }
 
     ApprovalPane .pane-title {
         text-style: bold;
-        color: yellow;
-        margin-bottom: 1;
     }
 
     ApprovalPane .approval-command {
-        background: $surface;
         padding: 1;
         margin: 1 0;
         max-height: 6;
@@ -234,7 +273,6 @@ class ApprovalPane(Static):
     }
 
     ApprovalPane .approval-reason {
-        color: $text-muted;
         margin: 1 0;
     }
 
@@ -256,22 +294,6 @@ class ApprovalPane(Static):
         opacity: 0.3;
     }
 
-    ApprovalPane #approve-btn {
-        background: $success;
-    }
-
-    ApprovalPane #approve-remember-btn {
-        background: $success-darken-2;
-    }
-
-    ApprovalPane #deny-btn {
-        background: $error;
-    }
-
-    ApprovalPane #deny-remember-btn {
-        background: $error-darken-2;
-    }
-
     ApprovalPane #denial-reason {
         dock: bottom;
         margin: 1 0;
@@ -279,7 +301,6 @@ class ApprovalPane(Static):
     }
 
     ApprovalPane .no-approvals {
-        color: $text-muted;
         text-style: italic;
     }
     """
@@ -320,11 +341,12 @@ class ApprovalPane(Static):
         yield Static("No pending approvals", id="approval-status", classes="no-approvals")
         yield Static("", id="approval-command", classes="approval-command")
         yield Static("", id="approval-reason", classes="approval-reason")
+        yield Static("", id="approval-plugin", classes="approval-plugin")
         yield Input(placeholder="Reason for denial (optional)", id="denial-reason")
         yield Horizontal(
-            Button("Approve", id="approve-btn", variant="success"),
+            Button("Approve (a)", id="approve-btn", variant="success"),
             Button("Yes, Remember", id="approve-remember-btn", variant="success"),
-            Button("Deny", id="deny-btn", variant="error"),
+            Button("Deny (d)", id="deny-btn", variant="error"),
             Button("No, Remember", id="deny-remember-btn", variant="error"),
             id="button-row",
         )
@@ -362,6 +384,7 @@ class ApprovalPane(Static):
         status = self.query_one("#approval-status", Static)
         command = self.query_one("#approval-command", Static)
         reason = self.query_one("#approval-reason", Static)
+        plugin = self.query_one("#approval-plugin", Static)
         denial_input = self.query_one("#denial-reason", Input)
         approve_btn = self.query_one("#approve-btn", Button)
         approve_remember_btn = self.query_one("#approve-remember-btn", Button)
@@ -370,9 +393,22 @@ class ApprovalPane(Static):
 
         if self._current_approval:
             pending_count = len(self._pending_approvals)
-            status.update(f"[bold yellow]Approval Required[/bold yellow] ({pending_count} pending)")
-            command.update(f"[bold]{self._current_approval.get('command', 'Unknown')}[/bold]")
+            status.update(
+                f"[bold yellow]\u26a0 Approval Required[/bold yellow] "
+                f"([yellow]{pending_count}[/yellow] pending)"
+            )
+            cmd_text = self._current_approval.get("command", "Unknown")
+            command.update(f"[bold cyan]{cmd_text}[/bold cyan]")
             reason.update(f"Reason: {self._current_approval.get('reason', 'No reason given')}")
+
+            # Show plugin/rule name if available
+            plugin_name = self._current_approval.get("plugin_name", "")
+            if plugin_name:
+                plugin.update(f"Rule: {plugin_name}")
+                plugin.display = True
+            else:
+                plugin.display = False
+
             denial_input.display = True
             approve_btn.disabled = False
             approve_remember_btn.disabled = False
@@ -381,9 +417,11 @@ class ApprovalPane(Static):
             command.display = True
             reason.display = True
         else:
-            status.update("[dim]No pending approvals[/dim]")
+            status.update("[dim]No pending approvals - waiting for commands...[/dim]")
             command.update("")
             reason.update("")
+            plugin.update("")
+            plugin.display = False
             denial_input.display = False
             approve_btn.disabled = True
             approve_remember_btn.disabled = True

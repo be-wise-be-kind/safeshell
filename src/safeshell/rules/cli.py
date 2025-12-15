@@ -11,19 +11,19 @@ Overview: Provides 'safeshell rules' subcommands including validation
 from pathlib import Path
 
 import typer
-from rich.console import Console
 from rich.table import Table
 
+from safeshell.console import console, print_error, print_success
 from safeshell.exceptions import RuleLoadError
 from safeshell.rules.loader import GLOBAL_RULES_PATH, _find_repo_rules, _load_rule_file
 from safeshell.rules.schema import Rule
+from safeshell.theme import ICON_ERROR, ICON_SUCCESS, ICON_WARNING
 
 app = typer.Typer(
     name="rules",
     help="Manage SafeShell rules.",
     no_args_is_help=True,
 )
-console = Console()
 
 
 @app.command()
@@ -66,18 +66,20 @@ def _validate_single_file(path: Path, verbose: bool) -> None:
         verbose: Whether to show detailed rule information
     """
     if not path.exists():
-        console.print(f"[red]Error:[/red] File not found: {path}")
+        print_error(f"File not found: {path}")
         raise typer.Exit(1)
 
     try:
         rules = _load_rule_file(path)
-        console.print(f"[green]Valid:[/green] {path} ({len(rules)} rules)")
+        console.print(
+            f"[success]{ICON_SUCCESS}[/success] Valid: [path]{path}[/path] ({len(rules)} rules)"
+        )
 
         if verbose and rules:
             _show_rules_table(rules)
 
     except RuleLoadError as e:
-        console.print(f"[red]Invalid:[/red] {path}")
+        console.print(f"[error]{ICON_ERROR}[/error] Invalid: [path]{path}[/path]")
         console.print(f"  Error: {e}")
         raise typer.Exit(1) from e
 
@@ -96,30 +98,38 @@ def _validate_all_rules(verbose: bool) -> None:
     if GLOBAL_RULES_PATH.exists():
         try:
             rules = _load_rule_file(GLOBAL_RULES_PATH)
-            console.print(f"[green]Valid:[/green] {GLOBAL_RULES_PATH} ({len(rules)} rules)")
+            console.print(
+                f"[success]{ICON_SUCCESS}[/success] Valid: "
+                f"[path]{GLOBAL_RULES_PATH}[/path] ({len(rules)} rules)"
+            )
             total_rules += len(rules)
             all_rules.extend(rules)
         except RuleLoadError as e:
-            console.print(f"[red]Invalid:[/red] {GLOBAL_RULES_PATH}")
+            console.print(f"[error]{ICON_ERROR}[/error] Invalid: [path]{GLOBAL_RULES_PATH}[/path]")
             console.print(f"  Error: {e}")
             errors.append(GLOBAL_RULES_PATH)
     else:
-        console.print(f"[yellow]Not found:[/yellow] {GLOBAL_RULES_PATH}")
+        console.print(
+            f"[warning]{ICON_WARNING}[/warning] Not found: [path]{GLOBAL_RULES_PATH}[/path]"
+        )
 
     # Check repo rules
     repo_path = _find_repo_rules(Path.cwd())
     if repo_path:
         try:
             rules = _load_rule_file(repo_path)
-            console.print(f"[green]Valid:[/green] {repo_path} ({len(rules)} rules)")
+            console.print(
+                f"[success]{ICON_SUCCESS}[/success] Valid: "
+                f"[path]{repo_path}[/path] ({len(rules)} rules)"
+            )
             total_rules += len(rules)
             all_rules.extend(rules)
         except RuleLoadError as e:
-            console.print(f"[red]Invalid:[/red] {repo_path}")
+            console.print(f"[error]{ICON_ERROR}[/error] Invalid: [path]{repo_path}[/path]")
             console.print(f"  Error: {e}")
             errors.append(repo_path)
     else:
-        console.print("[dim]No repo rules found in current directory[/dim]")
+        console.print("[muted]No repo rules found in current directory[/muted]")
 
     # Show verbose output
     if verbose and all_rules:
@@ -129,10 +139,10 @@ def _validate_all_rules(verbose: bool) -> None:
     # Summary
     console.print()
     if errors:
-        console.print(f"[red]Validation failed:[/red] {len(errors)} file(s) with errors")
+        print_error(f"Validation failed: {len(errors)} file(s) with errors")
         raise typer.Exit(1)
 
-    console.print(f"[green]All rules valid:[/green] {total_rules} total rules")
+    print_success(f"All rules valid: {total_rules} total rules")
 
 
 def _show_rules_table(rules: list[Rule]) -> None:

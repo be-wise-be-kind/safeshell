@@ -1,10 +1,15 @@
 """Tests for safeshell.daemon.protocol module."""
 
+import asyncio
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 
 from safeshell.daemon.protocol import (
     decode_message,
     encode_message,
+    read_message,
+    write_message,
 )
 from safeshell.exceptions import ProtocolError
 from safeshell.models import DaemonRequest, DaemonResponse, RequestType
@@ -97,3 +102,78 @@ class TestRoundTrip:
         assert reconstructed.final_decision == original.final_decision
         assert reconstructed.should_execute == original.should_execute
         assert reconstructed.denial_message == original.denial_message
+
+
+class TestReadMessage:
+    """Tests for read_message function."""
+
+    @pytest.mark.asyncio
+    async def test_read_valid_message(self) -> None:
+        """Test reading a valid JSON message."""
+        mock_reader = AsyncMock()
+        mock_reader.readline = AsyncMock(return_value=b'{"type": "ping"}\n')
+
+        result = await read_message(mock_reader)
+        assert result == {"type": "ping"}
+
+    @pytest.mark.asyncio
+    async def test_read_empty_line_raises_error(self) -> None:
+        """Test reading empty line raises ProtocolError."""
+        mock_reader = AsyncMock()
+        mock_reader.readline = AsyncMock(return_value=b"")
+
+        with pytest.raises(ProtocolError, match="Connection closed"):
+            await read_message(mock_reader)
+
+    @pytest.mark.asyncio
+    async def test_read_invalid_json_raises_error(self) -> None:
+        """Test reading invalid JSON raises ProtocolError."""
+        mock_reader = AsyncMock()
+        mock_reader.readline = AsyncMock(return_value=b"not valid json\n")
+
+        with pytest.raises(ProtocolError, match="Failed to decode"):
+            await read_message(mock_reader)
+
+    @pytest.mark.asyncio
+    async def test_read_incomplete_raises_error(self) -> None:
+        """Test incomplete read raises ProtocolError."""
+        mock_reader = AsyncMock()
+        mock_reader.readline = AsyncMock(
+            side_effect=asyncio.IncompleteReadError(partial=b"partial", expected=100)
+        )
+
+        with pytest.raises(ProtocolError, match="Incomplete read"):
+            await read_message(mock_reader)
+
+
+class TestWriteMessage:
+    """Tests for write_message function."""
+
+    @pytest.mark.asyncio
+    async def test_write_message(self) -> None:
+        """Test writing a message to stream."""
+        mock_writer = MagicMock()
+        mock_writer.write = MagicMock()
+        mock_writer.drain = AsyncMock()
+
+        response = DaemonResponse.allow()
+        await write_message(mock_writer, response)
+
+        mock_writer.write.assert_called_once()
+        written_data = mock_writer.write.call_args[0][0]
+        assert written_data.endswith(b"\n")
+        mock_writer.drain.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_write_request(self) -> None:
+        """Test writing a request to stream."""
+        mock_writer = MagicMock()
+        mock_writer.write = MagicMock()
+        mock_writer.drain = AsyncMock()
+
+        request = DaemonRequest(type=RequestType.PING)
+        await write_message(mock_writer, request)
+
+        mock_writer.write.assert_called_once()
+        written_data = mock_writer.write.call_args[0][0]
+        assert b"ping" in written_data

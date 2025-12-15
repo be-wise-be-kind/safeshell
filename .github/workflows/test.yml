@@ -11,7 +11,7 @@
 # Features:
 #   - Multi-Python version matrix testing (3.11, 3.12)
 #   - Poetry dependency caching with version-specific keys
-#   - 50% coverage threshold enforcement (increase as test coverage improves)
+#   - 75% coverage threshold enforcement (TUI components are difficult to unit test)
 #   - Codecov integration (Python 3.11 only)
 # ==============================================================================
 
@@ -68,7 +68,7 @@ jobs:
         run: poetry run pytest tests/ --cov=src/safeshell --cov-report=term --cov-report=xml
 
       - name: Check coverage threshold
-        run: poetry run coverage report --fail-under=50
+        run: poetry run coverage report --fail-under=75
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5

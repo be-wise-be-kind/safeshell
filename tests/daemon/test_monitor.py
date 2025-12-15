@@ -223,3 +223,55 @@ class TestMonitorConnectionHandler:
         )
         assert response.success is True
         assert ("test123", "Too risky", False) in denied
+
+    @pytest.mark.asyncio
+    async def test_approve_with_remember_flag(self, handler: MonitorConnectionHandler) -> None:
+        """Test approve with remember flag."""
+        approved_ids: list[tuple[str, bool]] = []
+
+        async def approve_callback(approval_id: str, remember: bool = False) -> None:
+            approved_ids.append((approval_id, remember))
+
+        async def deny_callback(
+            approval_id: str, reason: str | None, remember: bool = False
+        ) -> None:
+            pass
+
+        handler.set_approval_callbacks(approve_callback, deny_callback)
+
+        response = await handler._process_command(
+            {
+                "type": "approve",
+                "approval_id": "remember-test",
+                "remember": True,
+            }
+        )
+        assert response.success is True
+        assert ("remember-test", True) in approved_ids
+
+    @pytest.mark.asyncio
+    async def test_deny_with_remember_flag(self, handler: MonitorConnectionHandler) -> None:
+        """Test deny with remember flag."""
+        denied: list[tuple[str, str | None, bool]] = []
+
+        async def approve_callback(approval_id: str, remember: bool = False) -> None:
+            pass
+
+        async def deny_callback(
+            approval_id: str, reason: str | None, remember: bool = False
+        ) -> None:
+            denied.append((approval_id, reason, remember))
+
+        handler.set_approval_callbacks(approve_callback, deny_callback)
+
+        response = await handler._process_command(
+            {
+                "type": "deny",
+                "approval_id": "deny-remember",
+                "reason": "Security risk",
+                "remember": True,
+            }
+        )
+        assert response.success is True
+        assert ("deny-remember", "Security risk", True) in denied
+

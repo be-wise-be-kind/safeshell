@@ -5,7 +5,13 @@ Purpose: Tests for monitor TUI widgets
 
 from datetime import datetime
 
-from safeshell.monitor.widgets import ApprovalPane, CommandHistoryItem, DebugPane, HistoryPane
+from safeshell.monitor.widgets import (
+    ApprovalPane,
+    CommandHistoryItem,
+    DebugPane,
+    HelpPanel,
+    HistoryPane,
+)
 
 
 class TestCommandHistoryItem:
@@ -114,6 +120,21 @@ class TestApprovalPane:
         assert action.reason == "Security risk"
         assert action.remember is True
 
-    def test_css_has_deny_remember_button(self) -> None:
-        """Test that CSS includes styling for deny-remember button."""
-        assert "#deny-remember-btn" in ApprovalPane.DEFAULT_CSS
+    def test_css_has_button_row(self) -> None:
+        """Test that CSS includes styling for button row."""
+        # Button row styling is in DEFAULT_CSS, button-specific styling in external styles.css
+        assert "#button-row" in ApprovalPane.DEFAULT_CSS
+
+
+class TestHelpPanel:
+    """Tests for HelpPanel widget."""
+
+    def test_help_panel_exists(self) -> None:
+        """Test that HelpPanel class exists."""
+        assert HelpPanel is not None
+
+    def test_help_panel_is_static_subclass(self) -> None:
+        """Test that HelpPanel inherits from Static."""
+        from textual.widgets import Static
+
+        assert issubclass(HelpPanel, Static)

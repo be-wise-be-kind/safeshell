@@ -171,3 +171,144 @@ class TestMonitorClient:
 
         callback1.assert_called_once()
         callback2.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_approve_writes_to_socket(self) -> None:
+        """Test approve writes correctly to socket."""
+        client = MonitorClient()
+        client._connected = True
+
+        mock_writer = MagicMock()
+        mock_writer.write = MagicMock()
+        mock_writer.drain = AsyncMock()
+        client._writer = mock_writer
+
+        result = await client.approve("test-approval-id")
+
+        assert result is True
+        mock_writer.write.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_deny_writes_to_socket(self) -> None:
+        """Test deny writes correctly to socket."""
+        client = MonitorClient()
+        client._connected = True
+
+        mock_writer = MagicMock()
+        mock_writer.write = MagicMock()
+        mock_writer.drain = AsyncMock()
+        client._writer = mock_writer
+
+        result = await client.deny("test-approval-id", "test reason")
+
+        assert result is True
+        mock_writer.write.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_approve_sends_command_with_remember(self) -> None:
+        """Test approve sends correct command with remember flag."""
+        client = MonitorClient()
+        client._connected = True
+
+        mock_writer = MagicMock()
+        mock_writer.write = MagicMock()
+        mock_writer.drain = AsyncMock()
+        client._writer = mock_writer
+
+        await client.approve("test-id", remember=True)
+
+        written = mock_writer.write.call_args[0][0].decode()
+        assert "approve" in written
+        assert "test-id" in written
+        assert "remember" in written
+
+    @pytest.mark.asyncio
+    async def test_deny_sends_command_with_reason(self) -> None:
+        """Test deny sends correct command with reason."""
+        client = MonitorClient()
+        client._connected = True
+
+        mock_writer = MagicMock()
+        mock_writer.write = MagicMock()
+        mock_writer.drain = AsyncMock()
+        client._writer = mock_writer
+
+        await client.deny("test-id", "security risk", remember=False)
+
+        written = mock_writer.write.call_args[0][0].decode()
+        assert "deny" in written
+        assert "test-id" in written
+        assert "security risk" in written
+
+    @pytest.mark.asyncio
+    async def test_ping_sends_command(self) -> None:
+        """Test ping sends ping command and reads response."""
+        client = MonitorClient()
+        client._connected = True
+
+        mock_writer = MagicMock()
+        mock_writer.write = MagicMock()
+        mock_writer.drain = AsyncMock()
+        client._writer = mock_writer
+
+        mock_reader = AsyncMock()
+        mock_reader.readline = AsyncMock(return_value=b'{"success": true}\n')
+        client._reader = mock_reader
+
+        result = await client.ping()
+
+        assert result is True
+        mock_writer.write.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_disconnect_closes_writer(self) -> None:
+        """Test disconnect properly closes the writer."""
+        client = MonitorClient()
+        client._connected = True
+
+        mock_writer = MagicMock()
+        mock_writer.close = MagicMock()
+        mock_writer.wait_closed = AsyncMock()
+        client._writer = mock_writer
+
+        await client.disconnect()
+
+        mock_writer.close.assert_called_once()
+        mock_writer.wait_closed.assert_called_once()
+        assert client._writer is None
+        assert not client.connected
+
+    @pytest.mark.asyncio
+    async def test_receive_loop_handles_json_error(self) -> None:
+        """Test _receive_loop terminates on invalid JSON."""
+        client = MonitorClient()
+        client._connected = True
+
+        callback = MagicMock()
+        client.add_event_callback(callback)
+
+        mock_reader = AsyncMock()
+        mock_reader.readline = AsyncMock(
+            side_effect=[
+                b"not valid json\n",  # Invalid JSON - causes loop to terminate
+            ]
+        )
+        client._reader = mock_reader
+
+        await client._receive_loop()
+
+        # Loop terminates on JSON error, callback not called
+        callback.assert_not_called()
+        # Connected should be False after error
+        assert not client._connected
+
+    def test_connected_property(self) -> None:
+        """Test connected property reflects internal state."""
+        client = MonitorClient()
+        assert not client.connected
+
+        client._connected = True
+        assert client.connected
+
+        client._connected = False
+        assert not client.connected

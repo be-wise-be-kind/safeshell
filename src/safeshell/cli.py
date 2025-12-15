@@ -7,16 +7,18 @@ Overview: Provides version, check, status commands and registers daemon/wrapper 
 """
 
 import os
-import sys
 from pathlib import Path
 
 import typer
-from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
+from safeshell.console import console, print_error, print_info, print_success, print_warning
 from safeshell.daemon.cli import _daemonize
 from safeshell.daemon.cli import app as daemon_app
 from safeshell.daemon.lifecycle import DaemonLifecycle
 from safeshell.rules.cli import app as rules_app
+from safeshell.theme import ICON_ERROR, ICON_INFO, ICON_SUCCESS
 from safeshell.wrapper.cli import app as wrapper_app
 
 app = typer.Typer(
@@ -24,7 +26,6 @@ app = typer.Typer(
     help="Command-line safety layer for AI coding assistants.",
     no_args_is_help=True,
 )
-console = Console()
 
 # Register subcommands
 app.add_typer(daemon_app, name="daemon")
@@ -34,25 +35,38 @@ app.add_typer(rules_app, name="rules")
 
 @app.command()
 def version() -> None:
-    """Show the SafeShell version."""
-    console.print("[bold]SafeShell[/bold] v0.1.0")
+    """Show the SafeShell version.
+
+    Displays the current SafeShell version and brief description.
+    """
+    console.print(
+        Panel.fit(
+            "[bold]SafeShell[/bold] v0.1.0\n"
+            "Command-line safety layer for AI coding assistants",
+            border_style="green",
+        )
+    )
 
 
 @app.command()
 def check(command: str) -> None:
     """Check if a command would be allowed by SafeShell.
 
-    Args:
-        command: The shell command to evaluate.
+    Evaluates the command against active rules without executing it.
+    Useful for testing rules before running commands.
+
+    Examples:
+        safeshell check "git commit -m test"
+        safeshell check "rm -rf /"
     """
     from safeshell.exceptions import DaemonNotRunningError
     from safeshell.wrapper.client import DaemonClient
 
-    console.print(f"[yellow]Checking command:[/yellow] {command}")
+    console.print(f"[muted]Checking:[/muted] [command]{command}[/command]")
+    console.print()
 
     if not DaemonLifecycle.is_running():
-        console.print("[red]Daemon is not running.[/red]")
-        console.print("Start it with: safeshell daemon start")
+        print_error("Daemon is not running", "Start it with: safeshell daemon start")
         raise typer.Exit(1)
 
     client = DaemonClient()
@@ -64,38 +78,47 @@ def check(command: str) -> None:
         )
 
         if response.should_execute:
-            console.print("[green]Command would be ALLOWED[/green]")
+            print_success("Command would be [bold]ALLOWED[/bold]")
         else:
-            console.print("[red]Command would be BLOCKED[/red]")
+            print_error("Command would be [bold]BLOCKED[/bold]")
             if response.denial_message:
-                console.print(response.denial_message)
+                print_info(response.denial_message)
 
     except DaemonNotRunningError as e:
-        console.print(f"[red]Error connecting to daemon:[/red] {e}")
+        print_error(f"Error connecting to daemon: {e}")
         raise typer.Exit(1) from e
 
 
 @app.command()
 def status() -> None:
-    """Show SafeShell daemon status and loaded plugins."""
-    console.print("[bold]SafeShell Status[/bold]")
-    console.print()
+    """Show SafeShell daemon status.
+
+    Displays daemon status and socket connection health.
+    Use this to verify SafeShell is running correctly.
+    """
+    table = Table(title="SafeShell Status", show_header=False, box=None)
+    table.add_column("Component", style="bold")
+    table.add_column("Status")
 
     if DaemonLifecycle.is_running():
-        console.print("  Daemon: [green]Running[/green]")
+        table.add_row("Daemon", f"[green]{ICON_SUCCESS} Running[/green]")
 
-        # Try to get plugin info
+        # Try to get socket status
         from safeshell.wrapper.client import DaemonClient
 
         client = DaemonClient()
         if client.ping():
-            console.print("  Socket: [green]Connected[/green]")
+            table.add_row("Socket", f"[green]{ICON_SUCCESS} Connected[/green]")
         else:
-            console.print("  Socket: [yellow]Connection issue[/yellow]")
+            table.add_row("Socket", f"[yellow]{ICON_INFO} Connection issue[/yellow]")
     else:
-        console.print("  Daemon: [red]Not running[/red]")
+        table.add_row("Daemon", f"[red]{ICON_ERROR} Not running[/red]")
+
+    console.print(table)
+
+    if not DaemonLifecycle.is_running():
         console.print()
-        console.print("Start with: safeshell daemon start")
+        print_info("Start the daemon with: [command]safeshell daemon start[/command]")
 
 
 @app.command()
@@ -109,32 +132,39 @@ def monitor(
 ) -> None:
     """Launch the SafeShell monitor TUI.
 
-    By default, shows only the approval pane for a clean interface.
-    Use --debug to show all three panes:
+    Opens an interactive terminal interface for monitoring and approving
+    commands in real-time.
+
+    By default, shows only the approval pane. Use --debug to show:
     - Debug log: Real-time daemon events
     - Command history: Recent commands and their status
     - Approval pane: Handle pending approval requests
 
     Keyboard shortcuts:
-    - q: Quit
-    - a: Approve current request
-    - d: Deny current request
-    - r: Reconnect to daemon
+        a    Approve current request
+        d    Deny current request
+        r    Reconnect to daemon
+        h    Show help panel
+        q    Quit
+
+    Examples:
+        safeshell monitor           # Clean approval-only view
+        safeshell monitor --debug   # Full debug view
     """
     # Check if daemon is running
     if not DaemonLifecycle.is_running():
-        console.print("[yellow]Daemon is not running.[/yellow]")
+        print_warning("Daemon is not running")
         if typer.confirm("Start the daemon?", default=True):
-            console.print("Starting daemon...")
+            console.print("[muted]Starting daemon...[/muted]")
             _daemonize()
             if DaemonLifecycle.is_running():
-                console.print("[green]Daemon started.[/green]")
+                print_success("Daemon started")
             else:
-                console.print("[red]Failed to start daemon.[/red]")
+                print_error("Failed to start daemon")
                 raise typer.Exit(1)
         else:
-            console.print("Monitor requires the daemon to be running.")
-            console.print("Start it with: safeshell daemon start")
+            print_info("Monitor requires the daemon to be running")
+            print_info("Start it with: [command]safeshell daemon start[/command]")
             raise typer.Exit(1)
 
     # Suppress loguru output for TUI - redirect to /dev/null instead of stderr
@@ -152,7 +182,23 @@ def monitor(
 
 @app.command()
 def init() -> None:
-    """Initialize SafeShell configuration, rules, and shims."""
+    """Initialize SafeShell configuration, rules, and shims.
+
+    Creates default configuration and rules files if they don't exist,
+    and sets up command shims for interception.
+
+    Creates:
+    - ~/.safeshell/config.yaml - Configuration settings
+    - ~/.safeshell/rules.yaml - Safety rules
+    - ~/.safeshell/shims/ - Command shims
+
+    After running init, add shell integration to your shell config
+    and start the daemon.
+
+    Examples:
+        safeshell init              # Initialize SafeShell
+        safeshell daemon start      # Then start the daemon
+    """
     from safeshell.config import CONFIG_PATH, create_default_config
     from safeshell.rules import DEFAULT_RULES_YAML, GLOBAL_RULES_PATH
     from safeshell.shims import (
@@ -166,7 +212,7 @@ def init() -> None:
 
     # Handle config.yaml
     if CONFIG_PATH.exists():
-        console.print(f"[yellow]Config already exists at:[/yellow] {CONFIG_PATH}")
+        print_warning(f"Config already exists: {CONFIG_PATH}")
         if typer.confirm("Overwrite config?"):
             create_default_config()
             config_created = True
@@ -176,7 +222,7 @@ def init() -> None:
 
     # Handle rules.yaml
     if GLOBAL_RULES_PATH.exists():
-        console.print(f"[yellow]Rules already exist at:[/yellow] {GLOBAL_RULES_PATH}")
+        print_warning(f"Rules already exist: {GLOBAL_RULES_PATH}")
         if typer.confirm("Overwrite rules?"):
             GLOBAL_RULES_PATH.parent.mkdir(parents=True, exist_ok=True)
             GLOBAL_RULES_PATH.write_text(DEFAULT_RULES_YAML)
@@ -187,29 +233,40 @@ def init() -> None:
         rules_created = True
 
     # Set up shims
-    console.print("[dim]Setting up shims...[/dim]")
+    console.print("[muted]Setting up shims...[/muted]")
     install_init_script()
     result = refresh_shims()
     shims_created = len(result["created"])
 
     if not config_created and not rules_created and shims_created == 0:
-        console.print("[yellow]No changes made.[/yellow]")
+        print_warning("No changes made")
         raise typer.Exit(0)
 
-    console.print("[green]SafeShell initialized![/green]")
+    print_success("SafeShell initialized!")
     console.print()
-    config_status = " [green](created)[/green]" if config_created else ""
-    rules_status = " [green](created)[/green]" if rules_created else ""
-    console.print(f"  Config: {CONFIG_PATH}{config_status}")
-    console.print(f"  Rules:  {GLOBAL_RULES_PATH}{rules_status}")
+
+    # Show created files table
+    table = Table(title="Created Files", show_header=False, box=None)
+    table.add_column("Type", style="bold")
+    table.add_column("Path")
+    table.add_column("Status")
+
+    config_status = "[green]created[/green]" if config_created else "[muted]unchanged[/muted]"
+    rules_status = "[green]created[/green]" if rules_created else "[muted]unchanged[/muted]"
+
+    table.add_row("Config", str(CONFIG_PATH), config_status)
+    table.add_row("Rules", str(GLOBAL_RULES_PATH), rules_status)
     if shims_created > 0:
-        console.print(f"  Shims:  {shims_created} command shims created")
+        table.add_row("Shims", f"{shims_created} commands", "[green]created[/green]")
+
+    console.print(table)
     console.print()
-    console.print("Next steps:")
-    console.print("  1. Review rules: ~/.safeshell/rules.yaml")
-    console.print("  2. [bold]Add shell integration:[/bold]")
+
+    console.print("[bold]Next steps:[/bold]")
+    console.print("  1. Review rules: [path]~/.safeshell/rules.yaml[/path]")
+    console.print("  2. Add shell integration:")
     console.print(get_shell_init_instructions())
-    console.print("  3. Start the daemon: safeshell daemon start")
+    console.print("  3. Start the daemon: [command]safeshell daemon start[/command]")
 
 
 @app.command()
@@ -220,22 +277,25 @@ def refresh() -> None:
     symlinks in ~/.safeshell/shims/ for each command that needs interception.
 
     Stale shims (for commands no longer in rules) are removed.
+
+    Examples:
+        safeshell refresh    # Update all shims
     """
     from safeshell.shims import refresh_shims
 
-    console.print("[dim]Refreshing shims...[/dim]")
+    console.print("[muted]Refreshing shims...[/muted]")
     result = refresh_shims(working_dir=str(Path.cwd()))
 
     if result["created"]:
-        console.print(f"[green]Created:[/green] {', '.join(result['created'])}")
+        print_success(f"Created: {', '.join(result['created'])}")
     if result["removed"]:
-        console.print(f"[yellow]Removed:[/yellow] {', '.join(result['removed'])}")
+        print_warning(f"Removed: {', '.join(result['removed'])}")
     if result["unchanged"]:
-        console.print(f"[dim]Unchanged:[/dim] {', '.join(result['unchanged'])}")
+        console.print(f"[muted]Unchanged: {', '.join(result['unchanged'])}[/muted]")
 
     total = len(result["created"]) + len(result["unchanged"])
     console.print()
-    console.print(f"[green]Done![/green] {total} shim(s) active.")
+    print_success(f"Done! {total} shim(s) active")
 
 
 if __name__ == "__main__":

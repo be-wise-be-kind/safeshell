@@ -1,8 +1,28 @@
-/* SafeShell Monitor TUI Styles */
+/* SafeShell Monitor TUI Styles
+ * ============================
+ * Consistent theming for the Monitor TUI.
+ * Colors match theme.py for CLI/TUI consistency.
+ */
 
-/* Main layout */
+/* ============================================
+ * Theme Variables (matching theme.py)
+ * ============================================ */
+$primary: #00aa00;
+$secondary: #0088ff;
+$danger: #ff0000;
+$warning: #ffaa00;
+$success: #00aa00;
+$surface: #2a2a2a;
+$text-primary: #ffffff;
+$text-muted: #888888;
+$border-default: #444444;
+
+/* ============================================
+ * Base Layout
+ * ============================================ */
 Screen {
     layout: vertical;
+    background: $surface-darken-2;
 }
 
 #main-container {
@@ -11,7 +31,48 @@ Screen {
     width: 100%;
 }
 
-/* Pane heights for vertical stacking */
+/* ============================================
+ * Header & Footer
+ * ============================================ */
+Header {
+    dock: top;
+    height: 1;
+    background: $primary;
+    color: $text-primary;
+}
+
+Footer {
+    dock: bottom;
+    height: 1;
+    background: $surface;
+}
+
+/* ============================================
+ * Status Bar
+ * ============================================ */
+#status-bar {
+    dock: top;
+    height: 1;
+    background: $surface;
+    padding: 0 1;
+    border-bottom: solid $border-default;
+}
+
+.status-connected {
+    color: $success;
+}
+
+.status-disconnected {
+    color: $danger;
+}
+
+.status-connecting {
+    color: $warning;
+}
+
+/* ============================================
+ * Pane Heights (for vertical stacking)
+ * ============================================ */
 #debug-pane {
     height: 1fr;
     min-height: 5;
@@ -24,40 +85,283 @@ Screen {
 
 #approval-pane {
     height: 1fr;
-    min-height: 8;
+    min-height: 10;
 }
 
-/* Header */
-Header {
-    dock: top;
-    height: 1;
-    background: $primary;
-}
-
-/* Footer */
-Footer {
-    dock: bottom;
-    height: 1;
-}
-
-/* Connection status bar */
-#status-bar {
-    dock: top;
-    height: 1;
+/* ============================================
+ * Help Panel (toggleable overlay)
+ * ============================================ */
+HelpPanel {
+    layer: overlay;
+    dock: right;
+    width: 45;
+    height: 100%;
     background: $surface;
-    padding: 0 1;
+    border-left: solid $primary;
+    padding: 1 2;
+    display: none;
 }
 
-.status-connected {
-    color: green;
+HelpPanel.visible {
+    display: block;
 }
 
-.status-disconnected {
-    color: red;
+HelpPanel .help-title {
+    text-style: bold;
+    color: $primary;
+    text-align: center;
+    margin-bottom: 1;
 }
 
-/* Scrollable containers */
+HelpPanel .help-section {
+    margin-top: 1;
+    margin-bottom: 1;
+}
+
+HelpPanel .help-section-title {
+    text-style: bold underline;
+    color: $secondary;
+    margin-bottom: 1;
+}
+
+HelpPanel .help-shortcut {
+    margin-left: 2;
+}
+
+HelpPanel .help-key {
+    color: $warning;
+    text-style: bold;
+}
+
+HelpPanel .help-description {
+    color: $text-muted;
+}
+
+HelpPanel .help-tip {
+    color: $text-muted;
+    text-style: italic;
+    margin-top: 2;
+    border-top: solid $border-default;
+    padding-top: 1;
+}
+
+/* ============================================
+ * Scrollable Containers
+ * ============================================ */
 ScrollableContainer {
     scrollbar-gutter: stable;
     overflow-y: auto;
+}
+
+/* ============================================
+ * Debug Pane Styling
+ * ============================================ */
+DebugPane {
+    height: 100%;
+    border: solid $secondary;
+    padding: 0 1;
+    background: $surface-darken-1;
+}
+
+DebugPane > RichLog {
+    height: 100%;
+    scrollbar-gutter: stable;
+    background: transparent;
+}
+
+DebugPane .pane-title {
+    text-style: bold;
+    color: $secondary;
+    margin-bottom: 1;
+}
+
+/* ============================================
+ * History Pane Styling
+ * ============================================ */
+HistoryPane {
+    height: 100%;
+    border: solid $secondary;
+    padding: 0 1;
+    background: $surface-darken-1;
+}
+
+HistoryPane > ScrollableContainer {
+    height: 100%;
+    scrollbar-gutter: stable;
+}
+
+HistoryPane .pane-title {
+    text-style: bold;
+    color: $secondary;
+    margin-bottom: 1;
+}
+
+HistoryPane .history-item {
+    margin-bottom: 1;
+    padding: 0 1;
+}
+
+HistoryPane .cmd-allowed {
+    color: $success;
+}
+
+HistoryPane .cmd-blocked {
+    color: $danger;
+}
+
+HistoryPane .cmd-pending {
+    color: $warning;
+}
+
+HistoryPane .cmd-waiting {
+    color: $warning;
+}
+
+/* ============================================
+ * Approval Pane Styling
+ * ============================================ */
+ApprovalPane {
+    height: 100%;
+    border: solid $primary;
+    padding: 0 1;
+    background: $surface;
+}
+
+ApprovalPane .pane-title {
+    text-style: bold;
+    color: $primary;
+    margin-bottom: 1;
+}
+
+ApprovalPane .approval-command {
+    background: $surface-darken-1;
+    padding: 1;
+    margin: 1 0;
+    max-height: 6;
+    overflow: auto;
+    border: solid $border-default;
+    color: cyan;
+}
+
+ApprovalPane .approval-reason {
+    color: $text-muted;
+    margin: 1 0;
+}
+
+ApprovalPane .approval-plugin {
+    color: $secondary;
+    text-style: italic;
+    margin-bottom: 1;
+}
+
+ApprovalPane #button-row {
+    dock: bottom;
+    layout: horizontal;
+    height: 5;
+    width: 100%;
+    margin-top: 1;
+}
+
+ApprovalPane Button {
+    width: 1fr;
+    height: 100%;
+    margin: 0 1;
+    content-align: center middle;
+}
+
+ApprovalPane Button:disabled {
+    opacity: 0.3;
+}
+
+ApprovalPane #approve-btn {
+    background: $success;
+}
+
+ApprovalPane #approve-btn:hover {
+    background: $success-lighten-1;
+}
+
+ApprovalPane #approve-remember-btn {
+    background: $success-darken-2;
+}
+
+ApprovalPane #approve-remember-btn:hover {
+    background: $success-darken-1;
+}
+
+ApprovalPane #deny-btn {
+    background: $danger;
+}
+
+ApprovalPane #deny-btn:hover {
+    background: $danger-lighten-1;
+}
+
+ApprovalPane #deny-remember-btn {
+    background: $danger-darken-2;
+}
+
+ApprovalPane #deny-remember-btn:hover {
+    background: $danger-darken-1;
+}
+
+ApprovalPane #denial-reason {
+    dock: bottom;
+    margin: 1 0;
+    height: 3;
+}
+
+ApprovalPane .no-approvals {
+    color: $text-muted;
+    text-style: italic;
+    text-align: center;
+    margin-top: 2;
+}
+
+ApprovalPane .approval-count {
+    color: $warning;
+    text-style: bold;
+}
+
+/* ============================================
+ * Error Display Styling
+ * ============================================ */
+.error-message {
+    color: $danger;
+    text-style: bold;
+    margin: 1 0;
+}
+
+.error-hint {
+    color: $text-muted;
+    margin-left: 2;
+}
+
+/* ============================================
+ * Responsive Adjustments
+ * ============================================ */
+/* For smaller terminals, reduce padding */
+@media (width < 100) {
+    ApprovalPane {
+        padding: 0;
+    }
+
+    ApprovalPane Button {
+        margin: 0;
+    }
+
+    HelpPanel {
+        width: 35;
+    }
+}
+
+/* For very small terminals */
+@media (width < 80) {
+    HelpPanel {
+        width: 100%;
+        dock: bottom;
+        height: 50%;
+        border-left: none;
+        border-top: solid $primary;
+    }
 }

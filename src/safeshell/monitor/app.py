@@ -17,7 +17,13 @@ from textual.widgets import Footer, Header, Static
 
 from safeshell.events.types import EventType
 from safeshell.monitor.client import MonitorClient
-from safeshell.monitor.widgets import ApprovalPane, CommandHistoryItem, DebugPane, HistoryPane
+from safeshell.monitor.widgets import (
+    ApprovalPane,
+    CommandHistoryItem,
+    DebugPane,
+    HelpPanel,
+    HistoryPane,
+)
 
 
 class MonitorApp(App[None]):
@@ -40,6 +46,8 @@ class MonitorApp(App[None]):
         Binding("a", "approve", "Approve", priority=True),
         Binding("d", "deny", "Deny", priority=True),
         Binding("r", "reconnect", "Reconnect", priority=True),
+        Binding("h", "help", "Help", priority=True),
+        Binding("?", "help", "Help", show=False, priority=True),
     ]
 
     def __init__(self, debug_mode: bool = False) -> None:
@@ -54,6 +62,7 @@ class MonitorApp(App[None]):
         self._reconnect_attempts = 0
         self._max_reconnect_attempts = 5
         self._debug_mode = debug_mode
+        self._help_visible = False
 
     def compose(self) -> ComposeResult:
         """Compose the application layout."""
@@ -71,6 +80,7 @@ class MonitorApp(App[None]):
                 ApprovalPane(id="approval-pane"),
                 id="main-container",
             )
+        yield HelpPanel(id="help-panel")
         yield Footer()
 
     async def on_mount(self) -> None:
@@ -81,16 +91,18 @@ class MonitorApp(App[None]):
         """Connect to the daemon's monitor socket."""
         status_bar = self.query_one("#status-bar", Static)
 
-        status_bar.update("[yellow]Connecting to daemon...[/yellow]")
+        status_bar.update("[yellow]\u23f3 Connecting to daemon...[/yellow]")
+        status_bar.add_class("status-connecting")
         self._log_debug("Attempting to connect to daemon...", "info")
 
         connected = await self._client.connect()
 
         if connected:
             self._reconnect_attempts = 0
-            status_bar.update("[green]Connected[/green] to SafeShell daemon")
-            status_bar.add_class("status-connected")
+            status_bar.update("[green]\u2713 Connected[/green] to SafeShell daemon")
+            status_bar.remove_class("status-connecting")
             status_bar.remove_class("status-disconnected")
+            status_bar.add_class("status-connected")
             self._log_debug("Connected to daemon", "success")
 
             # Set up event callback
@@ -99,11 +111,20 @@ class MonitorApp(App[None]):
             # Start receiving events
             await self._client.start_receiving()
         else:
-            status_bar.update("[red]Disconnected[/red] - Press 'r' to reconnect")
-            status_bar.add_class("status-disconnected")
-            status_bar.remove_class("status-connected")
-            self._log_debug("Failed to connect to daemon", "error")
-            self._log_debug("Is the daemon running? (safeshell daemon start)", "info")
+            self._show_connection_error()
+
+    def _show_connection_error(self) -> None:
+        """Show connection error with helpful guidance."""
+        status_bar = self.query_one("#status-bar", Static)
+        status_bar.update(
+            "[red]\u2717 Disconnected[/red] - "
+            "Press [yellow]r[/yellow] to reconnect or [yellow]h[/yellow] for help"
+        )
+        status_bar.remove_class("status-connecting")
+        status_bar.remove_class("status-connected")
+        status_bar.add_class("status-disconnected")
+        self._log_debug("Failed to connect to daemon", "error")
+        self._log_debug("Is the daemon running? Try: safeshell daemon start", "info")
 
     def _log_debug(self, message: str, level: str = "info") -> None:
         """Log a message to the debug pane if in debug mode.
@@ -172,11 +193,11 @@ class MonitorApp(App[None]):
                 plugin_name = data.get("plugin_name")
 
                 if decision == "allow":
-                    self._log_debug(f"ALLOWED: {command}", "success")
+                    self._log_debug(f"\u2713 ALLOWED: {command}", "success")
                     if history_pane:
                         history_pane.update_command(command, "allowed", decision)
                 elif decision == "deny":
-                    self._log_debug(f"BLOCKED: {command}", "error")
+                    self._log_debug(f"\u2717 BLOCKED: {command}", "error")
                     if reason:
                         self._log_debug(f"  Reason: {reason}", "warning")
                     if plugin_name:
@@ -184,7 +205,7 @@ class MonitorApp(App[None]):
                     if history_pane:
                         history_pane.update_command(command, "blocked", decision, reason)
                 elif decision == "require_approval":
-                    self._log_debug(f"APPROVAL REQUIRED: {command}", "warning")
+                    self._log_debug(f"\u26a0 APPROVAL REQUIRED: {command}", "warning")
                     if history_pane:
                         history_pane.update_command(command, "waiting", decision, reason)
 
@@ -194,7 +215,7 @@ class MonitorApp(App[None]):
                 reason = data.get("reason", "")
                 plugin_name = data.get("plugin_name", "")
 
-                self._log_debug(f"Approval needed: {command}", "warning")
+                self._log_debug(f"\u26a0 Approval needed: {command}", "warning")
                 self._log_debug(f"  ID: {approval_id[:12]}...", "debug")
                 self._log_debug(f"  Reason: {reason}", "info")
 
@@ -218,9 +239,9 @@ class MonitorApp(App[None]):
                 reason = data.get("reason")
 
                 if approved:
-                    self._log_debug(f"Approved: {approval_id[:12]}...", "success")
+                    self._log_debug(f"\u2713 Approved: {approval_id[:12]}...", "success")
                 else:
-                    self._log_debug(f"Denied: {approval_id[:12]}...", "error")
+                    self._log_debug(f"\u2717 Denied: {approval_id[:12]}...", "error")
                     if reason:
                         self._log_debug(f"  Reason: {reason}", "info")
 
@@ -235,9 +256,9 @@ class MonitorApp(App[None]):
             success = message.get("success", False)
             msg = message.get("message") or message.get("error")
             if success:
-                self._log_debug(f"Response: {msg}", "success")
+                self._log_debug(f"\u2713 Response: {msg}", "success")
             else:
-                self._log_debug(f"Error: {msg}", "error")
+                self._log_debug(f"\u2717 Error: {msg}", "error")
 
     async def on_approval_pane_approval_action(self, event: ApprovalPane.ApprovalAction) -> None:
         """Handle approval/denial from the approval pane.
@@ -282,6 +303,16 @@ class MonitorApp(App[None]):
 
         await self._client.disconnect()
         await self._connect_to_daemon()
+
+    def action_help(self) -> None:
+        """Toggle the help panel visibility."""
+        help_panel = self.query_one("#help-panel", HelpPanel)
+        self._help_visible = not self._help_visible
+
+        if self._help_visible:
+            help_panel.add_class("visible")
+        else:
+            help_panel.remove_class("visible")
 
     async def on_unmount(self) -> None:
         """Handle unmount event - disconnect from daemon."""
