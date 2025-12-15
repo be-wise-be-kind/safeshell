@@ -163,6 +163,7 @@ class EnvEquals(BaseModel):
 
     def evaluate(self, context: CommandContext) -> bool:
         """Check if environment variable equals expected value."""
+        # pylint: disable=no-member  # Pydantic field is a dict at runtime
         variable = self.env_equals.get("variable", "")
         value = self.env_equals.get("value", "")
         actual = context.environment.get(variable)
