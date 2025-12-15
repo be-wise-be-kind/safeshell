@@ -86,16 +86,16 @@ class DebugWindow(QMainWindow):
         timestamp_str = event.get("timestamp", "")
         data = event.get("data", {})
 
-        # Parse timestamp or use current time
+        # Parse timestamp or use current time (with milliseconds)
         try:
             if timestamp_str:
                 # Handle ISO format timestamps
                 dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
-                time_display = dt.strftime("%H:%M:%S")
+                time_display = dt.strftime("%H:%M:%S.%f")[:-3]
             else:
-                time_display = datetime.now().strftime("%H:%M:%S")
+                time_display = datetime.now().strftime("%H:%M:%S.%f")[:-3]
         except (ValueError, TypeError):
-            time_display = datetime.now().strftime("%H:%M:%S")
+            time_display = datetime.now().strftime("%H:%M:%S.%f")[:-3]
 
         # Get color for this event type
         color = EVENT_COLORS.get(event_type, "#FFFFFF")

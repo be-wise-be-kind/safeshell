@@ -91,6 +91,9 @@ class RuleManager:
         if request.type == RequestType.EVALUATE:
             return await self._handle_evaluate(request, send_intermediate)
 
+        if request.type == RequestType.EXECUTE:
+            return await self._handle_execute(request, send_intermediate)
+
         return DaemonResponse.error(f"Unknown request type: {request.type}")
 
     def _handle_ping(self) -> DaemonResponse:
@@ -200,10 +203,15 @@ class RuleManager:
                 result.reason,
             )
 
-        logger.info(
-            f"Command '{request.command}' -> {result.decision.value}"
-            + (f" ({response.denial_message})" if response.denial_message else "")
-        )
+        # Log at appropriate level: DEBUG for allowed, INFO for denied/approval
+        log_msg = f"Command '{request.command}' -> {result.decision.value}"
+        if response.denial_message:
+            log_msg += f" ({response.denial_message})"
+
+        if result.decision == Decision.ALLOW:
+            logger.debug(log_msg)
+        else:
+            logger.info(log_msg)
 
         return response
 
@@ -325,3 +333,61 @@ class RuleManager:
             plugin_name=result.plugin_name,
             reason=denial_reason or result.reason,
         )
+
+    async def _handle_execute(
+        self,
+        request: DaemonRequest,
+        send_intermediate: Callable[[DaemonResponse], Awaitable[None]] | None = None,
+    ) -> DaemonResponse:
+        """Handle command execution request (evaluate + execute).
+
+        Evaluates the command first, and if allowed, executes it and returns
+        the output. This eliminates the Python wrapper startup overhead by
+        keeping execution within the already-warm daemon process.
+
+        Args:
+            request: Request containing command to execute
+            send_intermediate: Optional callback to send intermediate responses
+
+        Returns:
+            Response with evaluation results and execution output
+        """
+        from safeshell.daemon.executor import execute_command
+
+        # First, evaluate the command (reuses existing logic)
+        eval_response = await self._handle_evaluate(request, send_intermediate)
+
+        # If not allowed to execute, return the evaluation response as-is
+        if not eval_response.should_execute:
+            return eval_response
+
+        # Command is allowed - execute it
+        # Type narrowing: command is validated as not None before _handle_evaluate
+        assert request.command is not None
+        logger.debug(f"Executing command: {request.command}")
+
+        exec_result = execute_command(
+            command=request.command,
+            working_dir=request.working_dir or ".",
+            env=request.env,
+        )
+
+        # Build response with execution results
+        response = DaemonResponse(
+            success=True,
+            results=eval_response.results,
+            final_decision=eval_response.final_decision,
+            should_execute=True,
+            executed=True,
+            exit_code=exec_result.exit_code,
+            stdout=exec_result.stdout,
+            stderr=exec_result.stderr,
+            execution_time_ms=exec_result.execution_time_ms,
+        )
+
+        logger.debug(
+            f"Executed '{request.command}' -> exit_code={exec_result.exit_code} "
+            f"({exec_result.execution_time_ms:.1f}ms)"
+        )
+
+        return response

@@ -19,7 +19,7 @@ from typing import Any
 
 from loguru import logger
 
-from safeshell.config import SafeShellConfig, load_config
+from safeshell.config import SafeShellConfig, load_config, write_shell_config
 from safeshell.daemon.approval import ApprovalManager
 from safeshell.daemon.events import DaemonEventPublisher
 from safeshell.daemon.lifecycle import (
@@ -293,9 +293,9 @@ def configure_logging(config: SafeShellConfig) -> None:
     # Remove default handler to reconfigure
     logger.remove()
 
-    # Add stderr handler with configured level
+    # Add stderr handler with configured level (includes milliseconds)
     stderr_format = (
-        "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | "
+        "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | "
         "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
     )
     logger.add(
@@ -304,14 +304,17 @@ def configure_logging(config: SafeShellConfig) -> None:
         format=stderr_format,
     )
 
-    # Add file handler
+    # Add file handler (includes milliseconds)
     log_path = config.get_log_file_path()
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
+    file_format = (
+        "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | " + "{name}:{function}:{line} - {message}"
+    )
     logger.add(
         log_path,
         level=config.log_level,
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+        format=file_format,
         rotation="10 MB",
         retention="7 days",
         compression="gz",
@@ -328,6 +331,9 @@ async def run_daemon() -> None:
     # Load config and configure logging before starting server
     config = load_config()
     configure_logging(config)
+
+    # Write shell-readable config for init.bash
+    write_shell_config(config)
 
     server = DaemonServer()
     await server.start()

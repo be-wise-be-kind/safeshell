@@ -49,8 +49,9 @@ if [[ ! -S "$SOCKET" ]]; then
     exec "$REAL_CMD" "$@"
 fi
 
-# Build the full command string for evaluation
-FULL_CMD="$CMD_NAME"
+# Build the full command string with RESOLVED PATH for evaluation
+# This prevents recursion when daemon executes via shell
+FULL_CMD="$REAL_CMD"
 for arg in "$@"; do
     # Quote arguments that contain spaces or special chars
     if [[ "$arg" =~ [[:space:]] || "$arg" =~ [\'\"\$\`\\] ]]; then
@@ -60,46 +61,27 @@ for arg in "$@"; do
     fi
 done
 
-# Find safeshell-wrapper
-SAFESHELL_WRAPPER=""
+# Find safeshell-check script
+SAFESHELL_CHECK=""
 
-# 1. Check explicit environment variable (for development/testing)
-if [[ -n "$SAFESHELL_WRAPPER_PATH" && -x "$SAFESHELL_WRAPPER_PATH" ]]; then
-    SAFESHELL_WRAPPER="$SAFESHELL_WRAPPER_PATH"
-# 2. Check if in PATH
-elif command -v safeshell-wrapper &>/dev/null; then
-    SAFESHELL_WRAPPER=$(command -v safeshell-wrapper)
-# 3. Check common install locations
-elif [[ -x "$HOME/.local/bin/safeshell-wrapper" ]]; then
-    SAFESHELL_WRAPPER="$HOME/.local/bin/safeshell-wrapper"
-else
-    # 4. Try known development locations
-    DEV_LOCATIONS=(
-        "$HOME/Projects/safeshell"
-        "$HOME/projects/safeshell"
-        "$HOME/dev/safeshell"
-    )
-    for loc in "${DEV_LOCATIONS[@]}"; do
-        if [[ -f "$loc/pyproject.toml" ]]; then
-            SAFESHELL_WRAPPER=$(cd "$loc" && poetry run which safeshell-wrapper 2>/dev/null || true)
-            [[ -n "$SAFESHELL_WRAPPER" ]] && break
-        fi
-    done
+# Check same directory as this script first
+SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
+if [[ -x "$SCRIPT_DIR/safeshell-check" ]]; then
+    SAFESHELL_CHECK="$SCRIPT_DIR/safeshell-check"
+# Then check if in PATH
+elif command -v safeshell-check &>/dev/null; then
+    SAFESHELL_CHECK=$(command -v safeshell-check)
+# Check common install locations
+elif [[ -x "$HOME/.local/bin/safeshell-check" ]]; then
+    SAFESHELL_CHECK="$HOME/.local/bin/safeshell-check"
 fi
 
-# If no wrapper found, just run the real command (fail-open)
-if [[ -z "$SAFESHELL_WRAPPER" || ! -x "$SAFESHELL_WRAPPER" ]]; then
+# If safeshell-check not found, fall back to just executing (fail-open)
+if [[ -z "$SAFESHELL_CHECK" ]]; then
     exec "$REAL_CMD" "$@"
 fi
 
-# Check with SafeShell daemon
-SAFESHELL_CHECK_ONLY=1 "$SAFESHELL_WRAPPER" -c "$FULL_CMD"
-CHECK_RESULT=$?
-
-if [[ $CHECK_RESULT -eq 0 ]]; then
-    # Allowed - execute the real command
-    exec "$REAL_CMD" "$@"
-else
-    # Blocked - error message already printed by wrapper
-    exit $CHECK_RESULT
-fi
+# Use daemon-based execution (no Python startup!)
+# safeshell-check -e sends execute request to daemon
+"$SAFESHELL_CHECK" -e "$FULL_CMD"
+exit $?

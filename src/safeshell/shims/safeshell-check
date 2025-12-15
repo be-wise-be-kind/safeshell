@@ -1,35 +1,70 @@
 #!/usr/bin/env bash
-# SafeShell Fast Check - Lightweight daemon client (no Python!)
+# SafeShell Fast Check/Execute - Lightweight daemon client (no Python!)
 #
-# This script evaluates a command against the SafeShell daemon using
-# pure bash + basic Unix tools. It avoids Python startup overhead entirely.
+# This script communicates with the SafeShell daemon using pure bash + basic
+# Unix tools. It avoids Python startup overhead entirely.
 #
-# Usage: safeshell-check "command to evaluate"
-# Exit: 0 = allowed, 1 = denied, 2 = error
+# Usage:
+#   safeshell-check "command"           # Check only (exit 0=allowed, 1=denied)
+#   safeshell-check -e "command"        # Execute via daemon (outputs stdout/stderr)
+#
+# Exit codes:
+#   Check mode: 0=allowed, 1=denied, 2=error
+#   Execute mode: command's exit code (or 126/127 for errors)
 
 set -euo pipefail
 
+# Parse arguments
+EXECUTE_MODE=0
+COMMAND=""
+WORKING_DIR=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -e|--execute)
+            EXECUTE_MODE=1
+            shift
+            ;;
+        -w|--working-dir)
+            WORKING_DIR="$2"
+            shift 2
+            ;;
+        *)
+            if [[ -z "$COMMAND" ]]; then
+                COMMAND="$1"
+            elif [[ -z "$WORKING_DIR" ]]; then
+                WORKING_DIR="$1"
+            fi
+            shift
+            ;;
+    esac
+done
+
+# Defaults
 SOCKET="${SAFESHELL_SOCKET:-$HOME/.safeshell/daemon.sock}"
-COMMAND="${1:-}"
-WORKING_DIR="${2:-$(pwd)}"
+WORKING_DIR="${WORKING_DIR:-$(pwd)}"
 
 if [[ -z "$COMMAND" ]]; then
     echo "[SafeShell] Error: No command provided" >&2
     exit 2
 fi
 
-# Check if socket exists
+# Check if socket exists - fail open if daemon not running
 if [[ ! -S "$SOCKET" ]]; then
-    # Daemon not running - fail open
-    exit 0
+    if [[ $EXECUTE_MODE -eq 1 ]]; then
+        # Execute directly if daemon not running
+        eval "$COMMAND"
+        exit $?
+    else
+        exit 0  # Check mode: allow
+    fi
 fi
 
-# Build JSON request (simple string escaping)
-# Escape backslashes and quotes for JSON
+# Escape string for JSON
 escape_json() {
     local s="$1"
-    s="${s//\\/\\\\}"  # Escape backslashes first
-    s="${s//\"/\\\"}"  # Escape quotes
+    s="${s//\\/\\\\}"   # Escape backslashes first
+    s="${s//\"/\\\"}"   # Escape quotes
     s="${s//$'\n'/\\n}" # Escape newlines
     s="${s//$'\r'/\\r}" # Escape carriage returns
     s="${s//$'\t'/\\t}" # Escape tabs
@@ -39,19 +74,29 @@ escape_json() {
 CMD_ESCAPED=$(escape_json "$COMMAND")
 DIR_ESCAPED=$(escape_json "$WORKING_DIR")
 
-REQUEST="{\"type\":\"evaluate\",\"command\":\"${CMD_ESCAPED}\",\"working_dir\":\"${DIR_ESCAPED}\",\"env\":{},\"execution_context\":\"human\"}"
+# Build request type based on mode
+if [[ $EXECUTE_MODE -eq 1 ]]; then
+    REQUEST_TYPE="execute"
+else
+    REQUEST_TYPE="evaluate"
+fi
+
+REQUEST="{\"type\":\"${REQUEST_TYPE}\",\"command\":\"${CMD_ESCAPED}\",\"working_dir\":\"${DIR_ESCAPED}\",\"env\":{},\"execution_context\":\"human\"}"
 
 # Send request and get response using timeout + nc/socat
-# Try socat first (better Unix socket support), fall back to nc
 send_request() {
     if command -v socat &>/dev/null; then
-        echo "$REQUEST" | socat -t 5 - "UNIX-CONNECT:$SOCKET" 2>/dev/null
+        echo "$REQUEST" | socat -t 30 - "UNIX-CONNECT:$SOCKET" 2>/dev/null
     elif command -v nc &>/dev/null; then
         # BSD nc uses -U for Unix sockets
-        echo "$REQUEST" | timeout 5 nc -U "$SOCKET" 2>/dev/null
+        echo "$REQUEST" | timeout 30 nc -U "$SOCKET" 2>/dev/null
     else
         # No suitable tool - fail open
-        echo '{"should_execute":true}'
+        if [[ $EXECUTE_MODE -eq 1 ]]; then
+            echo '{"executed":false,"should_execute":true}'
+        else
+            echo '{"should_execute":true}'
+        fi
     fi
 }
 
@@ -59,14 +104,55 @@ RESPONSE=$(send_request)
 
 if [[ -z "$RESPONSE" ]]; then
     # Empty response - daemon issue, fail open
-    exit 0
+    if [[ $EXECUTE_MODE -eq 1 ]]; then
+        eval "$COMMAND"
+        exit $?
+    else
+        exit 0
+    fi
 fi
 
-# Parse response - look for should_execute field
 # Handle potential intermediate "waiting" messages by reading the last complete response
 FINAL_RESPONSE=$(echo "$RESPONSE" | tail -1)
 
-# Extract should_execute value (simple grep-based parsing)
+# --- EXECUTE MODE ---
+if [[ $EXECUTE_MODE -eq 1 ]]; then
+    # Check if command was executed by daemon
+    if echo "$FINAL_RESPONSE" | grep -q '"executed"[[:space:]]*:[[:space:]]*true'; then
+        # Extract stdout (handle multiline by using perl or python-free approach)
+        # Use grep to find the field, then decode JSON string
+        STDOUT=$(echo "$FINAL_RESPONSE" | grep -oP '"stdout"\s*:\s*"\K[^"]*' 2>/dev/null | sed 's/\\n/\n/g; s/\\t/\t/g; s/\\r/\r/g; s/\\\\/\\/g' || true)
+        STDERR=$(echo "$FINAL_RESPONSE" | grep -oP '"stderr"\s*:\s*"\K[^"]*' 2>/dev/null | sed 's/\\n/\n/g; s/\\t/\t/g; s/\\r/\r/g; s/\\\\/\\/g' || true)
+        EXIT_CODE=$(echo "$FINAL_RESPONSE" | grep -oP '"exit_code"\s*:\s*\K[0-9]+' 2>/dev/null || echo "0")
+
+        # Output results
+        [[ -n "$STDOUT" ]] && echo -n "$STDOUT"
+        [[ -n "$STDERR" ]] && echo -n "$STDERR" >&2
+
+        exit "${EXIT_CODE:-0}"
+
+    elif echo "$FINAL_RESPONSE" | grep -q '"should_execute"[[:space:]]*:[[:space:]]*true'; then
+        # Daemon said OK but didn't execute (fallback - shouldn't happen with execute request)
+        eval "$COMMAND"
+        exit $?
+
+    elif echo "$FINAL_RESPONSE" | grep -q '"should_execute"[[:space:]]*:[[:space:]]*false'; then
+        # Denied
+        DENIAL_MSG=$(echo "$FINAL_RESPONSE" | grep -oP '"denial_message"\s*:\s*"\K[^"]*' 2>/dev/null || true)
+        if [[ -n "$DENIAL_MSG" ]]; then
+            echo "[SafeShell] $DENIAL_MSG" >&2
+        else
+            echo "[SafeShell] Command blocked by policy" >&2
+        fi
+        exit 1
+    else
+        # Can't parse response - fail open, execute directly
+        eval "$COMMAND"
+        exit $?
+    fi
+fi
+
+# --- CHECK MODE ---
 if echo "$FINAL_RESPONSE" | grep -q '"should_execute"[[:space:]]*:[[:space:]]*true'; then
     exit 0
 elif echo "$FINAL_RESPONSE" | grep -q '"should_execute"[[:space:]]*:[[:space:]]*false'; then
