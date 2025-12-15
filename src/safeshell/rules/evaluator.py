@@ -1,20 +1,89 @@
 """
 File: src/safeshell/rules/evaluator.py
 Purpose: Rule evaluation engine for config-based rules
-Exports: RuleEvaluator
-Depends: safeshell.rules.schema, safeshell.models, asyncio, shlex, re, os
+Exports: RuleEvaluator, ConditionCache
+Depends: safeshell.rules.schema, safeshell.models, asyncio, shlex, re, os, time
 Overview: Evaluates commands against loaded rules using bash conditions with configurable timeout
 """
+
+from __future__ import annotations
 
 import asyncio
 import os
 import re
 import shlex
+import time
 
 from loguru import logger
 
 from safeshell.models import CommandContext, Decision, EvaluationResult, ExecutionContext
 from safeshell.rules.schema import Rule, RuleAction, RuleContext
+
+
+class ConditionCache:
+    """Cross-request condition cache with TTL-based expiration.
+
+    Caches bash condition results to avoid re-executing the same conditions
+    for repeated commands. Uses a TTL to ensure cached results don't become stale.
+    """
+
+    def __init__(self, ttl_seconds: float = 5.0, max_size: int = 1000) -> None:
+        """Initialize condition cache.
+
+        Args:
+            ttl_seconds: Time-to-live for cached entries in seconds
+            max_size: Maximum number of entries before eviction
+        """
+        self._cache: dict[tuple[str, str, str], tuple[bool, float]] = {}
+        self._ttl = ttl_seconds
+        self._max_size = max_size
+
+    def get(self, key: tuple[str, str, str]) -> bool | None:
+        """Get cached condition result if not expired.
+
+        Args:
+            key: Tuple of (condition, raw_command, working_dir)
+
+        Returns:
+            Cached result or None if not found/expired
+        """
+        if key in self._cache:
+            result, timestamp = self._cache[key]
+            if time.monotonic() - timestamp < self._ttl:
+                return result
+            # Expired - remove it
+            del self._cache[key]
+        return None
+
+    def set(self, key: tuple[str, str, str], result: bool) -> None:
+        """Cache a condition result.
+
+        Args:
+            key: Tuple of (condition, raw_command, working_dir)
+            result: The condition evaluation result
+        """
+        # Evict oldest entries if at capacity
+        if len(self._cache) >= self._max_size:
+            self._evict_oldest()
+        self._cache[key] = (result, time.monotonic())
+
+    def _evict_oldest(self) -> None:
+        """Evict oldest 10% of entries."""
+        if not self._cache:
+            return
+        # Sort by timestamp, remove oldest 10%
+        sorted_keys = sorted(self._cache.keys(), key=lambda k: self._cache[k][1])
+        to_remove = max(1, len(sorted_keys) // 10)
+        for key in sorted_keys[:to_remove]:
+            del self._cache[key]
+
+    def clear(self) -> None:
+        """Clear all cached entries."""
+        self._cache.clear()
+
+    def __len__(self) -> int:
+        """Return number of cached entries."""
+        return len(self._cache)
 
 
 class RuleEvaluator:
@@ -29,12 +98,15 @@ class RuleEvaluator:
         self,
         rules: list[Rule],
         condition_timeout_ms: int = 100,
+        condition_cache: ConditionCache | None = None,
     ) -> None:
         """Initialize evaluator with rules.
 
         Args:
             rules: List of rules to evaluate against
             condition_timeout_ms: Timeout for bash conditions in milliseconds (default 100ms)
+            condition_cache: Optional shared condition cache for cross-request caching.
+                If not provided, creates a local cache (cleared per evaluate()).
         """
         self._rules = rules
         self._condition_timeout_ms = condition_timeout_ms
@@ -46,9 +118,22 @@ class RuleEvaluator:
             for cmd in rule.commands:
                 self._command_index.setdefault(cmd, []).append(rule)
 
-        # Per-evaluation condition cache (cleared at start of each evaluate())
-        # Key: (condition, raw_command, working_dir) -> result
-        self._condition_cache: dict[tuple[str, str, str], bool] = {}
+        # Pre-compile directory regex patterns for performance
+        self._compiled_directories: dict[str, re.Pattern[str] | None] = {}
+        for rule in rules:
+            if rule.directory:
+                try:
+                    self._compiled_directories[rule.name] = re.compile(rule.directory)
+                except re.error as e:
+                    logger.warning(f"Invalid regex in rule '{rule.name}': {e}")
+                    self._compiled_directories[rule.name] = None
+            else:
+                self._compiled_directories[rule.name] = None
+
+        # Condition cache - use shared cache if provided, else create local
+        self._condition_cache: ConditionCache | None = condition_cache
+        self._local_cache: dict[tuple[str, str, str], bool] = {}
+        self._use_shared_cache = condition_cache is not None
 
         logger.debug(f"RuleEvaluator initialized with {len(rules)} rules")
         logger.debug(f"Command index: {list(self._command_index.keys())}")
@@ -57,7 +142,7 @@ class RuleEvaluator:
         """Evaluate a command against all applicable rules.
 
         Evaluation flow:
-        1. Clear condition cache (fresh start per evaluation)
+        1. Clear local condition cache (if not using shared cache)
         2. Extract executable from command
         3. Fast-path: if executable not in index, return ALLOW
         4. For each matching rule, check directory and conditions
@@ -69,8 +154,9 @@ class RuleEvaluator:
         Returns:
             EvaluationResult with decision and reasoning
         """
-        # Clear condition cache at start of each evaluation
-        self._condition_cache.clear()
+        # Clear local cache if not using shared cache
+        if not self._use_shared_cache:
+            self._local_cache.clear()
 
         executable = context.executable
 
@@ -126,9 +212,15 @@ class RuleEvaluator:
             logger.debug(f"Rule '{rule.name}': skipped (human_only, context={exec_ctx})")
             return False
 
-        # Check directory pattern
-        if rule.directory and not re.match(rule.directory, context.working_dir):
-            logger.debug(f"Rule '{rule.name}': directory pattern didn't match")
+        # Check directory pattern using pre-compiled regex
+        compiled_dir = self._compiled_directories.get(rule.name)
+        if rule.directory and compiled_dir:
+            if not compiled_dir.match(context.working_dir):
+                logger.debug(f"Rule '{rule.name}': directory pattern didn't match")
+                return False
+        elif rule.directory and not compiled_dir:
+            # Regex was invalid, skip this rule
+            logger.debug(f"Rule '{rule.name}': invalid directory regex, skipping")
             return False
 
         # Check bash conditions
@@ -142,8 +234,9 @@ class RuleEvaluator:
     async def _check_condition(self, condition: str, context: CommandContext) -> bool:
         """Run a bash condition and return whether it passed.
 
-        Uses per-evaluation caching - identical conditions for the same
-        command/working_dir are only executed once per evaluate() call.
+        Uses caching - identical conditions for the same command/working_dir
+        are only executed once. If a shared ConditionCache was provided,
+        results persist across requests with TTL-based expiration.
 
         Environment variables available:
         - $CMD: Full command string
@@ -158,18 +251,29 @@ class RuleEvaluator:
         Returns:
             True if condition exited with code 0, False otherwise
         """
-        # Check condition cache first
         cache_key = (condition, context.raw_command, context.working_dir)
-        if cache_key in self._condition_cache:
-            cached_result = self._condition_cache[cache_key]
-            logger.debug(f"Condition cache hit: {condition[:40]}... -> {cached_result}")
-            return cached_result
+
+        # Check cache first (shared or local)
+        if self._use_shared_cache and self._condition_cache is not None:
+            cached_result = self._condition_cache.get(cache_key)
+            if cached_result is not None:
+                logger.debug(f"Condition cache hit (shared): {condition[:40]}... -> {cached_result}")
+                return cached_result
+        else:
+            if cache_key in self._local_cache:
+                cached_result = self._local_cache[cache_key]
+                logger.debug(f"Condition cache hit (local): {condition[:40]}... -> {cached_result}")
+                return cached_result
 
         # Execute condition
         result = await self._execute_condition(condition, context)
 
         # Cache result
-        self._condition_cache[cache_key] = result
+        if self._use_shared_cache and self._condition_cache is not None:
+            self._condition_cache.set(cache_key, result)
+        else:
+            self._local_cache[cache_key] = result
+
         return result
 
     async def _execute_condition(self, condition: str, context: CommandContext) -> bool:
