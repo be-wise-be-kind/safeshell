@@ -109,9 +109,7 @@ class SafeShellGuiApp(QObject):
             self.main_window.add_status_message("Connected to daemon", "#81C784")
         else:
             logger.warning("Failed to connect to daemon")
-            self.main_window.add_status_message(
-                "Failed to connect to daemon", "#EF5350"
-            )
+            self.main_window.add_status_message("Failed to connect to daemon", "#EF5350")
             self.tray.show_notification(
                 "SafeShell",
                 "Could not connect to daemon. Is it running?",

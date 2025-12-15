@@ -150,6 +150,12 @@ skips = [
     "B607",  # partial path: Safe - using poetry run for development utilities
 ]
 
+# Coverage configuration
+[tool.coverage.run]
+omit = [
+    "src/safeshell/gui/*",  # GUI requires display, tested manually
+]
+
 # Radon configuration
 [tool.radon]
 cc_min = "B"  # Report functions with complexity B or worse

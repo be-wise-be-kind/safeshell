@@ -57,6 +57,7 @@ def _stop_gui() -> bool:
             GUI_PID_PATH.unlink()
         return False
 
+
 app = typer.Typer(
     name="safeshell",
     help="Command-line safety layer for AI coding assistants.",

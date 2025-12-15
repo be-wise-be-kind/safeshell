@@ -41,9 +41,7 @@ class ApprovalCard(QFrame):
     approved = pyqtSignal(str, bool)  # approval_id, remember
     denied = pyqtSignal(str, bool)  # approval_id, remember
 
-    def __init__(
-        self, approval_id: str, command: str, reason: str, plugin_name: str
-    ) -> None:
+    def __init__(self, approval_id: str, command: str, reason: str, plugin_name: str) -> None:
         super().__init__()
         self.approval_id = approval_id
         self._setup_ui(command, reason, plugin_name)
@@ -98,9 +96,7 @@ class ApprovalCard(QFrame):
             "border: none; border-radius: 4px; font-weight: bold; }"
             "QPushButton:hover { background-color: #2E7D32; }"
         )
-        approve_remember_btn.clicked.connect(
-            lambda: self.approved.emit(self.approval_id, True)
-        )
+        approve_remember_btn.clicked.connect(lambda: self.approved.emit(self.approval_id, True))
 
         deny_btn = QPushButton("Deny")
         deny_btn.setStyleSheet(
@@ -116,9 +112,7 @@ class ApprovalCard(QFrame):
             "border: none; border-radius: 4px; font-weight: bold; }"
             "QPushButton:hover { background-color: #C62828; }"
         )
-        deny_remember_btn.clicked.connect(
-            lambda: self.denied.emit(self.approval_id, True)
-        )
+        deny_remember_btn.clicked.connect(lambda: self.denied.emit(self.approval_id, True))
 
         btn_layout.addWidget(approve_btn)
         btn_layout.addWidget(approve_remember_btn)
@@ -181,17 +175,13 @@ class MainWindow(QMainWindow):
         approvals_layout.setContentsMargins(0, 0, 0, 0)
 
         self.approvals_header = QLabel("Pending Approvals")
-        self.approvals_header.setStyleSheet(
-            "font-weight: bold; font-size: 12px; color: #FF9800;"
-        )
+        self.approvals_header.setStyleSheet("font-weight: bold; font-size: 12px; color: #FF9800;")
         approvals_layout.addWidget(self.approvals_header)
 
         # Scrollable area for approval cards
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet(
-            "QScrollArea { border: none; background-color: transparent; }"
-        )
+        scroll.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
 
         self.approvals_container = QWidget()
         self.approvals_list_layout = QVBoxLayout(self.approvals_container)

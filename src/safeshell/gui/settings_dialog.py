@@ -55,9 +55,7 @@ class SettingsDialog(QDialog):
         display_layout = QFormLayout(display_group)
 
         self.debug_checkbox = QCheckBox("Show debug log window")
-        self.debug_checkbox.setToolTip(
-            "When enabled, a debug window shows real-time daemon events"
-        )
+        self.debug_checkbox.setToolTip("When enabled, a debug window shows real-time daemon events")
         display_layout.addRow(self.debug_checkbox)
 
         layout.addWidget(display_group)

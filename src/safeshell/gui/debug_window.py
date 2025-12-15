@@ -63,9 +63,7 @@ class DebugWindow(QMainWindow):
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
         self.log_text.setFont(QFont("monospace", 9))
-        self.log_text.setStyleSheet(
-            "background-color: #1E1E1E; color: #D4D4D4; padding: 8px;"
-        )
+        self.log_text.setStyleSheet("background-color: #1E1E1E; color: #D4D4D4; padding: 8px;")
         layout.addWidget(self.log_text)
 
         # Clear button

@@ -70,9 +70,7 @@ class SafeShellTray(QSystemTrayIcon):
                 TrayStatus.CONNECTED: style.standardIcon(
                     QStyle.StandardPixmap.SP_DialogApplyButton
                 ),
-                TrayStatus.PENDING: style.standardIcon(
-                    QStyle.StandardPixmap.SP_MessageBoxWarning
-                ),
+                TrayStatus.PENDING: style.standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning),
             }
         else:
             # Fallback to empty icons
