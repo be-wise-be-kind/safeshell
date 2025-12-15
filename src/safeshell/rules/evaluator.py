@@ -264,9 +264,7 @@ class RuleEvaluator:
         else:
             if cache_key in self._local_cache:
                 cached_result = self._local_cache[cache_key]
-                logger.debug(
-                    f"Condition cache hit (local): {condition[:40]}... -> {cached_result}"
-                )
+                logger.debug(f"Condition cache hit (local): {condition[:40]}... -> {cached_result}")
                 return cached_result
 
         # Execute condition
