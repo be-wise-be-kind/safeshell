@@ -120,8 +120,6 @@ class CommandContext(BaseModel):
         Returns:
             Tuple of (git_root, branch_name) or (None, None) if not in a repo
         """
-        global _git_context_cache
-
         now = time.monotonic()
 
         # Check cache first
@@ -180,8 +178,6 @@ class CommandContext(BaseModel):
     @staticmethod
     def _prune_git_context_cache() -> None:
         """Remove oldest entries from git context cache."""
-        global _git_context_cache
-
         if not _git_context_cache:
             return
 
