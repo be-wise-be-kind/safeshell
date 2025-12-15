@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeShell Architecture: Daemon-Based Execution</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        :root {
+            --bg: #fafafa;
+            --surface: #ffffff;
+            --surface-light: #f5f5f5;
+            --primary: #e0e0e0;
+            --accent: #2563eb;
+            --success: #16a34a;
+            --warning: #ca8a04;
+            --danger: #dc2626;
+            --text: #1f2937;
+            --text-dim: #6b7280;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            padding: 2rem;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        h1 { color: var(--text); margin-bottom: 0.5rem; font-size: 2rem; }
+        h2 { color: var(--text); margin: 2rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--primary); }
+        h3 { color: var(--text); margin: 1.5rem 0 0.75rem; }
+        .subtitle { color: var(--text-dim); margin-bottom: 2rem; font-size: 1.1rem; }
+        p { margin-bottom: 1rem; }
+        .card {
+            background: var(--surface);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .card.highlight { border-left: 4px solid var(--success); }
+        .card.neutral { border-left: 4px solid var(--accent); }
+        .card.warning { border-left: 4px solid var(--warning); }
+        .card { box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .diagram-container {
+            background: var(--surface-light);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            overflow-x: auto;
+        }
+        .mermaid { text-align: center; }
+        code {
+            background: var(--primary);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.9em;
+        }
+        pre {
+            background: var(--surface-light);
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        pre code { background: none; padding: 0; }
+        .metric {
+            display: inline-block;
+            background: var(--surface-light);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            margin: 0.25rem;
+            border: 1px solid var(--primary);
+            border-left: 3px solid var(--success);
+            background: #f0fdf4;
+        }
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        @media (max-width: 768px) {
+            .comparison { grid-template-columns: 1fr; }
+        }
+        ul, ol { margin: 1rem 0 1rem 1.5rem; }
+        li { margin-bottom: 0.5rem; }
+        a { color: var(--accent); }
+        .back-link { margin-bottom: 2rem; display: inline-block; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--primary);
+        }
+        th { background: var(--primary); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">&larr; Back to Index</a>
+
+        <h1>SafeShell Architecture</h1>
+        <p class="subtitle">Daemon-based command interception and execution</p>
+
+        <!-- ==================== OVERVIEW ==================== -->
+        <h2>1. Overview</h2>
+
+        <div class="card highlight">
+            <h3>Key Design Principle</h3>
+            <p>SafeShell uses a warm daemon process to evaluate and execute commands. The shim is a lightweight bash socket client with no Python dependency, enabling minimal overhead.</p>
+            <div>
+                <span class="metric">Socket connection: ~0.5ms</span>
+                <span class="metric">Daemon evaluation: ~0.5ms</span>
+                <span class="metric">Fork + exec: ~0.5ms</span>
+                <span class="metric">Total overhead: ~1.5ms per command</span>
+            </div>
+        </div>
+
+        <h3>Command Flow</h3>
+        <div class="diagram-container">
+            <pre class="mermaid">
+sequenceDiagram
+    participant T as Terminal
+    participant S as Shim (bash + socat)
+    participant D as Daemon (Python, warm)
+    participant C as Child Process
+    participant SH as Real Shell
+
+    Note over T,SH: User types "ls -la"
+
+    T->>S: ls -la
+    S->>D: socket: execute("ls -la")
+    Note over D: Already warm, no startup
+    D->>D: check rules (~1ms)
+    D->>C: fork()
+    C->>SH: exec("ls -la")
+    SH-->>C: output + exit code
+    C-->>D: results via pipe
+    D-->>S: socket: output + exit code
+    S-->>T: output
+
+    Note over T,SH: User types "git status"
+
+    T->>S: git status
+    S->>D: socket: execute("git status")
+    Note over D: Still warm
+    D->>D: check rules (~1ms)
+    D->>C: fork()
+    C->>SH: exec("git status")
+    SH-->>C: output
+    C-->>D: results
+    D-->>S: output + exit code
+    S-->>T: output
+            </pre>
+        </div>
+
+        <!-- ==================== COMPONENT DIAGRAM ==================== -->
+        <h2>2. Component Architecture</h2>
+
+        <div class="diagram-container">
+            <pre class="mermaid">
+flowchart TB
+    subgraph Terminal["Terminal (Human or AI)"]
+        USER[User Input]
+    end
+
+    subgraph Shims["Interception Layer"]
+        BASHINT[init.bash<br/>builtin overrides]
+        SHIMDIR[~/.safeshell/shims/<br/>command symlinks]
+    end
+
+    subgraph Client["Socket Client (bash)"]
+        SOCAT[safeshell-check<br/>bash + socat/nc]
+    end
+
+    subgraph Daemon["Daemon Process (Python, Always Warm)"]
+        SOCKET[Unix Socket<br/>daemon.sock]
+        EVAL[Rule Evaluator]
+        EXEC[Command Executor<br/>fork + exec]
+        RULES[(Rules Cache)]
+    end
+
+    subgraph Monitor["Monitor TUI"]
+        MON[Approval UI]
+        MONSOCK[monitor.sock]
+    end
+
+    USER --> BASHINT
+    USER --> SHIMDIR
+    BASHINT --> SOCAT
+    SHIMDIR --> SOCAT
+    SOCAT <-->|JSON over socket| SOCKET
+    SOCKET --> EVAL
+    EVAL --> RULES
+    EVAL -->|allowed| EXEC
+    EVAL -->|needs approval| MONSOCK
+    MONSOCK <--> MON
+    MON -->|approved/denied| EVAL
+    EXEC -->|stdout/stderr/exit| SOCKET
+            </pre>
+        </div>
+
+        <!-- ==================== FLOW COMPARISON ==================== -->
+        <h2>3. Human vs AI Command Flow</h2>
+
+        <div class="comparison">
+            <div class="card neutral">
+                <h3>Human in Terminal</h3>
+                <div class="diagram-container">
+                    <pre class="mermaid">
+flowchart TD
+    A[Human types command] --> B{Shim intercepts?}
+    B -->|External cmd| C[Shim in PATH]
+    B -->|Builtin| D[init.bash override]
+    C --> E[safeshell-check]
+    D --> E
+    E -->|socket| F[Daemon evaluates]
+    F --> G{Decision}
+    G -->|ALLOW| H[Daemon forks & executes]
+    G -->|DENY| I[Return error message]
+    G -->|REQUIRE_APPROVAL| J[Wait for Monitor TUI]
+    J -->|Approved| H
+    J -->|Denied/Timeout| I
+    H --> K[Return output to terminal]
+                    </pre>
+                </div>
+            </div>
+
+            <div class="card neutral">
+                <h3>AI Tool (Claude Code, etc.)</h3>
+                <div class="diagram-container">
+                    <pre class="mermaid">
+flowchart TD
+    A[AI requests command] --> B[Claude Code Hook]
+    B --> C[safeshell-check]
+    C -->|socket| D[Daemon evaluates]
+    D --> E{Decision}
+    E -->|ALLOW| F[Daemon forks & executes]
+    E -->|DENY| G[Return error to AI]
+    E -->|REQUIRE_APPROVAL| H[Wait for Monitor TUI]
+    H -->|Approved| F
+    H -->|Denied/Timeout| G
+    F --> I[Return output to AI]
+
+    style B fill:#dbeafe,stroke:#2563eb,color:#1e40af
+    Note1[AI context detected<br/>via SAFESHELL_CONTEXT=ai]
+    B -.-> Note1
+                    </pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== PROTOCOL ==================== -->
+        <h2>4. Protocol</h2>
+
+        <div class="card neutral">
+            <h3>Execute Request</h3>
+            <p>The <code>execute</code> request type combines evaluation and execution:</p>
+            <pre><code>{
+    "type": "execute",
+    "command": "ls -la",
+    "working_dir": "/home/user/project",
+    "env": {"PATH": "...", "HOME": "..."},
+    "execution_context": "human"
+}</code></pre>
+        </div>
+
+        <div class="card neutral">
+            <h3>Response Format</h3>
+            <p>Response includes execution results:</p>
+            <pre><code>{
+    "success": true,
+    "decision": "allow",
+    "executed": true,
+    "exit_code": 0,
+    "stdout": "file1.txt\nfile2.txt\n",
+    "stderr": "",
+    "execution_time_ms": 12
+}</code></pre>
+            <p>For denied commands:</p>
+            <pre><code>{
+    "success": true,
+    "decision": "deny",
+    "executed": false,
+    "denial_message": "Cannot commit directly to protected branch"
+}</code></pre>
+        </div>
+
+        <!-- ==================== KEY FILES ==================== -->
+        <h2>5. Key Components</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Component</th>
+                    <th>File</th>
+                    <th>Purpose</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Protocol</td>
+                    <td><code>models.py</code></td>
+                    <td><code>RequestType.EXECUTE</code> and response fields for stdout/stderr/exit_code</td>
+                </tr>
+                <tr>
+                    <td>Executor</td>
+                    <td><code>daemon/executor.py</code></td>
+                    <td>Fork, capture output, return results</td>
+                </tr>
+                <tr>
+                    <td>Manager</td>
+                    <td><code>daemon/manager.py</code></td>
+                    <td><code>_handle_execute()</code> evaluates then forks to run command</td>
+                </tr>
+                <tr>
+                    <td>Bash Client</td>
+                    <td><code>shims/safeshell-check</code></td>
+                    <td>Socket client for daemon communication (no Python)</td>
+                </tr>
+                <tr>
+                    <td>Shim</td>
+                    <td><code>shims/safeshell-shim</code></td>
+                    <td>Command interceptor using bash client</td>
+                </tr>
+                <tr>
+                    <td>Shell Init</td>
+                    <td><code>shims/init.bash</code></td>
+                    <td>Builtin overrides (cd, source, eval)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- ==================== DESIGN DECISIONS ==================== -->
+        <h2>6. Design Decisions</h2>
+
+        <div class="card highlight">
+            <ol>
+                <li><strong>TTY handling:</strong> Non-interactive only. Buffered stdout/stderr. Interactive commands fall back to direct execution.</li>
+                <li><strong>Environment inheritance:</strong> Child receives env from shim request, merged with daemon env (PATH preserved).</li>
+                <li><strong>Working directory:</strong> Child uses subprocess with cwd parameter to run in requested working_dir.</li>
+                <li><strong>Output handling:</strong> Buffered output returned at end (simpler, sufficient for most commands).</li>
+                <li><strong>Timeout handling:</strong> No timeout - daemon is non-invasive and does not change command behavior.</li>
+                <li><strong>Builtin overrides:</strong> Configurable via <code>check_cd</code>, <code>check_source</code>, <code>check_eval</code> settings. Eval disabled by default due to shell hook overhead.</li>
+            </ol>
+        </div>
+
+        <!-- ==================== FAILURE MODES ==================== -->
+        <h2>7. Failure Modes</h2>
+
+        <div class="card warning">
+            <h3>Daemon Unreachable</h3>
+            <p><strong>Behavior:</strong> Fail-open by default. If daemon is unreachable, shim falls back to direct execution (configurable via <code>unreachable_behavior</code>).</p>
+        </div>
+
+        <div class="card warning">
+            <h3>Large Output</h3>
+            <p><strong>Behavior:</strong> Output is buffered and returned via socket. No artificial limits imposed.</p>
+        </div>
+
+        <div class="card warning">
+            <h3>Signal Handling</h3>
+            <p><strong>Behavior:</strong> Child process runs in its own process group. Parent daemon handles SIGCHLD. Ctrl+C in terminal sends to child's process group.</p>
+        </div>
+
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#dbeafe',
+                primaryTextColor: '#1f2937',
+                primaryBorderColor: '#2563eb',
+                lineColor: '#6b7280',
+                secondaryColor: '#f3f4f6',
+                tertiaryColor: '#fafafa'
+            }
+        });
+    </script>
+</body>
+</html>
