@@ -15,7 +15,12 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from safeshell.rules.loader import GLOBAL_RULES_PATH, _find_repo_rules, _load_rule_file
+from safeshell.rules.loader import (
+    GLOBAL_RULES_PATH,
+    _find_repo_rules,
+    _load_rule_file,
+    load_default_rules,
+)
 
 if TYPE_CHECKING:
     from safeshell.rules.schema import Rule
@@ -191,7 +196,12 @@ class RuleCache:
         rules: list[Rule] = []
         file_mtimes: dict[Path, float] = {}
 
-        # Load global rules
+        # Load default rules (shipped with SafeShell, from code)
+        default_rules = load_default_rules()
+        rules.extend(default_rules)
+        logger.debug(f"Loaded {len(default_rules)} default rules")
+
+        # Load global rules (user customizations)
         if GLOBAL_RULES_PATH.exists():
             global_rules = _load_rule_file(GLOBAL_RULES_PATH)
             rules.extend(global_rules)

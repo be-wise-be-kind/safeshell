@@ -1,9 +1,9 @@
 """
 File: src/safeshell/rules/loader.py
 Purpose: Load and merge rule files from global and repo locations
-Exports: load_rules, GLOBAL_RULES_PATH
+Exports: load_rules, load_default_rules, GLOBAL_RULES_PATH
 Depends: safeshell.rules.schema, safeshell.exceptions, safeshell.common, pyyaml, pathlib, loguru
-Overview: Loads rules from ~/.safeshell/rules.yaml (global) and .safeshell/rules.yaml (repo)
+Overview: Loads rules from defaults.py, ~/.safeshell/rules.yaml, and .safeshell/rules.yaml
 """
 
 from pathlib import Path
@@ -14,19 +14,61 @@ from pydantic import ValidationError
 
 from safeshell.common import SAFESHELL_DIR
 from safeshell.exceptions import RuleLoadError
+from safeshell.rules.defaults import DEFAULT_RULES_YAML
 from safeshell.rules.schema import Rule, RuleSet
 
 GLOBAL_RULES_PATH = SAFESHELL_DIR / "rules.yaml"
 
 
+class _DefaultRulesCache:
+    """Simple cache for default rules parsed from code."""
+
+    def __init__(self) -> None:
+        self._rules: list[Rule] | None = None
+
+    def get(self) -> list[Rule]:
+        """Get cached default rules, parsing on first access."""
+        if self._rules is not None:
+            return self._rules
+
+        try:
+            data = yaml.safe_load(DEFAULT_RULES_YAML)
+            if data is None:
+                self._rules = []
+            else:
+                ruleset = RuleSet.model_validate(data)
+                self._rules = ruleset.rules
+            logger.debug(f"Parsed {len(self._rules)} default rules from code")
+            return self._rules
+        except yaml.YAMLError as e:
+            logger.error(f"Invalid YAML in default rules: {e}")
+            return []
+        except ValidationError as e:
+            logger.error(f"Invalid schema in default rules: {e}")
+            return []
+
+
+_default_rules_cache = _DefaultRulesCache()
+
+
+def load_default_rules() -> list[Rule]:
+    """Load the built-in default rules from code.
+
+    Returns:
+        List of default Rule objects shipped with SafeShell
+    """
+    return _default_rules_cache.get()
+
+
 def load_rules(working_dir: str | Path) -> list[Rule]:
-    """Load and merge global and repo rules.
+    """Load and merge default, global, and repo rules.
 
     Load order:
-    1. Global rules (~/.safeshell/rules.yaml)
-    2. Repo rules (.safeshell/rules.yaml in working_dir or parents)
+    1. Default rules (built-in, from defaults.py)
+    2. Global rules (~/.safeshell/rules.yaml)
+    3. Repo rules (.safeshell/rules.yaml in working_dir or parents)
 
-    Repo rules are additive only - they cannot relax global rules.
+    Rules are additive - later rules can add restrictions but cannot relax earlier ones.
     A malicious repo cannot disable your global protections.
 
     Args:
@@ -40,13 +82,18 @@ def load_rules(working_dir: str | Path) -> list[Rule]:
     """
     rules: list[Rule] = []
 
-    # 1. Load global rules (user's protections)
+    # 1. Load default rules (shipped with SafeShell)
+    default_rules = load_default_rules()
+    rules.extend(default_rules)
+    logger.debug(f"Loaded {len(default_rules)} default rules")
+
+    # 2. Load global rules (user's protections)
     if GLOBAL_RULES_PATH.exists():
         global_rules = _load_rule_file(GLOBAL_RULES_PATH)
         rules.extend(global_rules)
         logger.debug(f"Loaded {len(global_rules)} global rules")
 
-    # 2. Load repo rules (additive only)
+    # 3. Load repo rules (additive only)
     repo_path = _find_repo_rules(Path(working_dir))
     if repo_path:
         repo_rules = _load_rule_file(repo_path)
