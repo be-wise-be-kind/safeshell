@@ -6,8 +6,6 @@ import tempfile
 import time
 from pathlib import Path
 
-import pytest
-
 from safeshell.models import (
     CommandContext,
     _git_context_cache,

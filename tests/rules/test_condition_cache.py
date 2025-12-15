@@ -2,11 +2,15 @@
 Tests for ConditionCache TTL-based caching.
 """
 
+import tempfile
 import time
 
 import pytest
 
 from safeshell.rules.evaluator import ConditionCache
+
+# Use tempfile.gettempdir() for safe temporary directory reference
+_TEMP_DIR = tempfile.gettempdir()
 
 
 class TestConditionCache:
@@ -15,7 +19,7 @@ class TestConditionCache:
     def test_cache_set_and_get(self) -> None:
         """Test basic set and get operations."""
         cache = ConditionCache(ttl_seconds=10.0)
-        key = ("condition", "ls -la", "/tmp")
+        key = ("condition", "ls -la", _TEMP_DIR)
 
         cache.set(key, True)
         assert cache.get(key) is True
@@ -26,14 +30,14 @@ class TestConditionCache:
     def test_cache_miss_returns_none(self) -> None:
         """Test that missing keys return None."""
         cache = ConditionCache(ttl_seconds=10.0)
-        key = ("condition", "ls", "/tmp")
+        key = ("condition", "ls", _TEMP_DIR)
 
         assert cache.get(key) is None
 
     def test_cache_expiry(self) -> None:
         """Test that entries expire after TTL."""
         cache = ConditionCache(ttl_seconds=0.1)  # 100ms TTL
-        key = ("condition", "ls", "/tmp")
+        key = ("condition", "ls", _TEMP_DIR)
 
         cache.set(key, True)
         assert cache.get(key) is True
@@ -45,8 +49,8 @@ class TestConditionCache:
     def test_cache_different_keys(self) -> None:
         """Test that different keys are stored independently."""
         cache = ConditionCache(ttl_seconds=10.0)
-        key1 = ("cond1", "ls", "/tmp")
-        key2 = ("cond2", "ls", "/tmp")
+        key1 = ("cond1", "ls", _TEMP_DIR)
+        key2 = ("cond2", "ls", _TEMP_DIR)
         key3 = ("cond1", "ls", "/home")
 
         cache.set(key1, True)
@@ -63,12 +67,12 @@ class TestConditionCache:
 
         # Fill cache to max
         for i in range(5):
-            cache.set((f"cond{i}", "ls", "/tmp"), True)
+            cache.set((f"cond{i}", "ls", _TEMP_DIR), True)
 
         assert len(cache) == 5
 
         # Add one more - should trigger eviction
-        cache.set(("cond_new", "ls", "/tmp"), True)
+        cache.set(("cond_new", "ls", _TEMP_DIR), True)
 
         # Should have evicted some entries
         assert len(cache) <= 5
@@ -76,7 +80,7 @@ class TestConditionCache:
     def test_cache_clear(self) -> None:
         """Test cache clear operation."""
         cache = ConditionCache(ttl_seconds=10.0)
-        key = ("condition", "ls", "/tmp")
+        key = ("condition", "ls", _TEMP_DIR)
 
         cache.set(key, True)
         assert cache.get(key) is True
@@ -91,10 +95,10 @@ class TestConditionCache:
 
         assert len(cache) == 0
 
-        cache.set(("cond1", "ls", "/tmp"), True)
+        cache.set(("cond1", "ls", _TEMP_DIR), True)
         assert len(cache) == 1
 
-        cache.set(("cond2", "ls", "/tmp"), False)
+        cache.set(("cond2", "ls", _TEMP_DIR), False)
         assert len(cache) == 2
 
 
@@ -131,7 +135,7 @@ class TestConditionCacheIntegration:
         context = CommandContext(
             raw_command="echo hello",
             parsed_args=["echo", "hello"],
-            working_dir="/tmp",
+            working_dir=_TEMP_DIR,
             execution_context=ExecutionContext.HUMAN,
         )
         await evaluator.evaluate(context)
