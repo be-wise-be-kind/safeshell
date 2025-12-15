@@ -15,6 +15,8 @@ loguru = "^0.7.0"
 pyyaml = "^6.0.0"
 plumbum = "^1.9.0"
 textual = "^6.8.0"
+PyQt6 = "^6.6.0"
+qasync = "^0.27.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
@@ -72,6 +74,7 @@ ignore = [
 # Pylint configuration
 [tool.pylint.main]
 max-line-length = 100
+extension-pkg-whitelist = ["PyQt6"]
 
 [tool.pylint.messages_control]
 disable = [
@@ -117,6 +120,11 @@ disallow_untyped_defs = false
 # Plumbum lacks type stubs - ignore missing imports
 [[tool.mypy.overrides]]
 module = ["plumbum", "plumbum.*"]
+ignore_missing_imports = true
+
+# qasync lacks type stubs - ignore missing imports
+[[tool.mypy.overrides]]
+module = ["qasync"]
 ignore_missing_imports = true
 
 # Pytest configuration

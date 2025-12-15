@@ -6,18 +6,56 @@ Depends: typer, rich, safeshell.daemon.cli, safeshell.wrapper.cli
 Overview: Provides version, check, status commands and registers daemon/wrapper subcommands
 """
 
+import contextlib
 import os
+import signal
 import sys
 from pathlib import Path
 
 import typer
 from rich.console import Console
 
+from safeshell.common import SAFESHELL_DIR
 from safeshell.daemon.cli import _daemonize
 from safeshell.daemon.cli import app as daemon_app
 from safeshell.daemon.lifecycle import DaemonLifecycle
 from safeshell.rules.cli import app as rules_app
 from safeshell.wrapper.cli import app as wrapper_app
+
+# GUI PID file for preventing duplicate instances
+GUI_PID_PATH = SAFESHELL_DIR / "gui.pid"
+
+
+def _is_gui_running() -> bool:
+    """Check if GUI process is running."""
+    if not GUI_PID_PATH.exists():
+        return False
+    try:
+        pid = int(GUI_PID_PATH.read_text().strip())
+        # Check if process exists
+        os.kill(pid, 0)
+        return True
+    except (ValueError, OSError, ProcessLookupError):
+        # PID file invalid or process not running
+        with contextlib.suppress(FileNotFoundError):
+            GUI_PID_PATH.unlink()
+        return False
+
+
+def _stop_gui() -> bool:
+    """Stop running GUI process."""
+    if not GUI_PID_PATH.exists():
+        return False
+    try:
+        pid = int(GUI_PID_PATH.read_text().strip())
+        os.kill(pid, signal.SIGTERM)
+        with contextlib.suppress(FileNotFoundError):
+            GUI_PID_PATH.unlink()
+        return True
+    except (ValueError, OSError, ProcessLookupError):
+        with contextlib.suppress(FileNotFoundError):
+            GUI_PID_PATH.unlink()
+        return False
 
 app = typer.Typer(
     name="safeshell",
@@ -36,6 +74,91 @@ app.add_typer(rules_app, name="rules")
 def version() -> None:
     """Show the SafeShell version."""
     console.print("[bold]SafeShell[/bold] v0.1.0")
+
+
+@app.command()
+def up() -> None:
+    """Start SafeShell (daemon + system tray GUI).
+
+    This is the recommended way to start SafeShell.
+    Starts the daemon if not running, then launches the system tray application
+    in the background.
+
+    The tray app provides:
+    - Popup windows when commands need approval
+    - System tray icon showing status
+    - Settings and debug log access
+    """
+    import subprocess
+    import time
+
+    # Start daemon if not running
+    if not DaemonLifecycle.is_running():
+        console.print("Starting daemon...")
+        _daemonize()
+        time.sleep(0.5)
+        if DaemonLifecycle.is_running():
+            console.print("[green]Daemon started.[/green]")
+        else:
+            console.print("[red]Failed to start daemon.[/red]")
+            raise typer.Exit(1)
+    else:
+        console.print("[dim]Daemon already running.[/dim]")
+
+    # Check if GUI is already running
+    if _is_gui_running():
+        console.print("[dim]GUI already running, bringing to front...[/dim]")
+        # Send SIGUSR1 to bring window to front
+        try:
+            pid = int(GUI_PID_PATH.read_text().strip())
+            os.kill(pid, signal.SIGUSR1)
+        except (ValueError, OSError, ProcessLookupError):
+            pass
+        console.print("[green]SafeShell is running.[/green]")
+        return
+
+    # Launch GUI in background process (trusted input - our own module)
+    console.print("Starting system tray...")
+    subprocess.Popen(  # noqa: S603
+        [sys.executable, "-m", "safeshell.gui"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,  # Detach from terminal
+    )
+    console.print("[green]SafeShell is running.[/green]")
+    console.print("[dim]Monitor window should appear. Use 'safeshell down' to stop.[/dim]")
+
+
+@app.command()
+def down() -> None:
+    """Stop SafeShell (daemon + GUI).
+
+    Stops both the GUI and daemon processes.
+
+    Equivalent to: safeshell daemon stop
+    """
+    stopped_something = False
+
+    # Stop GUI first
+    if _is_gui_running():
+        console.print("Stopping GUI...")
+        _stop_gui()
+        console.print("[green]GUI stopped.[/green]")
+        stopped_something = True
+
+    # Stop daemon
+    if DaemonLifecycle.is_running():
+        pid = DaemonLifecycle.read_pid()
+        if pid:
+            console.print(f"Stopping daemon (PID {pid})...")
+            DaemonLifecycle.stop_daemon()
+            console.print("[green]Daemon stopped.[/green]")
+            stopped_something = True
+        else:
+            console.print("[red]Could not determine daemon PID.[/red]")
+
+    if not stopped_something:
+        console.print("[yellow]SafeShell is not running.[/yellow]")
 
 
 @app.command()
@@ -148,6 +271,55 @@ def monitor(
 
     monitor_app = MonitorApp(debug_mode=debug)
     monitor_app.run()
+
+
+@app.command()
+def tray() -> None:
+    """Launch the SafeShell system tray application.
+
+    Runs in the background and shows popup windows when
+    command approval is required.
+
+    Features:
+    - System tray icon with status indicator
+    - Automatic popup windows for approvals
+    - Optional debug log window (toggle in settings or tray menu)
+    - Settings persistence
+
+    This is an alternative to the terminal-based 'safeshell monitor' command.
+    Both can run simultaneously.
+    """
+    import time
+
+    # Check if daemon is running
+    if not DaemonLifecycle.is_running():
+        console.print("[yellow]Daemon is not running.[/yellow]")
+        if typer.confirm("Start the daemon?", default=True):
+            console.print("Starting daemon...")
+            _daemonize()
+            # Wait briefly for daemon to start
+            time.sleep(0.5)
+            if DaemonLifecycle.is_running():
+                console.print("[green]Daemon started.[/green]")
+            else:
+                console.print("[red]Failed to start daemon.[/red]")
+                raise typer.Exit(1)
+        else:
+            console.print("Tray app requires the daemon to be running.")
+            console.print("Start it with: safeshell daemon start")
+            raise typer.Exit(1)
+
+    # Suppress loguru output for GUI
+    from loguru import logger
+
+    logger.remove()
+    logger.add(os.devnull, level="DEBUG")
+
+    # Import and run GUI
+    from safeshell.gui import run_gui
+
+    console.print("[dim]Starting SafeShell system tray...[/dim]")
+    run_gui()
 
 
 @app.command()
