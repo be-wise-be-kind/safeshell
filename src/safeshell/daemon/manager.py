@@ -23,6 +23,7 @@ from safeshell.models import (
     RequestType,
 )
 from safeshell.rules import RuleCache, RuleEvaluator
+from safeshell.rules.evaluator import ConditionCache
 
 if TYPE_CHECKING:
     from safeshell.daemon.approval import ApprovalManager
@@ -44,6 +45,7 @@ class RuleManager:
         approval_manager: ApprovalManager | None = None,
         condition_timeout_ms: int = 100,
         session_memory: SessionMemory | None = None,
+        condition_cache_ttl: float = 5.0,
     ) -> None:
         """Initialize rule manager.
 
@@ -52,6 +54,7 @@ class RuleManager:
             approval_manager: Optional manager for handling REQUIRE_APPROVAL decisions
             condition_timeout_ms: Timeout for bash conditions in milliseconds
             session_memory: Optional session memory for "don't ask again" approvals
+            condition_cache_ttl: TTL for condition cache entries in seconds (default 5s)
         """
         self._event_publisher = event_publisher
         self._approval_manager = approval_manager
@@ -60,6 +63,13 @@ class RuleManager:
         self._evaluator: RuleEvaluator | None = None
         self._rule_count: int = 0
         self._rule_cache = RuleCache()
+
+        # Shared condition cache for cross-request caching (performance optimization)
+        self._condition_cache = ConditionCache(ttl_seconds=condition_cache_ttl)
+
+        # Cached evaluator for reuse when rules haven't changed
+        self._cached_evaluator: RuleEvaluator | None = None
+        self._cached_rules_hash: int | None = None
 
     @property
     def rule_count(self) -> int:
@@ -136,12 +146,23 @@ class RuleManager:
         rules, cache_hit = self._rule_cache.get_rules(request.working_dir)
         self._rule_count = len(rules)
 
-        # Create evaluator
-        evaluator = RuleEvaluator(
-            rules=rules,
-            condition_timeout_ms=self._condition_timeout_ms,
-        )
-        logger.debug(f"Rules: {len(rules)} (cache_hit={cache_hit})")
+        # Compute hash of rules to detect changes (using rule names and content)
+        rules_hash = hash(tuple((r.name, r.action, tuple(r.commands)) for r in rules))
+
+        # Reuse cached evaluator if rules haven't changed (performance optimization)
+        if cache_hit and self._cached_evaluator and self._cached_rules_hash == rules_hash:
+            evaluator = self._cached_evaluator
+            logger.debug(f"Rules: {len(rules)} (cache_hit={cache_hit}, evaluator_reused=True)")
+        else:
+            # Create new evaluator with shared condition cache
+            evaluator = RuleEvaluator(
+                rules=rules,
+                condition_timeout_ms=self._condition_timeout_ms,
+                condition_cache=self._condition_cache,
+            )
+            self._cached_evaluator = evaluator
+            self._cached_rules_hash = rules_hash
+            logger.debug(f"Rules: {len(rules)} (cache_hit={cache_hit}, evaluator_reused=False)")
 
         # Build command context
         context = CommandContext.from_command(

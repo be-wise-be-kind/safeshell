@@ -2,14 +2,23 @@
 File: src/safeshell/models.py
 Purpose: Core Pydantic models for SafeShell data structures
 Exports: Decision, CommandContext, EvaluationResult, DaemonRequest, DaemonResponse
-Depends: pydantic, enum
+Depends: pydantic, enum, time
 Overview: Defines all data models used for IPC between wrapper and daemon, and plugin evaluation
 """
 
+from __future__ import annotations
+
+import time
 from enum import Enum
 from pathlib import Path
 
 from pydantic import BaseModel, Field
+
+# Module-level git context cache for performance optimization
+# Key: working_dir -> (git_root, git_branch, timestamp)
+_git_context_cache: dict[str, tuple[str | None, str | None, float]] = {}
+_GIT_CONTEXT_CACHE_TTL = 10.0  # 10 seconds TTL
+_GIT_CONTEXT_CACHE_MAX_SIZE = 100  # Maximum cache entries
 
 
 class Decision(str, Enum):
@@ -63,8 +72,8 @@ class CommandContext(BaseModel):
         command: str,
         working_dir: str | Path,
         env: dict[str, str] | None = None,
-        execution_context: "ExecutionContext | None" = None,
-    ) -> "CommandContext":
+        execution_context: ExecutionContext | None = None,
+    ) -> CommandContext:
         """Create CommandContext from a command string.
 
         Args:
@@ -102,7 +111,38 @@ class CommandContext(BaseModel):
 
     @staticmethod
     def _detect_git_context(working_dir: str) -> tuple[str | None, str | None]:
-        """Detect git repository root and current branch.
+        """Detect git repository root and current branch (with caching).
+
+        Walks up from working_dir looking for .git directory.
+        Reads .git/HEAD directly for speed. Caches results with TTL
+        to avoid repeated filesystem walks.
+
+        Returns:
+            Tuple of (git_root, branch_name) or (None, None) if not in a repo
+        """
+        now = time.monotonic()
+
+        # Check cache first
+        if working_dir in _git_context_cache:
+            git_root, git_branch, timestamp = _git_context_cache[working_dir]
+            if now - timestamp < _GIT_CONTEXT_CACHE_TTL:
+                return git_root, git_branch
+            # Expired - remove it
+            del _git_context_cache[working_dir]
+
+        # Detect git context (uncached)
+        git_root, git_branch = CommandContext._detect_git_context_uncached(working_dir)
+
+        # Cache the result
+        if len(_git_context_cache) >= _GIT_CONTEXT_CACHE_MAX_SIZE:
+            CommandContext._prune_git_context_cache()
+        _git_context_cache[working_dir] = (git_root, git_branch, now)
+
+        return git_root, git_branch
+
+    @staticmethod
+    def _detect_git_context_uncached(working_dir: str) -> tuple[str | None, str | None]:
+        """Detect git repository root and current branch (without caching).
 
         Walks up from working_dir looking for .git directory.
         Reads .git/HEAD directly for speed.
@@ -134,6 +174,18 @@ class CommandContext(BaseModel):
             current = current.parent
 
         return None, None
+
+    @staticmethod
+    def _prune_git_context_cache() -> None:
+        """Remove oldest entries from git context cache."""
+        if not _git_context_cache:
+            return
+
+        # Sort by timestamp, remove oldest 20%
+        sorted_items = sorted(_git_context_cache.items(), key=lambda x: x[1][2])
+        to_remove = max(1, len(sorted_items) // 5)
+        for key, _ in sorted_items[:to_remove]:
+            del _git_context_cache[key]
 
 
 class EvaluationResult(BaseModel):
@@ -197,7 +249,7 @@ class DaemonResponse(BaseModel):
     )
 
     @classmethod
-    def allow(cls) -> "DaemonResponse":
+    def allow(cls) -> DaemonResponse:
         """Create an ALLOW response."""
         return cls(
             success=True,
@@ -206,7 +258,7 @@ class DaemonResponse(BaseModel):
         )
 
     @classmethod
-    def deny(cls, reason: str, plugin_name: str = "unknown") -> "DaemonResponse":
+    def deny(cls, reason: str, plugin_name: str = "unknown") -> DaemonResponse:
         """Create a DENY response with a denial message."""
         result = EvaluationResult(
             decision=Decision.DENY,
@@ -222,7 +274,7 @@ class DaemonResponse(BaseModel):
         )
 
     @classmethod
-    def error(cls, message: str) -> "DaemonResponse":
+    def error(cls, message: str) -> DaemonResponse:
         """Create an error response."""
         return cls(
             success=False,
@@ -233,7 +285,7 @@ class DaemonResponse(BaseModel):
     @classmethod
     def waiting_for_approval(
         cls, command: str, rule_name: str, reason: str, approval_id: str
-    ) -> "DaemonResponse":
+    ) -> DaemonResponse:
         """Create an intermediate 'waiting for approval' response."""
         return cls(
             success=True,
