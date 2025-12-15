@@ -112,11 +112,13 @@ class TestConditionCacheIntegration:
         from safeshell.rules.evaluator import RuleEvaluator
         from safeshell.rules.schema import Rule, RuleAction
 
-        # Create a rule with a bash condition
+        # Create a rule with a bash-only condition that won't be translated to Python.
+        # Note: Simple patterns like 'echo "$CMD" | grep -q "hello"' are now handled
+        # by Python conditions and bypass the bash cache entirely.
         rule = Rule(
             name="test-rule",
             commands=["echo"],
-            conditions=['echo "$CMD" | grep -q "hello"'],
+            conditions=["true"],  # Bash-only condition (not translatable to Python)
             action=RuleAction.DENY,
             message="Test denial",
         )

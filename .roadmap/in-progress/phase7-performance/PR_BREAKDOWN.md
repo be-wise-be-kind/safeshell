@@ -570,12 +570,367 @@ Create docs/performance/TROUBLESHOOTING.md with:
 
 ---
 
+---
+
+## PR4: Structured Condition Schema
+
+**Branch**: `feature/phase7-structured-conditions`
+**Estimated Effort**: 2-3 days
+**Complexity**: High
+**Priority**: P0 (HIGHEST)
+
+### Objectives
+Replace bash condition strings with structured, Python-evaluatable conditions in the rule schema. This is the foundational change that enables PR5 and PR6.
+
+### What This PR Does
+- Defines Pydantic models for each condition type
+- Updates Rule schema to accept structured conditions
+- Maintains backward compatibility with bash strings (temporarily)
+- Updates schema validation
+
+### Files to Create
+```
+src/safeshell/rules/condition_types.py    # Pydantic models for conditions
+```
+
+### Files to Modify
+```
+src/safeshell/rules/schema.py             # Update Rule.conditions type
+tests/rules/test_schema.py                # Tests for new condition types
+```
+
+### Implementation Steps
+
+#### Step 1: Define Condition Type Models
+Create Pydantic models for each condition type:
+
+```python
+# src/safeshell/rules/condition_types.py
+from pydantic import BaseModel, Field
+from typing import Literal
+
+class CommandMatches(BaseModel):
+    """Match command against regex pattern."""
+    type: Literal["command_matches"] = "command_matches"
+    pattern: str = Field(..., description="Regex pattern to match against full command")
+
+class CommandContains(BaseModel):
+    """Check if command contains literal substring."""
+    type: Literal["command_contains"] = "command_contains"
+    substring: str = Field(..., description="Literal string to search for")
+
+class CommandStartswith(BaseModel):
+    """Check if command starts with prefix."""
+    type: Literal["command_startswith"] = "command_startswith"
+    prefix: str = Field(..., description="Prefix to match")
+
+class GitBranchIn(BaseModel):
+    """Check if current git branch is in list."""
+    type: Literal["git_branch_in"] = "git_branch_in"
+    branches: list[str] = Field(..., description="List of branch names")
+
+class GitBranchMatches(BaseModel):
+    """Match git branch against regex pattern."""
+    type: Literal["git_branch_matches"] = "git_branch_matches"
+    pattern: str = Field(..., description="Regex pattern for branch name")
+
+class InGitRepo(BaseModel):
+    """Check if working directory is in a git repo."""
+    type: Literal["in_git_repo"] = "in_git_repo"
+    value: bool = Field(True, description="Expected value")
+
+class PathMatches(BaseModel):
+    """Match working directory against regex pattern."""
+    type: Literal["path_matches"] = "path_matches"
+    pattern: str = Field(..., description="Regex pattern for working directory")
+
+class FileExists(BaseModel):
+    """Check if file exists in working directory."""
+    type: Literal["file_exists"] = "file_exists"
+    path: str = Field(..., description="Relative path to check")
+
+class EnvEquals(BaseModel):
+    """Check environment variable value."""
+    type: Literal["env_equals"] = "env_equals"
+    variable: str = Field(..., description="Environment variable name")
+    value: str = Field(..., description="Expected value")
+
+# Union type for all conditions
+StructuredCondition = (
+    CommandMatches | CommandContains | CommandStartswith |
+    GitBranchIn | GitBranchMatches | InGitRepo |
+    PathMatches | FileExists | EnvEquals
+)
+
+# Allow both old (string) and new (structured) formats
+Condition = str | StructuredCondition
+```
+
+#### Step 2: Update Rule Schema
+```python
+# In schema.py
+from safeshell.rules.condition_types import Condition
+
+class Rule(BaseModel):
+    # ... existing fields ...
+    conditions: list[Condition] = Field(default_factory=list)
+```
+
+#### Step 3: Add Schema Tests
+Test that both formats are accepted:
+```python
+def test_structured_condition_command_matches():
+    rule = Rule(
+        name="test",
+        commands=["git"],
+        conditions=[{"type": "command_matches", "pattern": "^git\\s+commit"}],
+        action=RuleAction.DENY,
+    )
+    assert len(rule.conditions) == 1
+
+def test_legacy_bash_condition():
+    rule = Rule(
+        name="test",
+        commands=["git"],
+        conditions=['echo "$CMD" | grep -q "commit"'],
+        action=RuleAction.DENY,
+    )
+    assert len(rule.conditions) == 1
+```
+
+### Testing Requirements
+- All existing tests pass (backward compatibility)
+- New tests for each condition type
+- Schema validation tests
+- YAML parsing tests
+
+### Success Criteria
+- [ ] All condition types defined as Pydantic models
+- [ ] Rule schema accepts both string and structured conditions
+- [ ] Schema validation works correctly
+- [ ] All tests pass
+
+---
+
+## PR5: Condition Evaluators
+
+**Branch**: `feature/phase7-condition-evaluators`
+**Estimated Effort**: 2-3 days
+**Complexity**: Medium
+**Priority**: P0
+**Blocked By**: PR4
+
+### Objectives
+Implement Python evaluators for all structured condition types. Update the rule evaluator to use these instead of bash subprocess calls.
+
+### What This PR Does
+- Implements evaluator class for each condition type
+- Updates `_check_condition()` to use structured evaluators
+- Pre-compiles regex patterns at rule load time
+- Eliminates bash subprocess calls for structured conditions
+
+### Files to Modify
+```
+src/safeshell/rules/conditions.py         # Evaluator implementations
+src/safeshell/rules/evaluator.py          # Use new evaluators
+tests/rules/test_conditions.py            # Tests for evaluators
+```
+
+### Implementation Steps
+
+#### Step 1: Create Evaluator Protocol
+```python
+from typing import Protocol
+
+class ConditionEvaluator(Protocol):
+    def evaluate(self, context: CommandContext) -> bool: ...
+```
+
+#### Step 2: Implement Evaluators
+```python
+class CommandMatchesEvaluator:
+    def __init__(self, condition: CommandMatches):
+        self._pattern = re.compile(condition.pattern)
+
+    def evaluate(self, context: CommandContext) -> bool:
+        return self._pattern.search(context.raw_command) is not None
+
+class GitBranchInEvaluator:
+    def __init__(self, condition: GitBranchIn):
+        self._branches = frozenset(condition.branches)
+
+    def evaluate(self, context: CommandContext) -> bool:
+        return context.git_branch in self._branches
+
+# ... etc for each condition type
+```
+
+#### Step 3: Create Evaluator Factory
+```python
+def create_evaluator(condition: Condition) -> ConditionEvaluator:
+    """Create evaluator for a condition."""
+    if isinstance(condition, str):
+        # Legacy bash condition - use bash evaluator or auto-translate
+        return BashConditionEvaluator(condition)
+    elif isinstance(condition, CommandMatches):
+        return CommandMatchesEvaluator(condition)
+    elif isinstance(condition, GitBranchIn):
+        return GitBranchInEvaluator(condition)
+    # ... etc
+```
+
+#### Step 4: Update RuleEvaluator
+Pre-compile evaluators at init time:
+```python
+class RuleEvaluator:
+    def __init__(self, rules: list[Rule], ...):
+        # Pre-compile condition evaluators for each rule
+        self._rule_evaluators: dict[str, list[ConditionEvaluator]] = {}
+        for rule in rules:
+            self._rule_evaluators[rule.name] = [
+                create_evaluator(cond) for cond in rule.conditions
+            ]
+```
+
+#### Step 5: Update `_check_condition()`
+```python
+async def _check_condition(self, evaluator: ConditionEvaluator, context: CommandContext) -> bool:
+    # Direct Python evaluation - no subprocess
+    return evaluator.evaluate(context)
+```
+
+### Testing Requirements
+- Unit tests for each evaluator
+- Integration tests with RuleEvaluator
+- Performance tests (verify <0.1ms per condition)
+- Backward compatibility tests for bash conditions
+
+### Success Criteria
+- [ ] All condition types have working evaluators
+- [ ] Pre-compilation at rule load time
+- [ ] No subprocess calls for structured conditions
+- [ ] <0.1ms per condition evaluation
+- [ ] All tests pass
+
+---
+
+## PR6: Deprecate Bash Conditions
+
+**Branch**: `feature/phase7-deprecate-bash`
+**Estimated Effort**: 1-2 days
+**Complexity**: Low
+**Priority**: P1
+**Blocked By**: PR5
+
+### Objectives
+Provide migration path for users with bash conditions. Add deprecation warnings and migration tooling.
+
+### What This PR Does
+- Adds deprecation warning when bash conditions are loaded
+- Creates `safeshell migrate-rules` CLI command
+- Updates default rules to structured format
+- Updates documentation
+
+### Files to Create
+```
+src/safeshell/cli/migrate.py              # Migration CLI command
+```
+
+### Files to Modify
+```
+src/safeshell/rules/loader.py             # Add deprecation warning
+src/safeshell/rules/defaults.py           # Update to structured format
+src/safeshell/cli/__init__.py             # Register migrate command
+docs/rules.md                             # Update documentation
+```
+
+### Implementation Steps
+
+#### Step 1: Add Deprecation Warning
+```python
+# In loader.py
+def load_rules(path: Path) -> list[Rule]:
+    rules = _parse_yaml(path)
+    for rule in rules:
+        for condition in rule.conditions:
+            if isinstance(condition, str):
+                logger.warning(
+                    f"Rule '{rule.name}' uses deprecated bash condition. "
+                    f"Run 'safeshell migrate-rules' to convert to structured format."
+                )
+    return rules
+```
+
+#### Step 2: Create Migration Command
+```python
+# src/safeshell/cli/migrate.py
+def migrate_rules(input_path: Path, output_path: Path | None = None):
+    """Convert bash conditions to structured format."""
+    rules = load_rules(input_path)
+    migrated = []
+    for rule in rules:
+        new_conditions = []
+        for cond in rule.conditions:
+            if isinstance(cond, str):
+                structured = convert_bash_to_structured(cond)
+                if structured:
+                    new_conditions.append(structured)
+                else:
+                    # Can't convert - keep as-is with warning
+                    logger.warning(f"Cannot auto-convert: {cond}")
+                    new_conditions.append(cond)
+            else:
+                new_conditions.append(cond)
+        rule.conditions = new_conditions
+        migrated.append(rule)
+    # Write output
+    ...
+```
+
+#### Step 3: Update Default Rules
+```python
+# defaults.py - BEFORE:
+Rule(
+    name="block-commit-protected-branch",
+    commands=["git"],
+    conditions=[
+        'echo "$CMD" | grep -qE "^git\\s+commit"',
+        'git branch --show-current | grep -qE "^(main|master|develop)$"',
+    ],
+    ...
+)
+
+# defaults.py - AFTER:
+Rule(
+    name="block-commit-protected-branch",
+    commands=["git"],
+    conditions=[
+        CommandMatches(pattern=r"^git\s+commit"),
+        GitBranchIn(branches=["main", "master", "develop"]),
+    ],
+    ...
+)
+```
+
+### Testing Requirements
+- Migration command tests
+- Deprecation warning tests
+- Default rules load correctly
+
+### Success Criteria
+- [ ] Deprecation warning shown for bash conditions
+- [ ] Migration command works correctly
+- [ ] Default rules use structured format
+- [ ] Documentation updated
+
+---
+
 ## Implementation Guidelines
 
 ### Code Standards
-- Follow existing Rust code style (rustfmt)
+- Follow existing Python code style (ruff)
 - Add performance-critical comments where optimizations applied
-- Use const/inline where beneficial for performance
+- Use type hints throughout
 - Profile before and after optimizations
 - Keep code maintainable - clarity over micro-optimizations
 
@@ -610,36 +965,50 @@ Create docs/performance/TROUBLESHOOTING.md with:
 
 ## Rollout Strategy
 
-### Phase 1: PR1 - Measurement (Week 1)
-- Merge profiling infrastructure
-- Establish baselines
-- No user-facing changes
+### Phase 1: PR1 - Caching (Complete)
+- Caching infrastructure merged
+- Incremental improvement
 - Risk: Low
 
-### Phase 2: PR2 - Optimization (Week 2-3)
-- Merge hot path optimizations
-- Users see performance improvements
-- Monitor for regressions
-- Risk: Medium (functionality regressions possible)
+### Phase 2: PR2 - Auto-Translation (Partial)
+- Auto-translation of bash conditions
+- Limited success - superseded by PR4-6
+- Risk: Low
 
-### Phase 3: PR3 - Documentation (Week 3)
-- Merge documentation and regression tests
-- Complete performance story
-- Production-ready performance
+### Phase 3: PR4 - Structured Schema (Priority)
+- Define structured condition types
+- Update rule schema
+- Backward compatible
+- Risk: Medium (schema changes)
+
+### Phase 4: PR5 - Evaluators
+- Implement Python evaluators
+- Eliminate subprocess calls
+- Risk: Medium
+
+### Phase 5: PR6 - Migration
+- Deprecation warnings
+- Migration tooling
+- Update defaults
+- Risk: Low
+
+### Phase 6: PR3 - Profiling (Deferred)
+- Profiling infrastructure
+- Validate performance gains
 - Risk: Low
 
 ## Success Metrics
 
 ### Launch Metrics
-- All 3 PRs merged successfully
-- Performance targets met for all critical paths
-- Zero performance regressions detected
-- Documentation complete and accurate
-- Regression tests in CI
+- All 6 PRs merged successfully
+- Performance targets met (<0.1ms per condition)
+- Zero subprocess calls for structured conditions
+- Migration path documented
+- Backward compatibility maintained
 
 ### Ongoing Metrics
 - Performance regression test pass rate: 100%
 - Benchmark stability (low variance between runs)
 - No performance-related bug reports
-- Performance characteristics maintained in future changes
+- Bash condition usage declining (migration working)
 - CI catches performance regressions before merge

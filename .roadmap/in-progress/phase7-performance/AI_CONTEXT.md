@@ -1,32 +1,37 @@
-# Phase 6: Performance Optimization - AI Context
+# Phase 7: Performance Optimization - AI Context
 
-**Purpose**: AI agent context document for implementing Phase 6: Performance Optimization
+**Purpose**: AI agent context document for implementing Phase 7: Performance Optimization
 
-**Scope**: Profile and optimize critical paths for production use, covering profiling infrastructure, benchmarking, hot path optimization, and performance regression testing
+**Scope**: Eliminate bash subprocess overhead through structured Python conditions, then profile and validate
 
-**Overview**: Comprehensive context document for AI agents working on the Phase 6: Performance Optimization feature.
-    Establishes production-ready performance characteristics through systematic profiling, data-driven optimization,
-    and comprehensive performance testing. Covers critical path analysis, optimization techniques, performance
-    targets, and ongoing performance monitoring to ensure SafeShell meets production requirements.
+**Overview**: Phase 7 focuses on eliminating the fundamental performance bottleneck in SafeShell: bash subprocess
+    spawning for condition evaluation. The key insight is that bash condition strings in rules.yaml require
+    subprocess calls (5-20ms each), which cannot be optimized away. The solution is structured Python conditions
+    that evaluate entirely in-process (<0.1ms).
 
 **Dependencies**:
 - Phases 1-5 complete (daemon, rules, context-awareness, monitoring)
-- Rust toolchain with criterion benchmarking framework
-- Profiling tools (flamegraph, perf, valgrind)
-- Working SafeShell installation for baseline measurements
+- Python 3.11+ with Pydantic
+- Working SafeShell installation
 
-**Exports**: Profiling infrastructure, comprehensive benchmark suite, optimized critical paths, performance documentation, and regression test suite
+**Exports**: Structured condition schema, Python condition evaluators, migration tooling, profiling infrastructure
 
 **Related**: PR_BREAKDOWN.md for implementation tasks, PROGRESS_TRACKER.md for current status
 
-**Implementation**: Data-driven optimization approach with comprehensive profiling, systematic optimization, and continuous validation
+**Implementation**: Replace bash conditions with structured Python conditions (PR4-6), then profile (PR3)
 
 ---
 
 ## Overview
-Phase 6 focuses on optimizing SafeShell for production use by profiling critical paths, identifying bottlenecks, and systematically improving performance. This phase establishes production-ready performance characteristics and ensures ongoing performance through regression testing.
+Phase 7 focuses on eliminating the fundamental performance bottleneck in SafeShell: bash subprocess spawning
+for rule condition evaluation. Previous attempts at auto-translation (PR2) proved insufficient because they
+still relied on parsing bash strings and falling back to subprocesses for unrecognized patterns.
 
-SafeShell's performance is critical because it intercepts every shell command. Even small overhead can be noticeable to users, so the goal is to make the overhead imperceptible (< 10ms) while maintaining full functionality.
+**The correct solution**: Replace bash condition strings with structured Python conditions in the rule schema.
+This eliminates subprocess spawning entirely and makes conditions fast (<0.1ms), readable, and type-safe.
+
+SafeShell's performance is critical because it intercepts every shell command. The goal is imperceptible
+overhead (< 10ms) while maintaining full functionality.
 
 ## Project Background
 
@@ -57,25 +62,33 @@ SafeShell must be fast enough that users don't notice the overhead:
 
 ## Feature Vision
 
-Phase 6 delivers production-ready performance through:
+Phase 7 delivers production-ready performance through:
 
-1. **Comprehensive Profiling Infrastructure**
-   - Benchmark suite for all critical paths
-   - Flamegraph integration for bottleneck identification
-   - Baseline measurements for comparison
-   - Profiling documentation and procedures
+1. **Structured Python Conditions (PR4-6)**
+   - Replace bash strings with Pydantic models
+   - Eliminate all subprocess spawning for conditions
+   - Pre-compile regex patterns at rule load time
+   - Type-safe, readable condition syntax
 
-2. **Data-Driven Optimization**
-   - Profile first, then optimize (no premature optimization)
-   - Focus on user-visible performance (command latency)
-   - Validate all optimizations with benchmarks
-   - Maintain functionality while optimizing
+2. **Condition Types**
+   ```yaml
+   # Example structured conditions:
+   conditions:
+     - command_matches: "^git\\s+commit"
+     - git_branch_in: ["main", "master", "develop"]
+     - file_exists: ".gitignore"
+     - env_equals: {variable: "SAFESHELL_CONTEXT", value: "ai"}
+   ```
 
-3. **Performance Sustainability**
-   - Regression tests prevent performance degradation
-   - CI integration for ongoing monitoring
-   - Performance documentation for future developers
-   - Clear performance targets and validation
+3. **Migration Path**
+   - Backward compatible (bash strings still work, with warning)
+   - `safeshell migrate-rules` command for auto-conversion
+   - Deprecation timeline for bash conditions
+
+4. **Profiling Infrastructure (PR3, deferred)**
+   - Benchmark suite for validation
+   - Performance regression tests
+   - CI integration
 
 ## Current Application Context
 
