@@ -308,7 +308,10 @@ class MonitorClient:
                     import ast
 
                     try:
-                        return ast.literal_eval(response.get("message", "{}"))
+                        result = ast.literal_eval(response.get("message", "{}"))
+                        if isinstance(result, dict):
+                            return dict(result)
+                        return {"message": response.get("message")}
                     except (ValueError, SyntaxError):
                         return {"message": response.get("message")}
             return None
