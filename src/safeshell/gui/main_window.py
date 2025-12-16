@@ -185,8 +185,7 @@ class MainWindow(QMainWindow):
         # Edit Rules button
         edit_rules_btn = QPushButton("Edit Rules")
         edit_rules_btn.setStyleSheet(
-            "QPushButton { padding: 4px 12px; }"
-            "QPushButton:hover { background-color: #555; }"
+            "QPushButton { padding: 4px 12px; }" "QPushButton:hover { background-color: #555; }"
         )
         edit_rules_btn.clicked.connect(self._on_edit_rules)
         toolbar.addWidget(edit_rules_btn)
@@ -194,8 +193,7 @@ class MainWindow(QMainWindow):
         # Reload Rules button
         reload_rules_btn = QPushButton("Reload Rules")
         reload_rules_btn.setStyleSheet(
-            "QPushButton { padding: 4px 12px; }"
-            "QPushButton:hover { background-color: #555; }"
+            "QPushButton { padding: 4px 12px; }" "QPushButton:hover { background-color: #555; }"
         )
         reload_rules_btn.clicked.connect(self._on_reload_rules)
         toolbar.addWidget(reload_rules_btn)
@@ -286,9 +284,7 @@ class MainWindow(QMainWindow):
 
         self.approvals_header = QLabel("Pending Approvals")
         # Gray when empty, orange when pending (see _update_approvals_header)
-        self.approvals_header.setStyleSheet(
-            "font-weight: bold; font-size: 12px; color: #B0BEC5;"
-        )
+        self.approvals_header.setStyleSheet("font-weight: bold; font-size: 12px; color: #B0BEC5;")
         approvals_layout.addWidget(self.approvals_header)
 
         # Scrollable area for approval cards
