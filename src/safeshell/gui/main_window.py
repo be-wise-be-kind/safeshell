@@ -242,7 +242,7 @@ class MainWindow(QMainWindow):
     def _on_edit_rules(self) -> None:
         """Open the global rules file in the default editor."""
         try:
-            subprocess.Popen(["xdg-open", str(GLOBAL_RULES_PATH)])
+            subprocess.Popen(["xdg-open", str(GLOBAL_RULES_PATH)])  # noqa: S603, S607
         except Exception as e:
             self.add_status_message(f"Failed to open rules file: {e}", "#EF5350")
 
@@ -285,7 +285,10 @@ class MainWindow(QMainWindow):
         approvals_layout.setContentsMargins(0, 0, 0, 0)
 
         self.approvals_header = QLabel("Pending Approvals")
-        self.approvals_header.setStyleSheet("font-weight: bold; font-size: 12px; color: #B0BEC5;")  # Gray when empty
+        # Gray when empty, orange when pending (see _update_approvals_header)
+        self.approvals_header.setStyleSheet(
+            "font-weight: bold; font-size: 12px; color: #B0BEC5;"
+        )
         approvals_layout.addWidget(self.approvals_header)
 
         # Scrollable area for approval cards
@@ -326,7 +329,7 @@ class MainWindow(QMainWindow):
         # Track auto-collapse state for resize handling
         self._was_auto_collapsed = False
 
-    def resizeEvent(self, event: QResizeEvent | None) -> None:
+    def resizeEvent(self, event: QResizeEvent | None) -> None:  # noqa: N802
         """Handle window resize - auto-collapse log when window is small."""
         super().resizeEvent(event)
 
@@ -496,10 +499,14 @@ class MainWindow(QMainWindow):
         count = len(self.approval_cards)
         if count == 0:
             self.approvals_header.setText("Pending Approvals")
-            self.approvals_header.setStyleSheet("font-weight: bold; font-size: 12px; color: #B0BEC5;")  # Gray
+            self.approvals_header.setStyleSheet(
+                "font-weight: bold; font-size: 12px; color: #B0BEC5;"  # Gray
+            )
         else:
             self.approvals_header.setText(f"Pending Approvals ({count})")
-            self.approvals_header.setStyleSheet("font-weight: bold; font-size: 12px; color: #FF9800;")  # Orange
+            self.approvals_header.setStyleSheet(
+                "font-weight: bold; font-size: 12px; color: #FF9800;"  # Orange
+            )
 
     def _on_card_approved(self, approval_id: str, remember: bool) -> None:
         self.approval_approved.emit(approval_id, remember)
