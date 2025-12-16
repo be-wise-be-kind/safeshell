@@ -1,9 +1,11 @@
 """
 File: src/safeshell/rules/loader.py
 Purpose: Load and merge rule files from global and repo locations
-Exports: load_rules, load_default_rules, GLOBAL_RULES_PATH
-Depends: safeshell.rules.schema, safeshell.exceptions, safeshell.common, pyyaml, pathlib, loguru
-Overview: Loads rules from defaults.py, ~/.safeshell/rules.yaml, and .safeshell/rules.yaml
+Exports: load_rules, load_default_rules, GLOBAL_RULES_PATH, BUILTIN_RULE_SOURCES
+Depends: safeshell.rules.schema, safeshell.rules.defaults, safeshell.rules.azure,
+         safeshell.exceptions, safeshell.common, pyyaml, pathlib, loguru
+Overview: Loads rules from built-in sources (defaults.py, azure.py),
+          ~/.safeshell/rules.yaml, and .safeshell/rules.yaml
 """
 
 from pathlib import Path
@@ -14,8 +16,15 @@ from pydantic import ValidationError
 
 from safeshell.common import SAFESHELL_DIR
 from safeshell.exceptions import RuleLoadError
+from safeshell.rules.azure import AZURE_RULES_YAML
 from safeshell.rules.defaults import DEFAULT_RULES_YAML
 from safeshell.rules.schema import Rule, RuleSet
+
+# All built-in rule sources, loaded in order
+BUILTIN_RULE_SOURCES = [
+    DEFAULT_RULES_YAML,
+    AZURE_RULES_YAML,
+]
 
 GLOBAL_RULES_PATH = SAFESHELL_DIR / "rules.yaml"
 
@@ -27,28 +36,69 @@ class _DefaultRulesCache:
         self._rules: list[Rule] | None = None
 
     def get(self) -> list[Rule]:
-        """Get cached default rules, parsing on first access."""
+        """Get cached default rules, parsing on first access.
+
+        Loads rules from all built-in sources (defaults, azure, etc.)
+        and combines them into a single list.
+        """
         if self._rules is not None:
             return self._rules
 
-        try:
-            data = yaml.safe_load(DEFAULT_RULES_YAML)
-            if data is None:
-                self._rules = []
-            else:
-                ruleset = RuleSet.model_validate(data)
-                self._rules = ruleset.rules
-            logger.debug(f"Parsed {len(self._rules)} default rules from code")
-            return self._rules
-        except yaml.YAMLError as e:
-            logger.error(f"Invalid YAML in default rules: {e}")
-            return []
-        except ValidationError as e:
-            logger.error(f"Invalid schema in default rules: {e}")
-            return []
+        self._rules = []
+        for source_yaml in BUILTIN_RULE_SOURCES:
+            try:
+                data = yaml.safe_load(source_yaml)
+                if data is not None:
+                    ruleset = RuleSet.model_validate(data)
+                    self._rules.extend(ruleset.rules)
+            except yaml.YAMLError as e:
+                logger.error(f"Invalid YAML in built-in rules: {e}")
+            except ValidationError as e:
+                logger.error(f"Invalid schema in built-in rules: {e}")
+
+        logger.debug(f"Parsed {len(self._rules)} default rules from code")
+        return self._rules
 
 
 _default_rules_cache = _DefaultRulesCache()
+
+
+def get_builtin_rules_yaml() -> str:
+    """Get combined YAML string of all built-in rules for writing to rules.yaml.
+
+    This combines DEFAULT_RULES_YAML and other built-in sources (like azure.py)
+    into a single YAML string suitable for writing to ~/.safeshell/rules.yaml.
+
+    Returns:
+        Combined YAML string with all built-in rules
+    """
+    # Start with the default rules YAML (includes header comments)
+    combined = DEFAULT_RULES_YAML
+
+    # For additional sources, extract just the rules and append them
+    for source_yaml in BUILTIN_RULE_SOURCES[1:]:  # Skip defaults, already included
+        # Parse to get the rules list
+        data = yaml.safe_load(source_yaml)
+        if data and "rules" in data:
+            # Extract comment header from the source (everything before 'rules:')
+            header_end = source_yaml.find("rules:")
+            if header_end > 0:
+                header = source_yaml[:header_end].strip()
+                combined += f"\n\n{header}\n"
+
+            # Serialize just the rules as YAML list items
+            rules_yaml = yaml.dump(
+                data["rules"],
+                default_flow_style=False,
+                allow_unicode=True,
+                sort_keys=False,
+            )
+            # Indent and format as list continuation
+            combined += "\n"
+            for line in rules_yaml.strip().split("\n"):
+                combined += f"  {line}\n"
+
+    return combined
 
 
 def load_default_rules() -> list[Rule]:

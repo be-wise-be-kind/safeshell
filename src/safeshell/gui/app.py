@@ -21,6 +21,7 @@ from PyQt6.QtCore import QByteArray, QObject, QTimer, pyqtSlot
 from PyQt6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon
 
 from safeshell.common import SAFESHELL_DIR
+from safeshell.daemon.lifecycle import DaemonLifecycle
 from safeshell.events.types import EventType
 from safeshell.gui.main_window import MainWindow
 from safeshell.gui.settings import GuiSettings
@@ -220,16 +221,43 @@ class SafeShellGuiApp(QObject):
         asyncio.ensure_future(do_toggle())
 
     def _on_reload_rules(self) -> None:
-        """Handle reload rules request from main window."""
+        """Handle reload rules request by restarting the daemon.
 
-        async def do_reload() -> None:
-            success = await self.client.reload_rules()
-            if success:
-                self.main_window.add_status_message("Rules reloaded", "#81C784")
+        Restarts the daemon to ensure all rules (including code changes) are reloaded.
+        """
+
+        async def do_restart() -> None:
+            self.main_window.add_status_message("Restarting daemon...", "#FFA726")
+
+            # Stop the daemon
+            DaemonLifecycle.stop_daemon()
+
+            # Wait for daemon to stop
+            await asyncio.sleep(0.5)
+
+            # Start daemon again
+            self._start_daemon()
+
+            # Wait for daemon to be ready and reconnect
+            await asyncio.sleep(1.0)
+
+            # Reconnect the client
+            connected = await self.client.connect()
+            if connected:
+                self.main_window.add_status_message("Daemon restarted, rules reloaded", "#81C784")
             else:
-                self.main_window.add_status_message("Failed to reload rules", "#EF5350")
+                self.main_window.add_status_message(
+                    "Daemon restarted but reconnect failed", "#EF5350"
+                )
 
-        asyncio.ensure_future(do_reload())
+        asyncio.ensure_future(do_restart())
+
+    def _start_daemon(self) -> None:
+        """Start daemon process in background."""
+        from plumbum import BG, local
+
+        safeshell = local[sys.executable]["-m", "safeshell.daemon.server"]
+        safeshell & BG
 
     def _update_pending_count(self) -> None:
         """Update tray icon based on pending approval count."""

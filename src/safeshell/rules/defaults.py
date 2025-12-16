@@ -39,10 +39,11 @@ rules:
   # ==========================================================================
 
   # DENY: Recursive delete of root filesystem - NO legitimate use case
+  # Must have -r flag (recursive) AND target root (/) specifically
   - name: deny-rm-rf-root
     commands: ["rm"]
     conditions:
-      - command_matches: "rm\\\\s+(-[rf]+\\\\s+)*/"
+      - command_matches: "rm\\\\s+(-[^\\\\s]*r[^\\\\s]*\\\\s+)+/($|\\\\s)"
     action: deny
     message: "BLOCKED: Recursive delete of root filesystem (/) is catastrophic and prohibited."
 
