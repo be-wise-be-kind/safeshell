@@ -39,18 +39,21 @@ class DaemonEventPublisher:
         """Return the underlying EventBus."""
         return self._bus
 
-    async def command_received(self, command: str, working_dir: str) -> int:
+    async def command_received(
+        self, command: str, working_dir: str, client_pid: int | None = None
+    ) -> int:
         """Publish a command received event.
 
         Args:
             command: The raw command string
             working_dir: Working directory for the command
+            client_pid: PID of the calling shell process
 
         Returns:
             Number of subscribers that received the event
         """
-        event = Event.command_received(command, working_dir)
-        logger.debug(f"Publishing command_received: {command}")
+        event = Event.command_received(command, working_dir, client_pid)
+        logger.debug(f"Publishing command_received: {command} (pid={client_pid})")
         return await self._bus.publish(event)
 
     async def evaluation_started(self, command: str, plugin_count: int) -> int:

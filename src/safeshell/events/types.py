@@ -32,6 +32,7 @@ class CommandReceivedEvent(BaseModel):
 
     command: str = Field(description="The raw command string")
     working_dir: str = Field(description="Working directory for the command")
+    client_pid: int | None = Field(default=None, description="PID of the calling shell process")
 
 
 class EvaluationStartedEvent(BaseModel):
@@ -97,11 +98,15 @@ class Event(BaseModel):
     data: dict[str, Any] = Field(description="Event-specific data")
 
     @classmethod
-    def command_received(cls, command: str, working_dir: str) -> "Event":
+    def command_received(
+        cls, command: str, working_dir: str, client_pid: int | None = None
+    ) -> "Event":
         """Create a COMMAND_RECEIVED event."""
         return cls(
             type=EventType.COMMAND_RECEIVED,
-            data=CommandReceivedEvent(command=command, working_dir=working_dir).model_dump(),
+            data=CommandReceivedEvent(
+                command=command, working_dir=working_dir, client_pid=client_pid
+            ).model_dump(),
         )
 
     @classmethod

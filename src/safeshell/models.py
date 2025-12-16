@@ -219,6 +219,7 @@ class DaemonRequest(BaseModel):
         default=ExecutionContext.HUMAN,
         description="Who is executing: ai or human",
     )
+    client_pid: int | None = Field(default=None, description="PID of the calling shell process")
 
 
 class DaemonResponse(BaseModel):

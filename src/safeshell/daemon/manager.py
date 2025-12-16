@@ -134,7 +134,9 @@ class RuleManager:
 
         # Emit command received event
         if self._event_publisher:
-            await self._event_publisher.command_received(request.command, request.working_dir)
+            await self._event_publisher.command_received(
+                request.command, request.working_dir, request.client_pid
+            )
 
         # Load rules for the working directory (with caching)
         rules, cache_hit = self._rule_cache.get_rules(request.working_dir)
