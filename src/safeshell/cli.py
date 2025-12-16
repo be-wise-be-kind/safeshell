@@ -170,6 +170,7 @@ def check(command: str) -> None:
         command: The shell command to evaluate.
     """
     from safeshell.exceptions import DaemonNotRunningError
+    from safeshell.models import ExecutionContext
     from safeshell.wrapper.client import DaemonClient
 
     console.print(f"[yellow]Checking command:[/yellow] {command}")
@@ -179,12 +180,17 @@ def check(command: str) -> None:
         console.print("Start it with: safeshell daemon start")
         raise typer.Exit(1)
 
+    # Determine execution context from environment
+    is_ai_context = os.environ.get("SAFESHELL_CONTEXT") == "ai"
+    exec_ctx = ExecutionContext.AI if is_ai_context else ExecutionContext.HUMAN
+
     client = DaemonClient()
     try:
         response = client.evaluate(
             command=command,
             working_dir=str(Path.cwd()),
             env=dict(os.environ),
+            execution_context=exec_ctx,
         )
 
         if response.should_execute:
@@ -327,7 +333,7 @@ def tray() -> None:
 def init() -> None:
     """Initialize SafeShell configuration, rules, and shims."""
     from safeshell.config import CONFIG_PATH, create_default_config
-    from safeshell.rules import DEFAULT_RULES_YAML, GLOBAL_RULES_PATH
+    from safeshell.rules import GLOBAL_RULES_PATH, get_builtin_rules_yaml
     from safeshell.shims import (
         get_shell_init_instructions,
         install_init_script,
@@ -352,11 +358,11 @@ def init() -> None:
         console.print(f"[yellow]Rules already exist at:[/yellow] {GLOBAL_RULES_PATH}")
         if typer.confirm("Overwrite rules?"):
             GLOBAL_RULES_PATH.parent.mkdir(parents=True, exist_ok=True)
-            GLOBAL_RULES_PATH.write_text(DEFAULT_RULES_YAML)
+            GLOBAL_RULES_PATH.write_text(get_builtin_rules_yaml())
             rules_created = True
     else:
         GLOBAL_RULES_PATH.parent.mkdir(parents=True, exist_ok=True)
-        GLOBAL_RULES_PATH.write_text(DEFAULT_RULES_YAML)
+        GLOBAL_RULES_PATH.write_text(get_builtin_rules_yaml())
         rules_created = True
 
     # Set up shims
