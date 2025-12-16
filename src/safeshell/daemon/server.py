@@ -33,7 +33,7 @@ from safeshell.daemon.protocol import read_message, write_message
 from safeshell.daemon.session_memory import SessionMemory
 from safeshell.events.bus import EventBus
 from safeshell.exceptions import ProtocolError
-from safeshell.models import DaemonRequest, DaemonResponse
+from safeshell.models import DaemonRequest, DaemonResponse, Decision
 
 
 class DaemonServer:
@@ -71,6 +71,16 @@ class DaemonServer:
             approve_callback=self._approval_manager.approve,
             deny_callback=self._approval_manager.deny,
         )
+
+        # Wire monitor handler's control callbacks
+        self._monitor_handler.set_control_callbacks(
+            set_enabled_callback=self._set_enabled,
+            reload_rules_callback=self._reload_rules,
+            get_status_callback=self._get_status,
+        )
+
+        # Protection enabled state
+        self._enabled = True
 
         # Session memory for "don't ask again" approvals
         self._session_memory = SessionMemory(
@@ -124,6 +134,55 @@ class DaemonServer:
     def active_monitor_connections(self) -> int:
         """Return number of active monitor connections."""
         return self._monitor_handler.active_connections
+
+    @property
+    def enabled(self) -> bool:
+        """Return whether protection is enabled."""
+        return self._enabled
+
+    async def _set_enabled(self, enabled: bool) -> None:
+        """Set whether protection is enabled.
+
+        Args:
+            enabled: True to enable protection, False to disable
+        """
+        self._enabled = enabled
+        status = "enabled" if enabled else "disabled"
+        logger.info(f"Protection {status}")
+
+        # Publish status event
+        await self._event_publisher.daemon_status(
+            status,
+            self.uptime_seconds,
+            self._commands_processed,
+            self.active_monitor_connections,
+        )
+
+    async def _reload_rules(self) -> None:
+        """Reload rules by invalidating the cache."""
+        self.rule_manager._rule_cache.invalidate()
+        logger.info("Rules cache invalidated - rules will reload on next evaluation")
+
+        # Publish status event
+        await self._event_publisher.daemon_status(
+            "rules_reloaded",
+            self.uptime_seconds,
+            self._commands_processed,
+            self.active_monitor_connections,
+        )
+
+    async def _get_status(self) -> dict[str, Any]:
+        """Get current daemon status.
+
+        Returns:
+            Dict with status information
+        """
+        return {
+            "enabled": self._enabled,
+            "uptime_seconds": self.uptime_seconds,
+            "commands_processed": self._commands_processed,
+            "active_connections": self.active_monitor_connections,
+        }
 
     async def start(self) -> None:
         """Start the daemon server.
@@ -273,8 +332,17 @@ class DaemonServer:
             request = DaemonRequest.model_validate(message)
 
             # Track command evaluation requests
-            if request.type.value == "evaluate":
+            if request.type.value in ("evaluate", "execute"):
                 self._commands_processed += 1
+
+                # When protection is disabled, auto-allow all commands
+                if not self._enabled:
+                    logger.debug(f"Protection disabled, auto-allowing: {request.command}")
+                    return DaemonResponse(
+                        success=True,
+                        final_decision=Decision.ALLOW,
+                        should_execute=True,
+                    )
 
             return await self.rule_manager.process_request(request, send_intermediate)
         except Exception as e:

@@ -9,6 +9,7 @@ Overview: Client used by shell wrapper to communicate with the daemon
 from __future__ import annotations
 
 import json
+import os
 import socket
 import sys
 import time
@@ -61,6 +62,7 @@ def evaluate_fast(
         "working_dir": working_dir,
         "env": {},
         "execution_context": "human",
+        "client_pid": os.getpid(),
     }
 
     try:
@@ -176,6 +178,7 @@ class DaemonClient:
             working_dir=working_dir,
             env=env or {},
             execution_context=execution_context or ExecCtx.HUMAN,
+            client_pid=os.getpid(),
         )
         return self._send_request(request)
 

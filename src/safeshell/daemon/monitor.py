@@ -29,6 +29,9 @@ class MonitorCommandType(str, Enum):
     APPROVE = "approve"
     DENY = "deny"
     PING = "ping"
+    SET_ENABLED = "set_enabled"
+    RELOAD_RULES = "reload_rules"
+    GET_STATUS = "get_status"
 
 
 class MonitorCommand(BaseModel):
@@ -38,6 +41,7 @@ class MonitorCommand(BaseModel):
     approval_id: str | None = Field(default=None, description="Approval ID for approve/deny")
     reason: str | None = Field(default=None, description="Reason for denial")
     remember: bool = Field(default=False, description="Remember decision for session")
+    enabled: bool | None = Field(default=None, description="Enable/disable protection")
 
 
 class MonitorResponse(BaseModel):
@@ -86,6 +90,9 @@ class MonitorConnectionHandler:
         self._active_connections: int = 0
         self._approve_callback: Any = None
         self._deny_callback: Any = None
+        self._set_enabled_callback: Any = None
+        self._reload_rules_callback: Any = None
+        self._get_status_callback: Any = None
 
     @property
     def active_connections(self) -> int:
@@ -105,6 +112,23 @@ class MonitorConnectionHandler:
         """
         self._approve_callback = approve_callback
         self._deny_callback = deny_callback
+
+    def set_control_callbacks(
+        self,
+        set_enabled_callback: Any,
+        reload_rules_callback: Any,
+        get_status_callback: Any,
+    ) -> None:
+        """Set callbacks for control actions.
+
+        Args:
+            set_enabled_callback: Called when monitor sets enabled state (enabled: bool)
+            reload_rules_callback: Called when monitor requests rule reload
+            get_status_callback: Called when monitor requests status (returns dict)
+        """
+        self._set_enabled_callback = set_enabled_callback
+        self._reload_rules_callback = reload_rules_callback
+        self._get_status_callback = get_status_callback
 
     async def handle_monitor(
         self,
@@ -238,6 +262,17 @@ class MonitorConnectionHandler:
                 return MonitorResponse.err("approval_id required")
             return await self._handle_deny(command.approval_id, command.reason, command.remember)
 
+        if command.type == MonitorCommandType.SET_ENABLED:
+            if command.enabled is None:
+                return MonitorResponse.err("enabled field required")
+            return await self._handle_set_enabled(command.enabled)
+
+        if command.type == MonitorCommandType.RELOAD_RULES:
+            return await self._handle_reload_rules()
+
+        if command.type == MonitorCommandType.GET_STATUS:
+            return await self._handle_get_status()
+
         return MonitorResponse.err(f"Unknown command type: {command.type}")
 
     async def _handle_approve(self, approval_id: str, remember: bool = False) -> MonitorResponse:
@@ -282,3 +317,53 @@ class MonitorConnectionHandler:
             return MonitorResponse.ok(f"{action} {approval_id[:8]}...")
         except Exception as e:
             return MonitorResponse.err(f"Failed to deny: {e}")
+
+    async def _handle_set_enabled(self, enabled: bool) -> MonitorResponse:
+        """Handle a set_enabled command.
+
+        Args:
+            enabled: Whether to enable or disable protection
+
+        Returns:
+            Response indicating success or failure
+        """
+        if not self._set_enabled_callback:
+            return MonitorResponse.err("Control system not configured")
+
+        try:
+            await self._set_enabled_callback(enabled)
+            status = "enabled" if enabled else "disabled"
+            return MonitorResponse.ok(f"Protection {status}")
+        except Exception as e:
+            return MonitorResponse.err(f"Failed to set enabled: {e}")
+
+    async def _handle_reload_rules(self) -> MonitorResponse:
+        """Handle a reload_rules command.
+
+        Returns:
+            Response indicating success or failure
+        """
+        if not self._reload_rules_callback:
+            return MonitorResponse.err("Control system not configured")
+
+        try:
+            await self._reload_rules_callback()
+            return MonitorResponse.ok("Rules reloaded")
+        except Exception as e:
+            return MonitorResponse.err(f"Failed to reload rules: {e}")
+
+    async def _handle_get_status(self) -> MonitorResponse:
+        """Handle a get_status command.
+
+        Returns:
+            Response with current daemon status
+        """
+        if not self._get_status_callback:
+            return MonitorResponse.err("Control system not configured")
+
+        try:
+            status = await self._get_status_callback()
+            # Return status info in the message field
+            return MonitorResponse.ok(str(status))
+        except Exception as e:
+            return MonitorResponse.err(f"Failed to get status: {e}")

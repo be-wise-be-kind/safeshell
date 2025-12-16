@@ -65,6 +65,8 @@ class SafeShellGuiApp(QObject):
         self.main_window = MainWindow()
         self.main_window.approval_approved.connect(self._on_approval_approved)
         self.main_window.approval_denied.connect(self._on_approval_denied)
+        self.main_window.toggle_enabled_clicked.connect(self._on_toggle_enabled)
+        self.main_window.reload_rules_clicked.connect(self._on_reload_rules)
 
         # Restore window geometry if saved
         geometry = self.settings.main_window_geometry
@@ -201,6 +203,33 @@ class SafeShellGuiApp(QObject):
     def _on_approval_denied(self, approval_id: str, remember: bool) -> None:
         """Handle denial from main window."""
         asyncio.ensure_future(self.client.deny(approval_id, remember=remember))
+
+    def _on_toggle_enabled(self, enabled: bool) -> None:
+        """Handle enable/disable toggle from main window."""
+
+        async def do_toggle() -> None:
+            success = await self.client.set_enabled(enabled)
+            if success:
+                status = "enabled" if enabled else "disabled"
+                self.main_window.add_status_message(f"Protection {status}", "#81C784")
+            else:
+                # Revert UI state if failed
+                self.main_window.set_enabled_state(not enabled)
+                self.main_window.add_status_message("Failed to toggle protection", "#EF5350")
+
+        asyncio.ensure_future(do_toggle())
+
+    def _on_reload_rules(self) -> None:
+        """Handle reload rules request from main window."""
+
+        async def do_reload() -> None:
+            success = await self.client.reload_rules()
+            if success:
+                self.main_window.add_status_message("Rules reloaded", "#81C784")
+            else:
+                self.main_window.add_status_message("Failed to reload rules", "#EF5350")
+
+        asyncio.ensure_future(do_reload())
 
     def _update_pending_count(self) -> None:
         """Update tray icon based on pending approval count."""

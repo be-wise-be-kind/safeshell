@@ -234,3 +234,84 @@ class MonitorClient:
         except Exception as e:
             logger.error(f"Failed to send deny: {e}")
             return False
+
+    async def set_enabled(self, enabled: bool) -> bool:
+        """Set whether protection is enabled.
+
+        Args:
+            enabled: True to enable protection, False to disable
+
+        Returns:
+            True if command sent successfully
+        """
+        if not self._connected or not self._writer:
+            return False
+
+        try:
+            command = MonitorCommand(
+                type=MonitorCommandType.SET_ENABLED,
+                enabled=enabled,
+            )
+            self._writer.write(encode_message(command))
+            await self._writer.drain()
+            status = "enable" if enabled else "disable"
+            logger.info(f"Sent {status} protection")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to send set_enabled: {e}")
+            return False
+
+    async def reload_rules(self) -> bool:
+        """Request daemon to reload rules.
+
+        Returns:
+            True if command sent successfully
+        """
+        if not self._connected or not self._writer:
+            return False
+
+        try:
+            command = MonitorCommand(
+                type=MonitorCommandType.RELOAD_RULES,
+            )
+            self._writer.write(encode_message(command))
+            await self._writer.drain()
+            logger.info("Sent reload_rules")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to send reload_rules: {e}")
+            return False
+
+    async def get_status(self) -> dict[str, Any] | None:
+        """Get current daemon status.
+
+        Returns:
+            Status dict or None if failed
+        """
+        if not self._connected or not self._writer or not self._reader:
+            return None
+
+        try:
+            command = MonitorCommand(
+                type=MonitorCommandType.GET_STATUS,
+            )
+            self._writer.write(encode_message(command))
+            await self._writer.drain()
+
+            line = await asyncio.wait_for(self._reader.readline(), timeout=5.0)
+            if line:
+                response = decode_message(line.strip())
+                if response.get("success"):
+                    # Parse the status from the message field
+                    import ast
+                    try:
+                        return ast.literal_eval(response.get("message", "{}"))
+                    except (ValueError, SyntaxError):
+                        return {"message": response.get("message")}
+            return None
+
+        except Exception as e:
+            logger.error(f"Failed to get status: {e}")
+            return None
