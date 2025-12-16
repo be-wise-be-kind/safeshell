@@ -54,12 +54,13 @@ rules:
     action: deny
     message: "BLOCKED: 'rm -rf *' is too dangerous. Be explicit about what to delete."
 
-  # REQUIRE_APPROVAL: Parent directory recursive delete
+  # REQUIRE_APPROVAL: Parent directory recursive delete (AI only)
   - name: approve-rm-parent-recursive
     commands: ["rm"]
     conditions:
       - command_matches: "rm\\\\s+.*-[rf]*r[rf]*.*\\\\.\\\\."
     action: require_approval
+    context: ai_only
     message: "Recursive delete with parent directory (..) requires approval."
 
   # REQUIRE_APPROVAL: Any recursive force delete (AI only)
@@ -71,20 +72,22 @@ rules:
     context: ai_only
     message: "Recursive force delete requires approval. Review target carefully."
 
-  # REQUIRE_APPROVAL: World-writable permissions
+  # REQUIRE_APPROVAL: World-writable permissions (AI only)
   - name: approve-chmod-777
     commands: ["chmod"]
     conditions:
       - command_contains: "777"
     action: require_approval
+    context: ai_only
     message: "chmod 777 creates world-writable files. Consider 755 for dirs, 644 for files."
 
-  # REQUIRE_APPROVAL: World-writable file permissions
+  # REQUIRE_APPROVAL: World-writable file permissions (AI only)
   - name: approve-chmod-666
     commands: ["chmod"]
     conditions:
       - command_contains: "666"
     action: require_approval
+    context: ai_only
     message: "chmod 666 creates world-writable files. Consider 644 instead."
 
   # REQUIRE_APPROVAL: Recursive permission changes (AI only)
@@ -96,12 +99,13 @@ rules:
     context: ai_only
     message: "Recursive permission change requires approval. Verify target directory."
 
-  # REQUIRE_APPROVAL: Direct disk device writes
+  # REQUIRE_APPROVAL: Direct disk device writes (AI only)
   - name: approve-dd-to-device
     commands: ["dd"]
     conditions:
       - command_matches: "of=/dev/(sd|hd|nvme|vd|loop)"
     action: require_approval
+    context: ai_only
     message: "Direct writes to disk devices require approval. Verify this is correct."
 
   # ==========================================================================
@@ -166,21 +170,23 @@ rules:
   # CATEGORY 3: GIT SAFETY
   # ==========================================================================
 
-  # REQUIRE_APPROVAL: Force push to protected branches
+  # REQUIRE_APPROVAL: Force push to protected branches (AI only)
   - name: approve-force-push-protected
     commands: ["git"]
     conditions:
       - command_matches: "^git\\\\s+push.*(--force|-f|--force-with-lease)"
       - git_branch_in: ["main", "master", "develop"]
     action: require_approval
+    context: ai_only
     message: "Force push to protected branch requires approval. This rewrites shared history."
 
-  # REQUIRE_APPROVAL: Any force push
+  # REQUIRE_APPROVAL: Any force push (AI only)
   - name: approve-force-push
     commands: ["git"]
     conditions:
       - command_matches: "^git\\\\s+push.*(--force|-f|--force-with-lease)"
     action: require_approval
+    context: ai_only
     message: "Force push requires approval. This rewrites commit history."
 
   # REQUIRE_APPROVAL: Commits on protected branches (AI only)
@@ -193,20 +199,22 @@ rules:
     context: ai_only
     message: "Committing to protected branch requires approval. Consider using a feature branch."
 
-  # REQUIRE_APPROVAL: Hard reset
+  # REQUIRE_APPROVAL: Hard reset (AI only)
   - name: approve-git-reset-hard
     commands: ["git"]
     conditions:
       - command_contains: "reset --hard"
     action: require_approval
+    context: ai_only
     message: "Hard reset discards uncommitted changes. Make sure you have a backup."
 
-  # REQUIRE_APPROVAL: Git clean with force
+  # REQUIRE_APPROVAL: Git clean with force (AI only)
   - name: approve-git-clean-force
     commands: ["git"]
     conditions:
       - command_matches: "git\\\\s+clean\\\\s+.*-[a-z]*f"
     action: require_approval
+    context: ai_only
     message: "Git clean -f removes untracked files permanently. Review before approving."
 
   # REQUIRE_APPROVAL: Rebase (AI only)
@@ -240,12 +248,13 @@ rules:
     context: ai_only
     message: "Reading environment files may expose secrets. Confirm this is necessary."
 
-  # REQUIRE_APPROVAL: Reading SSH private keys
+  # REQUIRE_APPROVAL: Reading SSH private keys (AI only)
   - name: approve-read-ssh-keys
     commands: ["cat", "less", "more", "head", "tail"]
     conditions:
       - command_matches: "id_(rsa|ed25519|ecdsa|dsa)($|\\\\s)"
     action: require_approval
+    context: ai_only
     message: "Reading SSH private keys requires approval. Use ssh-agent instead if possible."
 
   # REQUIRE_APPROVAL: Copying SSH keys (AI only)
@@ -315,20 +324,22 @@ rules:
     context: ai_only
     message: "pip install may modify system Python. Consider using a virtual environment."
 
-  # REQUIRE_APPROVAL: Deleting global node_modules
+  # REQUIRE_APPROVAL: Deleting global node_modules (AI only)
   - name: approve-rm-global-node-modules
     commands: ["rm"]
     conditions:
       - command_matches: "rm.*(/usr|/opt).*/node_modules"
     action: require_approval
+    context: ai_only
     message: "Deleting global node_modules requires approval. This could break system packages."
 
-  # REQUIRE_APPROVAL: Deleting system site-packages
+  # REQUIRE_APPROVAL: Deleting system site-packages (AI only)
   - name: approve-rm-site-packages
     commands: ["rm"]
     conditions:
       - command_matches: "rm.*/usr.*/site-packages"
     action: require_approval
+    context: ai_only
     message: "Deleting system site-packages requires approval. This could break Python."
 
   # REQUIRE_APPROVAL: Yarn global installs (AI only)
@@ -344,20 +355,22 @@ rules:
   # CATEGORY 6: NETWORK SAFETY
   # ==========================================================================
 
-  # REQUIRE_APPROVAL: curl piped to bash
+  # REQUIRE_APPROVAL: curl piped to bash (AI only)
   - name: approve-curl-pipe-bash
     commands: ["curl"]
     conditions:
       - command_matches: "curl.*\\\\|\\\\s*(ba)?sh"
     action: require_approval
+    context: ai_only
     message: "Piping curl to bash requires approval. Consider downloading and inspecting first."
 
-  # REQUIRE_APPROVAL: wget piped to bash
+  # REQUIRE_APPROVAL: wget piped to bash (AI only)
   - name: approve-wget-pipe-bash
     commands: ["wget"]
     conditions:
       - command_matches: "wget.*\\\\|\\\\s*(ba)?sh"
     action: require_approval
+    context: ai_only
     message: "Piping wget to bash requires approval. Consider downloading and inspecting first."
 
   # REQUIRE_APPROVAL: Python HTTP server (AI only)
@@ -391,20 +404,22 @@ rules:
   # CATEGORY 7: DOCKER SAFETY
   # ==========================================================================
 
-  # REQUIRE_APPROVAL: Privileged containers
+  # REQUIRE_APPROVAL: Privileged containers (AI only)
   - name: approve-docker-privileged
     commands: ["docker"]
     conditions:
       - command_contains: "--privileged"
     action: require_approval
+    context: ai_only
     message: "Privileged containers have full host access. Use only when necessary."
 
-  # REQUIRE_APPROVAL: Mounting root filesystem
+  # REQUIRE_APPROVAL: Mounting root filesystem (AI only)
   - name: approve-docker-mount-root
     commands: ["docker"]
     conditions:
       - command_matches: "docker\\\\s+run.*-v\\\\s+/:"
     action: require_approval
+    context: ai_only
     message: "Mounting root filesystem in containers requires approval."
 
   # REQUIRE_APPROVAL: Host network mode (AI only)

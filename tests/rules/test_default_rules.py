@@ -116,11 +116,22 @@ class TestDestructiveOperations:
         assert result.decision.value == "require_approval"
 
     @pytest.mark.asyncio
-    async def test_chmod_777_requires_approval(self, evaluator: RuleEvaluator) -> None:
-        """chmod 777 should require approval."""
-        ctx = CommandContext.from_command("chmod 777 file.txt", "/home/user")
+    async def test_chmod_777_requires_approval_for_ai(self, evaluator: RuleEvaluator) -> None:
+        """chmod 777 should require approval for AI."""
+        ctx = CommandContext.from_command(
+            "chmod 777 file.txt", "/home/user", execution_context=ExecutionContext.AI
+        )
         result = await evaluator.evaluate(ctx)
         assert result.decision.value == "require_approval"
+
+    @pytest.mark.asyncio
+    async def test_chmod_777_allowed_for_human(self, evaluator: RuleEvaluator) -> None:
+        """chmod 777 should be allowed for humans."""
+        ctx = CommandContext.from_command(
+            "chmod 777 file.txt", "/home/user", execution_context=ExecutionContext.HUMAN
+        )
+        result = await evaluator.evaluate(ctx)
+        assert result.decision.value == "allow"
 
     @pytest.mark.asyncio
     async def test_chmod_644_allowed(self, evaluator: RuleEvaluator) -> None:
@@ -134,11 +145,26 @@ class TestGitSafety:
     """Test git safety rules."""
 
     @pytest.mark.asyncio
-    async def test_force_push_requires_approval(self, evaluator: RuleEvaluator) -> None:
-        """git push --force should require approval."""
-        ctx = CommandContext.from_command("git push --force origin feature", "/home/user")
+    async def test_force_push_requires_approval_for_ai(self, evaluator: RuleEvaluator) -> None:
+        """git push --force should require approval for AI."""
+        ctx = CommandContext.from_command(
+            "git push --force origin feature",
+            "/home/user",
+            execution_context=ExecutionContext.AI,
+        )
         result = await evaluator.evaluate(ctx)
         assert result.decision.value == "require_approval"
+
+    @pytest.mark.asyncio
+    async def test_force_push_allowed_for_human(self, evaluator: RuleEvaluator) -> None:
+        """git push --force should be allowed for humans."""
+        ctx = CommandContext.from_command(
+            "git push --force origin feature",
+            "/home/user",
+            execution_context=ExecutionContext.HUMAN,
+        )
+        result = await evaluator.evaluate(ctx)
+        assert result.decision.value == "allow"
 
     @pytest.mark.asyncio
     async def test_normal_push_allowed(self, evaluator: RuleEvaluator) -> None:
@@ -148,11 +174,22 @@ class TestGitSafety:
         assert result.decision.value == "allow"
 
     @pytest.mark.asyncio
-    async def test_git_reset_hard_requires_approval(self, evaluator: RuleEvaluator) -> None:
-        """git reset --hard should require approval."""
-        ctx = CommandContext.from_command("git reset --hard HEAD~1", "/home/user")
+    async def test_git_reset_hard_requires_approval_for_ai(self, evaluator: RuleEvaluator) -> None:
+        """git reset --hard should require approval for AI."""
+        ctx = CommandContext.from_command(
+            "git reset --hard HEAD~1", "/home/user", execution_context=ExecutionContext.AI
+        )
         result = await evaluator.evaluate(ctx)
         assert result.decision.value == "require_approval"
+
+    @pytest.mark.asyncio
+    async def test_git_reset_hard_allowed_for_human(self, evaluator: RuleEvaluator) -> None:
+        """git reset --hard should be allowed for humans."""
+        ctx = CommandContext.from_command(
+            "git reset --hard HEAD~1", "/home/user", execution_context=ExecutionContext.HUMAN
+        )
+        result = await evaluator.evaluate(ctx)
+        assert result.decision.value == "allow"
 
     @pytest.mark.asyncio
     async def test_git_reset_soft_allowed(self, evaluator: RuleEvaluator) -> None:
@@ -162,11 +199,22 @@ class TestGitSafety:
         assert result.decision.value == "allow"
 
     @pytest.mark.asyncio
-    async def test_git_clean_force_requires_approval(self, evaluator: RuleEvaluator) -> None:
-        """git clean -f should require approval."""
-        ctx = CommandContext.from_command("git clean -fd", "/home/user")
+    async def test_git_clean_force_requires_approval_for_ai(self, evaluator: RuleEvaluator) -> None:
+        """git clean -f should require approval for AI."""
+        ctx = CommandContext.from_command(
+            "git clean -fd", "/home/user", execution_context=ExecutionContext.AI
+        )
         result = await evaluator.evaluate(ctx)
         assert result.decision.value == "require_approval"
+
+    @pytest.mark.asyncio
+    async def test_git_clean_force_allowed_for_human(self, evaluator: RuleEvaluator) -> None:
+        """git clean -f should be allowed for humans."""
+        ctx = CommandContext.from_command(
+            "git clean -fd", "/home/user", execution_context=ExecutionContext.HUMAN
+        )
+        result = await evaluator.evaluate(ctx)
+        assert result.decision.value == "allow"
 
     @pytest.mark.asyncio
     async def test_git_status_allowed(self, evaluator: RuleEvaluator) -> None:
@@ -249,11 +297,22 @@ class TestSensitiveData:
         assert result.decision.value == "allow"
 
     @pytest.mark.asyncio
-    async def test_read_ssh_key_requires_approval(self, evaluator: RuleEvaluator) -> None:
-        """cat id_rsa should require approval."""
-        ctx = CommandContext.from_command("cat ~/.ssh/id_rsa", "/home/user")
+    async def test_read_ssh_key_requires_approval_for_ai(self, evaluator: RuleEvaluator) -> None:
+        """cat id_rsa should require approval for AI."""
+        ctx = CommandContext.from_command(
+            "cat ~/.ssh/id_rsa", "/home/user", execution_context=ExecutionContext.AI
+        )
         result = await evaluator.evaluate(ctx)
         assert result.decision.value == "require_approval"
+
+    @pytest.mark.asyncio
+    async def test_read_ssh_key_allowed_for_human(self, evaluator: RuleEvaluator) -> None:
+        """cat id_rsa should be allowed for humans."""
+        ctx = CommandContext.from_command(
+            "cat ~/.ssh/id_rsa", "/home/user", execution_context=ExecutionContext.HUMAN
+        )
+        result = await evaluator.evaluate(ctx)
+        assert result.decision.value == "allow"
 
     @pytest.mark.asyncio
     async def test_read_ssh_pub_key_allowed(self, evaluator: RuleEvaluator) -> None:
@@ -267,13 +326,26 @@ class TestNetworkSafety:
     """Test network safety rules."""
 
     @pytest.mark.asyncio
-    async def test_curl_pipe_bash_requires_approval(self, evaluator: RuleEvaluator) -> None:
-        """curl | bash should require approval."""
+    async def test_curl_pipe_bash_requires_approval_for_ai(self, evaluator: RuleEvaluator) -> None:
+        """curl | bash should require approval for AI."""
         ctx = CommandContext.from_command(
-            "curl https://example.com/install.sh | bash", "/home/user"
+            "curl https://example.com/install.sh | bash",
+            "/home/user",
+            execution_context=ExecutionContext.AI,
         )
         result = await evaluator.evaluate(ctx)
         assert result.decision.value == "require_approval"
+
+    @pytest.mark.asyncio
+    async def test_curl_pipe_bash_allowed_for_human(self, evaluator: RuleEvaluator) -> None:
+        """curl | bash should be allowed for humans."""
+        ctx = CommandContext.from_command(
+            "curl https://example.com/install.sh | bash",
+            "/home/user",
+            execution_context=ExecutionContext.HUMAN,
+        )
+        result = await evaluator.evaluate(ctx)
+        assert result.decision.value == "allow"
 
     @pytest.mark.asyncio
     async def test_curl_to_file_allowed(self, evaluator: RuleEvaluator) -> None:
@@ -313,11 +385,28 @@ class TestDockerSafety:
     """Test Docker safety rules."""
 
     @pytest.mark.asyncio
-    async def test_docker_privileged_requires_approval(self, evaluator: RuleEvaluator) -> None:
-        """docker run --privileged should require approval."""
-        ctx = CommandContext.from_command("docker run --privileged ubuntu", "/home/user")
+    async def test_docker_privileged_requires_approval_for_ai(
+        self, evaluator: RuleEvaluator
+    ) -> None:
+        """docker run --privileged should require approval for AI."""
+        ctx = CommandContext.from_command(
+            "docker run --privileged ubuntu",
+            "/home/user",
+            execution_context=ExecutionContext.AI,
+        )
         result = await evaluator.evaluate(ctx)
         assert result.decision.value == "require_approval"
+
+    @pytest.mark.asyncio
+    async def test_docker_privileged_allowed_for_human(self, evaluator: RuleEvaluator) -> None:
+        """docker run --privileged should be allowed for humans."""
+        ctx = CommandContext.from_command(
+            "docker run --privileged ubuntu",
+            "/home/user",
+            execution_context=ExecutionContext.HUMAN,
+        )
+        result = await evaluator.evaluate(ctx)
+        assert result.decision.value == "allow"
 
     @pytest.mark.asyncio
     async def test_docker_run_normal_allowed(self, evaluator: RuleEvaluator) -> None:
@@ -327,11 +416,24 @@ class TestDockerSafety:
         assert result.decision.value == "allow"
 
     @pytest.mark.asyncio
-    async def test_docker_mount_root_requires_approval(self, evaluator: RuleEvaluator) -> None:
-        """docker run -v /: should require approval."""
-        ctx = CommandContext.from_command("docker run -v /:/host ubuntu", "/home/user")
+    async def test_docker_mount_root_requires_approval_for_ai(
+        self, evaluator: RuleEvaluator
+    ) -> None:
+        """docker run -v /: should require approval for AI."""
+        ctx = CommandContext.from_command(
+            "docker run -v /:/host ubuntu", "/home/user", execution_context=ExecutionContext.AI
+        )
         result = await evaluator.evaluate(ctx)
         assert result.decision.value == "require_approval"
+
+    @pytest.mark.asyncio
+    async def test_docker_mount_root_allowed_for_human(self, evaluator: RuleEvaluator) -> None:
+        """docker run -v /: should be allowed for humans."""
+        ctx = CommandContext.from_command(
+            "docker run -v /:/host ubuntu", "/home/user", execution_context=ExecutionContext.HUMAN
+        )
+        result = await evaluator.evaluate(ctx)
+        assert result.decision.value == "allow"
 
 
 class TestSudoCommands:
