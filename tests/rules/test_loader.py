@@ -145,8 +145,11 @@ rules:
     message: "Global block"
 """)
 
-        # Patch GLOBAL_RULES_PATH
-        with patch("safeshell.rules.loader.GLOBAL_RULES_PATH", global_rules):
+        # Patch GLOBAL_RULES_PATH and mock out default rules
+        with (
+            patch("safeshell.rules.loader.GLOBAL_RULES_PATH", global_rules),
+            patch("safeshell.rules.loader.load_default_rules", return_value=[]),
+        ):
             rules = load_rules(tmp_path)
 
         assert len(rules) == 1
@@ -166,9 +169,12 @@ rules:
     message: "Repo block"
 """)
 
-        # Patch GLOBAL_RULES_PATH to non-existent file
+        # Patch GLOBAL_RULES_PATH to non-existent file and mock out default rules
         nonexistent = tmp_path / "nonexistent" / "rules.yaml"
-        with patch("safeshell.rules.loader.GLOBAL_RULES_PATH", nonexistent):
+        with (
+            patch("safeshell.rules.loader.GLOBAL_RULES_PATH", nonexistent),
+            patch("safeshell.rules.loader.load_default_rules", return_value=[]),
+        ):
             rules = load_rules(tmp_path)
 
         assert len(rules) == 1
@@ -202,8 +208,11 @@ rules:
     message: "Repo block"
 """)
 
-        # Patch GLOBAL_RULES_PATH
-        with patch("safeshell.rules.loader.GLOBAL_RULES_PATH", global_rules):
+        # Patch GLOBAL_RULES_PATH and mock out default rules
+        with (
+            patch("safeshell.rules.loader.GLOBAL_RULES_PATH", global_rules),
+            patch("safeshell.rules.loader.load_default_rules", return_value=[]),
+        ):
             rules = load_rules(tmp_path / "repo")
 
         assert len(rules) == 2
@@ -214,8 +223,36 @@ rules:
     def test_no_rules_returns_empty_list(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Test that missing rules files returns empty list."""
+        """Test that missing rules files returns empty list (when no defaults)."""
         nonexistent = tmp_path / "nonexistent" / "rules.yaml"
-        with patch("safeshell.rules.loader.GLOBAL_RULES_PATH", nonexistent):
+        with (
+            patch("safeshell.rules.loader.GLOBAL_RULES_PATH", nonexistent),
+            patch("safeshell.rules.loader.load_default_rules", return_value=[]),
+        ):
             rules = load_rules(tmp_path)
         assert rules == []
+
+    def test_default_rules_loaded_first(self, tmp_path: Path) -> None:
+        """Test that default rules are always loaded first."""
+        # Set up global rules
+        global_dir = tmp_path / "global" / ".safeshell"
+        global_dir.mkdir(parents=True)
+        global_rules = global_dir / "rules.yaml"
+        global_rules.write_text("""
+rules:
+  - name: user-rule
+    commands: ["echo"]
+    action: deny
+    message: "User block"
+""")
+
+        # Load rules with defaults (don't mock them out)
+        with patch("safeshell.rules.loader.GLOBAL_RULES_PATH", global_rules):
+            rules = load_rules(tmp_path)
+
+        # Should have 49 default rules + 1 user rule
+        assert len(rules) >= 50
+        # Default rules should come first
+        assert rules[0].name == "deny-rm-rf-root"
+        # User rule should be at the end
+        assert rules[-1].name == "user-rule"
