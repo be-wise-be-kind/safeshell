@@ -169,6 +169,17 @@ safeshell monitor
 ### Prerequisites
 - Python 3.11 or higher
 
+### Platform Notes
+
+#### GNOME on Wayland
+GNOME's default focus-stealing prevention blocks SafeShell's approval window from appearing in front of other windows. To allow the approval dialog to grab focus when a command needs approval:
+
+```bash
+gsettings set org.gnome.desktop.wm.preferences focus-new-windows 'smart'
+```
+
+This changes the setting from `strict` (blocks all focus stealing) to `smart` (allows new windows to take focus when appropriate).
+
 ### Option 1: pipx (Recommended for Users)
 
 ```bash

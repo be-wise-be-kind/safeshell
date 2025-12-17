@@ -32,6 +32,14 @@ This is the **PRIMARY HANDOFF DOCUMENT** for AI agents working on the UI/UX Clea
 **Infrastructure State**: Monitor TUI and CLI are functional but lack consistent styling and polish
 **Feature Target**: Professional-grade UI/UX with consistent theming, keyboard shortcuts, help text, and error handling
 
+### Pre-requisite Work Completed (PR #32)
+Before starting Phase 8 work, the following GUI infrastructure improvements were made:
+- **Daemon idempotency**: Added `flock` based startup lock to prevent race conditions
+- **`safeshell restart` command**: Quick iteration for development
+- **Approval popup focus fix**: Spawn separate `ApprovalDialog` windows (required for GNOME Wayland)
+- **Simplified main window**: Now a pure event log viewer; approvals handled by popup dialogs
+- **README update**: Added GNOME Wayland platform notes
+
 ## Required Documents Location
 ```
 .roadmap/planning/phase7-ui-ux/
