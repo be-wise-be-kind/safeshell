@@ -3,9 +3,8 @@
 Tests command interception, context detection, and execution flows.
 """
 
-import os
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
