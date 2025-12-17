@@ -180,7 +180,13 @@ class RuleManager:
 
         # Handle REQUIRE_APPROVAL decision
         if result.decision == Decision.REQUIRE_APPROVAL:
-            result = await self._handle_approval(request.command, result, send_intermediate)
+            result = await self._handle_approval(
+                request.command,
+                result,
+                send_intermediate,
+                working_dir=request.working_dir,
+                client_pid=request.client_pid,
+            )
 
         results = [result]
 
@@ -233,6 +239,8 @@ class RuleManager:
         command: str,
         result: EvaluationResult,
         send_intermediate: Callable[[DaemonResponse], Awaitable[None]] | None = None,
+        working_dir: str | None = None,
+        client_pid: int | None = None,
     ) -> EvaluationResult:
         """Handle REQUIRE_APPROVAL decision by waiting for approval.
 
@@ -243,6 +251,8 @@ class RuleManager:
             command: The command awaiting approval
             result: Original evaluation result with REQUIRE_APPROVAL
             send_intermediate: Optional callback to send "waiting" message
+            working_dir: Working directory for the command
+            client_pid: PID of the calling shell process
 
         Returns:
             New EvaluationResult with ALLOW or DENY based on approval resolution
@@ -299,6 +309,8 @@ class RuleManager:
             plugin_name=result.plugin_name,
             reason=result.reason,
             approval_id=approval_id,
+            working_dir=working_dir,
+            client_pid=client_pid,
         )
 
         # Handle approval results - check for "remember" variants

@@ -98,6 +98,8 @@ class DaemonEventPublisher:
         command: str,
         plugin_name: str,
         reason: str,
+        working_dir: str | None = None,
+        client_pid: int | None = None,
         challenge_code: str | None = None,
     ) -> int:
         """Publish an approval needed event.
@@ -107,12 +109,16 @@ class DaemonEventPublisher:
             command: The command awaiting approval
             plugin_name: Plugin that requires approval
             reason: Why approval is needed
+            working_dir: Working directory for the command
+            client_pid: PID of the calling shell process
             challenge_code: Optional challenge code for verification
 
         Returns:
             Number of subscribers that received the event
         """
-        event = Event.approval_needed(approval_id, command, plugin_name, reason, challenge_code)
+        event = Event.approval_needed(
+            approval_id, command, plugin_name, reason, working_dir, client_pid, challenge_code
+        )
         logger.info(f"Publishing approval_needed: {command} (id={approval_id[:8]}...)")
         return await self._bus.publish(event)
 
@@ -121,6 +127,8 @@ class DaemonEventPublisher:
         approval_id: str,
         approved: bool,
         reason: str | None = None,
+        working_dir: str | None = None,
+        client_pid: int | None = None,
     ) -> int:
         """Publish an approval resolved event.
 
@@ -128,11 +136,13 @@ class DaemonEventPublisher:
             approval_id: The approval request that was resolved
             approved: Whether the request was approved
             reason: Reason for denial (if denied)
+            working_dir: Working directory for the command
+            client_pid: PID of the calling shell process
 
         Returns:
             Number of subscribers that received the event
         """
-        event = Event.approval_resolved(approval_id, approved, reason)
+        event = Event.approval_resolved(approval_id, approved, reason, working_dir, client_pid)
         status = "approved" if approved else "denied"
         logger.info(f"Publishing approval_resolved: {approval_id[:8]}... -> {status}")
         return await self._bus.publish(event)
