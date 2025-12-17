@@ -125,3 +125,10 @@ Content starts here...
 - [ ] Overview field present (3-5+ lines)
 - [ ] No temporal language used
 - [ ] Header is at top of file
+
+---
+
+## See Also
+
+- [file-header-format.md](../docs/file-header-format.md) - Detailed specification with all fields
+- [file-header-python.template](../templates/file-header-python.template) - Copy-paste template
