@@ -8,6 +8,7 @@ Overview: Window showing real-time event log from the SafeShell daemon
 
 import subprocess
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from PyQt6.QtCore import pyqtSignal
@@ -60,8 +61,6 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self._enabled = True  # Track enabled state for UI display
-        self._pid_colors: dict[int, str] = {}  # Map PIDs to colors
-        self._next_color_index = 0
         self._setup_window()
         self._setup_toolbar()
         self._setup_ui()
@@ -182,66 +181,81 @@ class MainWindow(QMainWindow):
         btn_layout.addWidget(clear_log_btn)
         layout.addLayout(btn_layout)
 
-    def _get_terminal_color(self, pid: int) -> str:
-        """Get a consistent color for a terminal PID."""
-        if pid not in self._pid_colors:
-            self._pid_colors[pid] = TERMINAL_COLORS[self._next_color_index % len(TERMINAL_COLORS)]
-            self._next_color_index += 1
-        return self._pid_colors[pid]
+    def _get_terminal_color(self, working_dir: str | None) -> str:
+        """Get a consistent color for a given working directory."""
+        if not working_dir:
+            return TERMINAL_COLORS[0]
+        # Hash the full path to get consistent color per directory
+        return TERMINAL_COLORS[hash(working_dir) % len(TERMINAL_COLORS)]
+
+    def _get_dir_name(self, working_dir: str | None) -> str:
+        """Extract just the final directory name from a path."""
+        if not working_dir:
+            return ""
+        return Path(working_dir).name
 
     def add_event(self, event: dict[str, Any]) -> None:
-        """Add an event to the log."""
-        event_type = event.get("type", "unknown")
-        data = event.get("data", {})
+        """Add an event to the log display."""
+        # Handle nested event structure from daemon
+        if event.get("type") == "event" and "event" in event:
+            event = event["event"]
 
-        # Skip verbose events if verbose mode is off
-        is_verbose_event = event_type in ("evaluation_started", "evaluation_completed")
-        if is_verbose_event and not self.verbose_checkbox.isChecked():
+        event_type = event.get("type", "unknown")
+
+        # Skip verbose events unless verbose mode is enabled
+        verbose_events = {"evaluation_started", "evaluation_completed"}
+        if event_type in verbose_events and not self.verbose_checkbox.isChecked():
             return
 
-        # Format the event
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        color = EVENT_COLORS.get(event_type, "#B0BEC5")
+        timestamp_str = event.get("timestamp", "")
+        data = event.get("data", {})
 
-        # Get PID for terminal color coding
-        pid = data.get("pid")
-        terminal_indicator = ""
-        if pid:
-            terminal_color = self._get_terminal_color(pid)
-            terminal_indicator = "[●] "  # Will be colored per-terminal
+        # Parse timestamp (with milliseconds)
+        try:
+            if timestamp_str:
+                dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+                time_display = dt.strftime("%H:%M:%S.%f")[:-3]
+            else:
+                time_display = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        except (ValueError, TypeError):
+            time_display = datetime.now().strftime("%H:%M:%S.%f")[:-3]
 
-        # Build message based on event type
-        if event_type == "command_received":
-            command = data.get("command", "")
-            message = f"{terminal_indicator}Command: {command}"
-        elif event_type == "evaluation_started":
-            command = data.get("command", "")
-            message = f"{terminal_indicator}Evaluating: {command}"
-        elif event_type == "evaluation_completed":
-            decision = data.get("decision", "")
-            command = data.get("command", "")
-            message = f"{terminal_indicator}{decision.upper()}: {command}"
-        elif event_type == "approval_needed":
-            command = data.get("command", "")
-            reason = data.get("reason", "")
-            message = f"{terminal_indicator}⚠ APPROVAL NEEDED: {command}\n    Reason: {reason}"
-        elif event_type == "approval_resolved":
-            decision = data.get("decision", "")
-            command = data.get("command", "")
-            message = f"{terminal_indicator}✓ {decision.upper()}: {command}"
-        else:
-            message = f"{event_type}: {data}"
+        color = EVENT_COLORS.get(event_type, "#FFFFFF")
 
-        # Add to log with color
-        self._append_colored_text(f"[{timestamp}] ", "#666666")
+        # Extract terminal source info (PID and working directory)
+        client_pid = data.get("client_pid")
+        working_dir = data.get("working_dir")
 
-        # Add terminal indicator with its color if present
-        if pid and terminal_indicator:
-            terminal_color = self._get_terminal_color(pid)
-            self._append_colored_text("[●] ", terminal_color)
-            message = message.replace(f"{terminal_indicator}", "")
+        # Build the log line prefix with terminal source (color based on directory)
+        if working_dir:
+            terminal_color = self._get_terminal_color(working_dir)
+            dir_name = self._get_dir_name(working_dir)
+            source_prefix = f"[{client_pid}][{dir_name}] " if client_pid else f"[{dir_name}] "
+            # Append source prefix with its own color first
+            self._append_colored_text(source_prefix, terminal_color)
+        elif client_pid is not None:
+            # Fallback: just show PID if no working dir
+            self._append_colored_text(f"[{client_pid}] ", TERMINAL_COLORS[0])
 
-        self._append_colored_text(f"{message}\n", color)
+        # Format log line with timestamp and event details
+        log_line = f"[{time_display}] {event_type.upper()}"
+        if data:
+            details = []
+            if "command" in data:
+                details.append(f"cmd={data['command']}")
+            if "decision" in data:
+                details.append(f"decision={data['decision']}")
+            if "plugin_name" in data:
+                details.append(f"rule={data['plugin_name']}")
+            if "reason" in data and data["reason"]:
+                reason = data["reason"]
+                if len(reason) > 50:
+                    reason = reason[:47] + "..."
+                details.append(f"reason={reason}")
+            if details:
+                log_line += " | " + " | ".join(details)
+
+        self._append_colored_text(log_line + "\n", color)
 
     def _append_colored_text(self, text: str, color: str) -> None:
         """Append colored text to the log."""
