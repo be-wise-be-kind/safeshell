@@ -18,12 +18,14 @@ from safeshell.common import SAFESHELL_DIR
 from safeshell.exceptions import RuleLoadError
 from safeshell.rules.azure import AZURE_RULES_YAML
 from safeshell.rules.defaults import DEFAULT_RULES_YAML
+from safeshell.rules.github import GITHUB_RULES_YAML
 from safeshell.rules.schema import Rule, RuleSet
 
 # All built-in rule sources, loaded in order
 BUILTIN_RULE_SOURCES = [
     DEFAULT_RULES_YAML,
     AZURE_RULES_YAML,
+    GITHUB_RULES_YAML,
 ]
 
 GLOBAL_RULES_PATH = SAFESHELL_DIR / "rules.yaml"
