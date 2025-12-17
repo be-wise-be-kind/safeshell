@@ -39,6 +39,7 @@ documentation:
   files:
     - PROJECT_CONTEXT.md
     - PYTHON_STANDARDS.md
+    - file-header-format.md
 
 howtos:
   location: .ai/howtos/
@@ -47,6 +48,11 @@ howtos:
     - how-to-write-file-headers.md
     - how-to-use-safeshell-cli.md
     - how-to-write-rules.md
+    - how-to-fix-linting-errors.md
+    - how-to-debug-rules.md
+    - how-to-understand-rule-evaluation.md
+    - how-to-add-condition-types.md
+    - how-to-add-cli-commands.md
 
 templates:
   location: .ai/templates/
@@ -130,9 +136,11 @@ architecture:
     - rules: YAML-based policy configuration
 
 notes_for_agents:
-  - SafeShell operates as a shell wrapper, not command shims
-  - Policy logic is defined in YAML rules, not Python plugins
-  - Rules use bash conditions for complex matching
+  - SafeShell uses three-layer interception (shims, shell functions, wrapper)
+  - Policy logic is defined in YAML rules with structured Python conditions
+  - Rules use fast-path optimization (commands not in index skip evaluation)
   - Uses Typer CLI framework with Rich for TUI
   - Build system uses justfile (not Makefile)
   - Thai-lint integrated for code quality checks
+  - Use plumbum for shell execution (NOT subprocess)
+  - Use Pydantic BaseModel for all data classes (NOT dataclass)
