@@ -200,7 +200,11 @@ class MainWindow(QMainWindow):
         if event.get("type") == "event" and "event" in event:
             event = event["event"]
 
-        event_type = event.get("type", "unknown")
+        event_type = event.get("type", "")
+
+        # Skip non-event messages (e.g., MonitorResponse with "success" field)
+        if not event_type or event_type not in EVENT_COLORS:
+            return
 
         # Skip verbose events unless verbose mode is enabled
         verbose_events = {"evaluation_started", "evaluation_completed"}
@@ -210,11 +214,13 @@ class MainWindow(QMainWindow):
         timestamp_str = event.get("timestamp", "")
         data = event.get("data", {})
 
-        # Parse timestamp (with milliseconds)
+        # Parse timestamp (with milliseconds), convert UTC to local time
         try:
             if timestamp_str:
                 dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
-                time_display = dt.strftime("%H:%M:%S.%f")[:-3]
+                # Convert to local time for display
+                local_dt = dt.astimezone()
+                time_display = local_dt.strftime("%H:%M:%S.%f")[:-3]
             else:
                 time_display = datetime.now().strftime("%H:%M:%S.%f")[:-3]
         except (ValueError, TypeError):
@@ -226,35 +232,48 @@ class MainWindow(QMainWindow):
         client_pid = data.get("client_pid")
         working_dir = data.get("working_dir")
 
-        # Build the log line prefix with terminal source (color based on directory)
+        # Print timestamp first (gray)
+        self._append_colored_text(f"[{time_display}] ", "#666666")
+
+        # Print terminal source prefix with color based on directory
         if working_dir:
             terminal_color = self._get_terminal_color(working_dir)
             dir_name = self._get_dir_name(working_dir)
             source_prefix = f"[{client_pid}][{dir_name}] " if client_pid else f"[{dir_name}] "
-            # Append source prefix with its own color first
             self._append_colored_text(source_prefix, terminal_color)
         elif client_pid is not None:
             # Fallback: just show PID if no working dir
             self._append_colored_text(f"[{client_pid}] ", TERMINAL_COLORS[0])
 
-        # Format log line with timestamp and event details
-        log_line = f"[{time_display}] {event_type.upper()}"
-        if data:
-            details = []
-            if "command" in data:
-                details.append(f"cmd={data['command']}")
-            if "decision" in data:
-                details.append(f"decision={data['decision']}")
-            if "plugin_name" in data:
-                details.append(f"rule={data['plugin_name']}")
-            if "reason" in data and data["reason"]:
-                reason = data["reason"]
-                if len(reason) > 50:
-                    reason = reason[:47] + "..."
-                details.append(f"reason={reason}")
-            if details:
-                log_line += " | " + " | ".join(details)
+        # Use short labels for event types
+        label_map = {
+            "command_received": "CMD",
+            "evaluation_started": "EVAL",
+            "evaluation_completed": "RESULT",
+            "approval_needed": "APPROVAL NEEDED",
+            "approval_resolved": "RESOLVED",
+            "daemon_status": "STATUS",
+        }
+        label = label_map.get(event_type, event_type.upper())
 
+        # Build details
+        details = []
+        if "command" in data:
+            details.append(data["command"])
+        if "approved" in data:
+            details.append("APPROVED" if data["approved"] else "DENIED")
+        if "decision" in data:
+            details.append(f"decision={data['decision']}")
+        if "plugin_name" in data:
+            details.append(f"rule={data['plugin_name']}")
+        if "reason" in data and data["reason"]:
+            reason = data["reason"]
+            if len(reason) > 50:
+                reason = reason[:47] + "..."
+            details.append(f"reason={reason}")
+
+        # Format: LABEL | details
+        log_line = f"{label} | " + " | ".join(details) if details else label
         self._append_colored_text(log_line + "\n", color)
 
     def _append_colored_text(self, text: str, color: str) -> None:
