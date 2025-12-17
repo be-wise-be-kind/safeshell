@@ -25,9 +25,7 @@ class TestDetectExecutionContext:
         result = _detect_execution_context()
         assert result == ExecutionContext.HUMAN
 
-    def test_returns_ai_when_safeshell_context_set(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_returns_ai_when_safeshell_context_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Returns AI when SAFESHELL_CONTEXT=ai."""
         monkeypatch.setenv("SAFESHELL_CONTEXT", "ai")
 
@@ -73,9 +71,7 @@ class TestEvaluateAndExecute:
         )
 
         mock_client_class = MagicMock(return_value=mock_client)
-        monkeypatch.setattr(
-            "safeshell.wrapper.client.DaemonClient", mock_client_class
-        )
+        monkeypatch.setattr("safeshell.wrapper.client.DaemonClient", mock_client_class)
 
         # Mock _execute to avoid actually running commands
         mock_execute = MagicMock(return_value=0)
@@ -101,9 +97,7 @@ class TestEvaluateAndExecute:
         )
 
         mock_client_class = MagicMock(return_value=mock_client)
-        monkeypatch.setattr(
-            "safeshell.wrapper.client.DaemonClient", mock_client_class
-        )
+        monkeypatch.setattr("safeshell.wrapper.client.DaemonClient", mock_client_class)
 
         # Mock _execute - should not be called
         mock_execute = MagicMock()
@@ -130,9 +124,7 @@ class TestEvaluateAndExecute:
         )
 
         mock_client_class = MagicMock(return_value=mock_client)
-        monkeypatch.setattr(
-            "safeshell.wrapper.client.DaemonClient", mock_client_class
-        )
+        monkeypatch.setattr("safeshell.wrapper.client.DaemonClient", mock_client_class)
 
         shell._evaluate_and_execute("rm -rf /")
 
@@ -152,20 +144,14 @@ class TestEvaluateAndExecute:
             unreachable_behavior=UnreachableBehavior.FAIL_OPEN,
             delegate_shell="/bin/bash",
         )
-        monkeypatch.setattr(
-            "safeshell.config.load_config", lambda: mock_config
-        )
+        monkeypatch.setattr("safeshell.config.load_config", lambda: mock_config)
 
         # Mock DaemonClient to raise DaemonNotRunningError
         mock_client = MagicMock()
-        mock_client.ensure_daemon_running.side_effect = DaemonNotRunningError(
-            "Daemon not running"
-        )
+        mock_client.ensure_daemon_running.side_effect = DaemonNotRunningError("Daemon not running")
 
         mock_client_class = MagicMock(return_value=mock_client)
-        monkeypatch.setattr(
-            "safeshell.wrapper.client.DaemonClient", mock_client_class
-        )
+        monkeypatch.setattr("safeshell.wrapper.client.DaemonClient", mock_client_class)
 
         # Mock _execute
         mock_execute = MagicMock(return_value=0)
@@ -191,20 +177,14 @@ class TestEvaluateAndExecute:
             unreachable_behavior=UnreachableBehavior.FAIL_CLOSED,
             delegate_shell="/bin/bash",
         )
-        monkeypatch.setattr(
-            "safeshell.config.load_config", lambda: mock_config
-        )
+        monkeypatch.setattr("safeshell.config.load_config", lambda: mock_config)
 
         # Mock DaemonClient to raise DaemonNotRunningError
         mock_client = MagicMock()
-        mock_client.ensure_daemon_running.side_effect = DaemonNotRunningError(
-            "Daemon not running"
-        )
+        mock_client.ensure_daemon_running.side_effect = DaemonNotRunningError("Daemon not running")
 
         mock_client_class = MagicMock(return_value=mock_client)
-        monkeypatch.setattr(
-            "safeshell.wrapper.client.DaemonClient", mock_client_class
-        )
+        monkeypatch.setattr("safeshell.wrapper.client.DaemonClient", mock_client_class)
 
         # Mock _execute - should not be called
         mock_execute = MagicMock()
