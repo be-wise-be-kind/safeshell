@@ -14,7 +14,7 @@ from safeshell.models import DaemonResponse, Decision, ExecutionContext
 class TestDetectExecutionContext:
     """Tests for _detect_execution_context()."""
 
-    def test_returns_human_by_default(self, monkeypatch: pytest.MonkeyPatch):
+    def test_returns_human_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Returns HUMAN when no AI context is detected."""
         # Clear relevant env vars
         monkeypatch.delenv("SAFESHELL_CONTEXT", raising=False)
@@ -27,7 +27,7 @@ class TestDetectExecutionContext:
 
     def test_returns_ai_when_safeshell_context_set(
         self, monkeypatch: pytest.MonkeyPatch
-    ):
+    ) -> None:
         """Returns AI when SAFESHELL_CONTEXT=ai."""
         monkeypatch.setenv("SAFESHELL_CONTEXT", "ai")
 
@@ -36,7 +36,7 @@ class TestDetectExecutionContext:
         result = _detect_execution_context()
         assert result == ExecutionContext.AI
 
-    def test_returns_ai_when_warp_agent_set(self, monkeypatch: pytest.MonkeyPatch):
+    def test_returns_ai_when_warp_agent_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Returns AI when WARP_AI_AGENT=1."""
         monkeypatch.delenv("SAFESHELL_CONTEXT", raising=False)
         monkeypatch.setenv("WARP_AI_AGENT", "1")
@@ -46,7 +46,7 @@ class TestDetectExecutionContext:
         result = _detect_execution_context()
         assert result == ExecutionContext.AI
 
-    def test_safeshell_context_takes_precedence(self, monkeypatch: pytest.MonkeyPatch):
+    def test_safeshell_context_takes_precedence(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """SAFESHELL_CONTEXT is checked before WARP_AI_AGENT."""
         monkeypatch.setenv("SAFESHELL_CONTEXT", "ai")
         monkeypatch.setenv("WARP_AI_AGENT", "0")
@@ -60,7 +60,7 @@ class TestDetectExecutionContext:
 class TestEvaluateAndExecute:
     """Tests for _evaluate_and_execute()."""
 
-    def test_allows_when_daemon_says_yes(self, monkeypatch: pytest.MonkeyPatch):
+    def test_allows_when_daemon_says_yes(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Executes command when daemon allows it."""
         from safeshell.wrapper import shell
 
@@ -88,7 +88,7 @@ class TestEvaluateAndExecute:
 
     def test_denies_when_daemon_says_no(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-    ):
+    ) -> None:
         """Returns 1 and does not execute when daemon denies."""
         from safeshell.wrapper import shell
 
@@ -116,7 +116,7 @@ class TestEvaluateAndExecute:
 
     def test_prints_denial_message(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-    ):
+    ) -> None:
         """Prints the denial message to stderr when command is blocked."""
         from safeshell.wrapper import shell
 
@@ -141,7 +141,7 @@ class TestEvaluateAndExecute:
 
     def test_fail_open_when_daemon_unreachable(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-    ):
+    ) -> None:
         """Allows command when daemon is unreachable and fail_open is configured."""
         from safeshell.config import SafeShellConfig, UnreachableBehavior
         from safeshell.exceptions import DaemonNotRunningError
@@ -180,7 +180,7 @@ class TestEvaluateAndExecute:
 
     def test_fail_closed_when_configured(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-    ):
+    ) -> None:
         """Blocks command when daemon is unreachable and fail_closed is configured."""
         from safeshell.config import SafeShellConfig, UnreachableBehavior
         from safeshell.exceptions import DaemonNotRunningError
@@ -221,7 +221,7 @@ class TestEvaluateAndExecute:
 class TestExecute:
     """Tests for _execute()."""
 
-    def test_runs_command_and_returns_exit_code(self, monkeypatch: pytest.MonkeyPatch):
+    def test_runs_command_and_returns_exit_code(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Runs command and returns exit code."""
         from safeshell.wrapper import shell
 
@@ -241,7 +241,7 @@ class TestExecute:
 
     def test_captures_stdout_and_stderr(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-    ):
+    ) -> None:
         """Captures and writes stdout and stderr."""
         from safeshell.wrapper import shell
 
@@ -262,7 +262,7 @@ class TestExecute:
         assert "stdout content" in captured.out
         assert "stderr content" in captured.err
 
-    def test_returns_nonzero_exit_code(self, monkeypatch: pytest.MonkeyPatch):
+    def test_returns_nonzero_exit_code(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Returns non-zero exit code from failed command."""
         from safeshell.wrapper import shell
 
@@ -284,7 +284,7 @@ class TestExecute:
 class TestMain:
     """Tests for main()."""
 
-    def test_bypass_mode_executes_directly(self, monkeypatch: pytest.MonkeyPatch):
+    def test_bypass_mode_executes_directly(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """In bypass mode, executes command without evaluation."""
         from safeshell.wrapper import shell
 
@@ -300,7 +300,7 @@ class TestMain:
         assert result == 0
         mock_execute.assert_called_once_with("echo hello", "/bin/bash")
 
-    def test_c_flag_calls_evaluate_and_execute(self, monkeypatch: pytest.MonkeyPatch):
+    def test_c_flag_calls_evaluate_and_execute(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """With -c flag, evaluates and executes command."""
         from safeshell.wrapper import shell
 
@@ -316,7 +316,7 @@ class TestMain:
         assert result == 0
         mock_eval.assert_called_once_with("echo hello")
 
-    def test_no_args_calls_passthrough(self, monkeypatch: pytest.MonkeyPatch):
+    def test_no_args_calls_passthrough(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """With no args, passes through to real shell."""
         from safeshell.wrapper import shell
 
@@ -332,7 +332,7 @@ class TestMain:
 
         mock_passthrough.assert_called_once()
 
-    def test_script_arg_calls_passthrough(self, monkeypatch: pytest.MonkeyPatch):
+    def test_script_arg_calls_passthrough(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """With script argument (not -c), passes through to real shell."""
         from safeshell.wrapper import shell
 

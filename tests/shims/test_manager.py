@@ -15,12 +15,12 @@ from safeshell.shims import manager
 class TestGetShimDir:
     """Tests for get_shim_dir()."""
 
-    def test_returns_path_object(self):
+    def test_returns_path_object(self) -> None:
         """get_shim_dir returns a Path object."""
         result = manager.get_shim_dir()
         assert isinstance(result, Path)
 
-    def test_returns_shim_dir_constant(self):
+    def test_returns_shim_dir_constant(self) -> None:
         """get_shim_dir returns the SHIM_DIR constant."""
         result = manager.get_shim_dir()
         assert result == manager.SHIM_DIR
@@ -29,7 +29,7 @@ class TestGetShimDir:
 class TestEnsureShimDirectory:
     """Tests for ensure_shim_directory()."""
 
-    def test_creates_directory(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    def test_creates_directory(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Creates the shim directory if it doesn't exist."""
         shim_dir = tmp_path / "shims"
         monkeypatch.setattr(manager, "SHIM_DIR", shim_dir)
@@ -39,7 +39,7 @@ class TestEnsureShimDirectory:
         assert shim_dir.exists()
         assert shim_dir.is_dir()
 
-    def test_idempotent(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    def test_idempotent(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Calling multiple times is safe."""
         shim_dir = tmp_path / "shims"
         monkeypatch.setattr(manager, "SHIM_DIR", shim_dir)
@@ -52,7 +52,7 @@ class TestEnsureShimDirectory:
 class TestCreateShim:
     """Tests for create_shim()."""
 
-    def test_creates_symlink(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    def test_creates_symlink(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Creates a symlink for the command."""
         shim_dir = tmp_path / "shims"
         shim_dir.mkdir()
@@ -66,7 +66,7 @@ class TestCreateShim:
 
     def test_overwrites_existing_symlink(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ):
+    ) -> None:
         """Replaces an existing symlink."""
         shim_dir = tmp_path / "shims"
         shim_dir.mkdir()
@@ -81,7 +81,7 @@ class TestCreateShim:
         manager.create_shim("git")
         assert old_link.readlink() == Path(manager.SHIM_SCRIPT_NAME)
 
-    def test_skips_real_file(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    def test_skips_real_file(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Does not overwrite a real file (not a symlink)."""
         shim_dir = tmp_path / "shims"
         shim_dir.mkdir()
@@ -102,7 +102,7 @@ class TestCreateShim:
 class TestRemoveShim:
     """Tests for remove_shim()."""
 
-    def test_removes_symlink(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    def test_removes_symlink(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Removes an existing symlink."""
         shim_dir = tmp_path / "shims"
         shim_dir.mkdir()
@@ -120,7 +120,7 @@ class TestRemoveShim:
 
     def test_returns_false_if_not_exists(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ):
+    ) -> None:
         """Returns False if the shim doesn't exist."""
         shim_dir = tmp_path / "shims"
         shim_dir.mkdir()
@@ -130,7 +130,7 @@ class TestRemoveShim:
 
         assert result is False
 
-    def test_skips_real_file(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    def test_skips_real_file(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Does not remove a real file (not a symlink)."""
         shim_dir = tmp_path / "shims"
         shim_dir.mkdir()
@@ -151,7 +151,7 @@ class TestGetExistingShims:
 
     def test_returns_empty_for_new_dir(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ):
+    ) -> None:
         """Returns empty set for a new/empty directory."""
         shim_dir = tmp_path / "shims"
         shim_dir.mkdir()
@@ -163,7 +163,7 @@ class TestGetExistingShims:
 
     def test_returns_empty_if_dir_not_exists(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ):
+    ) -> None:
         """Returns empty set if shim directory doesn't exist."""
         shim_dir = tmp_path / "nonexistent"
         monkeypatch.setattr(manager, "SHIM_DIR", shim_dir)
@@ -172,7 +172,7 @@ class TestGetExistingShims:
 
         assert result == set()
 
-    def test_lists_symlinks_only(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    def test_lists_symlinks_only(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Only returns symlinks, not regular files."""
         shim_dir = tmp_path / "shims"
         shim_dir.mkdir()
@@ -194,7 +194,7 @@ class TestGetExistingShims:
 class TestGetCommandsFromRules:
     """Tests for get_commands_from_rules()."""
 
-    def test_extracts_commands(self, monkeypatch: pytest.MonkeyPatch):
+    def test_extracts_commands(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Extracts unique commands from rules."""
         mock_rules = [
             Rule(
@@ -218,7 +218,7 @@ class TestGetCommandsFromRules:
 
         assert result == {"git", "rm", "docker"}
 
-    def test_skips_builtins(self, monkeypatch: pytest.MonkeyPatch):
+    def test_skips_builtins(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Does not include shell builtins (handled by init.bash)."""
         mock_rules = [
             Rule(
@@ -242,7 +242,7 @@ class TestGetCommandsFromRules:
 class TestRefreshShims:
     """Tests for refresh_shims()."""
 
-    def test_creates_new_shims(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    def test_creates_new_shims(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Creates shims for commands that don't have them yet."""
         shim_dir = tmp_path / "shims"
         monkeypatch.setattr(manager, "SHIM_DIR", shim_dir)
@@ -270,7 +270,7 @@ class TestRefreshShims:
         assert (shim_dir / "git").is_symlink()
         assert (shim_dir / "rm").is_symlink()
 
-    def test_removes_stale_shims(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    def test_removes_stale_shims(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Removes shims for commands no longer in rules."""
         shim_dir = tmp_path / "shims"
         shim_dir.mkdir()
@@ -303,7 +303,7 @@ class TestRefreshShims:
         assert not (shim_dir / "old_command").exists()
         assert "git" in result["unchanged"]
 
-    def test_tracks_unchanged(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    def test_tracks_unchanged(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Reports shims that already exist and are still needed."""
         shim_dir = tmp_path / "shims"
         shim_dir.mkdir()
@@ -340,7 +340,7 @@ class TestInstallShimScript:
 
     def test_copies_script_and_makes_executable(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ):
+    ) -> None:
         """Copies the shim script and makes it executable."""
         shim_dir = tmp_path / "shims"
         monkeypatch.setattr(manager, "SHIM_DIR", shim_dir)
@@ -362,7 +362,7 @@ class TestInstallShimScript:
 
     def test_raises_if_source_not_found(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ):
+    ) -> None:
         """Raises FileNotFoundError if source shim script doesn't exist."""
         shim_dir = tmp_path / "shims"
         monkeypatch.setattr(manager, "SHIM_DIR", shim_dir)
@@ -377,7 +377,7 @@ class TestInstallShimScript:
 class TestGetSourceShimPath:
     """Tests for get_source_shim_path()."""
 
-    def test_returns_path_in_package(self):
+    def test_returns_path_in_package(self) -> None:
         """Returns the path to the shim script in the package."""
         result = manager.get_source_shim_path()
         assert isinstance(result, Path)
@@ -387,7 +387,7 @@ class TestGetSourceShimPath:
 class TestGetInitScriptPath:
     """Tests for get_init_script_path()."""
 
-    def test_returns_path_to_init_bash(self):
+    def test_returns_path_to_init_bash(self) -> None:
         """Returns path to init.bash in the package."""
         result = manager.get_init_script_path()
         assert isinstance(result, Path)
@@ -397,7 +397,7 @@ class TestGetInitScriptPath:
 class TestGetShellInitInstructions:
     """Tests for get_shell_init_instructions()."""
 
-    def test_returns_string_with_source_command(self):
+    def test_returns_string_with_source_command(self) -> None:
         """Returns instructions that include sourcing the init script."""
         result = manager.get_shell_init_instructions()
         assert isinstance(result, str)
