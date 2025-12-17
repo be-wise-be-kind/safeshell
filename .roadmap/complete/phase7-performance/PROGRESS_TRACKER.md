@@ -2,20 +2,20 @@
 
 **Purpose**: Track progress on performance optimization for SafeShell (Python)
 
-**Current Status**: PR7 Complete - Daemon-Based Execution implemented
+**Current Status**: Complete - All PRs implemented
 
 ---
 
 ## Current Status
-**Current PR**: PR7 Complete (Daemon-Based Execution)
+**Current PR**: All PRs Complete
 **Branch**: `main`
-**Last Updated**: 2025-12-15
+**Last Updated**: 2025-12-17
 
 ## Overall Progress
-**Total Completion**: 83% (5/6 PRs completed)
+**Total Completion**: 100% (6/6 PRs completed)
 
 ```
-[████████████████░░░░] 83% Complete
+[████████████████████] 100% Complete
 ```
 
 ---
@@ -26,7 +26,7 @@
 |----|-------|--------|-------|
 | PR1 | Caching Infrastructure | 🟢 Complete | Caching for evaluator, conditions, git context |
 | PR2 | Python Condition DSL | 🟡 Superseded | Auto-translation replaced by PR4-6 |
-| PR3 | Profiling Infrastructure | 🔴 Deferred | Optional - can implement later |
+| PR3 | Profiling Infrastructure | 🟢 Complete | CLI (`safeshell perf stats`), benchmarks, regression tests |
 | PR4-6 | Structured Python Conditions | 🟢 Complete | Combined into single implementation |
 | PR7 | Daemon-Based Execution | 🟢 Complete | ~25ms overhead (10x improvement from ~250ms) |
 
@@ -151,15 +151,42 @@ After:  Shim → Daemon evaluates AND executes → Results (~25ms total)
 
 ---
 
-## PR3: Profiling Infrastructure 🔴
+## PR3: Profiling Infrastructure ✅
 
-**Status**: 🔴 Deferred (until PR7 complete)
+**Status**: 🟢 Complete
+**Completed**: 2025-12-17
 
-### Objectives
-- [ ] Create benchmark scripts for command overhead
-- [ ] Add `safeshell perf-stats` CLI command
-- [ ] Instrument critical paths
-- [ ] Performance regression tests in CI
+### What Was Done
+- [x] Created `src/safeshell/benchmarks/` module with benchmark utilities
+- [x] Added `safeshell perf stats` CLI command (with `--quick` and `--detailed` options)
+- [x] Implemented overhead benchmark (native vs SafeShell execution)
+- [x] Implemented socket latency benchmark
+- [x] Implemented rule evaluation benchmark
+- [x] Implemented per-condition-type benchmarks
+- [x] Created performance regression tests (10 tests)
+- [x] All 410 tests passing
+
+### Files Created
+- `src/safeshell/benchmarks/__init__.py` - Module exports
+- `src/safeshell/benchmarks/cli.py` - CLI subcommand for `safeshell perf`
+- `src/safeshell/benchmarks/overhead.py` - Command overhead and socket latency benchmarks
+- `src/safeshell/benchmarks/evaluation.py` - Rule evaluation and condition benchmarks
+- `tests/benchmarks/__init__.py` - Test module
+- `tests/benchmarks/test_performance.py` - Performance regression tests
+
+### CLI Usage
+```bash
+safeshell perf stats           # Full benchmark suite
+safeshell perf stats --quick   # Quick benchmark (fewer iterations)
+safeshell perf stats --detailed # Include per-condition breakdown
+```
+
+### Performance Targets Enforced
+| Metric | Target | Enforced In |
+|--------|--------|-------------|
+| Condition evaluation | <0.1ms | `test_individual_conditions_fast` |
+| Rule evaluation | <1ms | `test_rule_evaluation_meets_target` |
+| Command overhead | <50ms | CLI `meets_target` property |
 
 ---
 
@@ -196,7 +223,7 @@ See [Architecture Proposal](../../../docs/architecture-proposal.html) for detail
 ## Notes for AI Agents
 
 ### Status
-**Phase 7 is 83% complete** - PR7 (daemon-based execution) is done. Only PR3 (profiling) remains.
+**Phase 7 is 100% complete** - All PRs implemented and tested.
 
 ### Key Documentation
 - **Architecture Proposal**: `docs/architecture-proposal.html` - Detailed design with diagrams
@@ -204,10 +231,13 @@ See [Architecture Proposal](../../../docs/architecture-proposal.html) for detail
 - **AI_CONTEXT.md**: Background and technical context
 
 ### What Was Achieved
-The daemon now evaluates AND executes commands, with the shim doing only socket I/O.
-This eliminated the ~250ms Python wrapper startup overhead.
+1. **Daemon-based execution** - Commands evaluated AND executed within daemon
+2. **Pure Python conditions** - No subprocess spawning for rule evaluation
+3. **Profiling infrastructure** - `safeshell perf stats` CLI and regression tests
 
 ### Performance Results
 - Command overhead reduced from **~250ms to ~25ms** (10x improvement)
+- Rule evaluation: <1ms per command
+- Condition evaluation: <0.1ms per condition
 - Allowed commands log at DEBUG level (minimal noise)
-- 303 tests passing
+- 410 tests passing (including 10 performance regression tests)

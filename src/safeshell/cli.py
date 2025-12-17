@@ -15,6 +15,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
+from safeshell.benchmarks.cli import app as perf_app
 from safeshell.common import SAFESHELL_DIR
 from safeshell.daemon.cli import _daemonize
 from safeshell.daemon.cli import app as daemon_app
@@ -69,6 +70,7 @@ console = Console()
 app.add_typer(daemon_app, name="daemon")
 app.add_typer(wrapper_app, name="wrapper")
 app.add_typer(rules_app, name="rules")
+app.add_typer(perf_app, name="perf")
 
 
 @app.command()
