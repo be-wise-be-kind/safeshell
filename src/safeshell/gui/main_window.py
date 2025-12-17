@@ -200,21 +200,28 @@ class MainWindow(QMainWindow):
         if event.get("type") == "event" and "event" in event:
             event = event["event"]
 
-        event_type = event.get("type", "unknown")
+        event_type = event.get("type", "")
+
+        # Skip non-event messages (e.g., MonitorResponse with "success" field)
+        if not event_type or event_type not in EVENT_COLORS:
+            return
 
         # Skip verbose events unless verbose mode is enabled
-        verbose_events = {"evaluation_started", "evaluation_completed"}
+        # command_received is verbose by default - only show approval-related events
+        verbose_events = {"evaluation_started", "evaluation_completed", "command_received"}
         if event_type in verbose_events and not self.verbose_checkbox.isChecked():
             return
 
         timestamp_str = event.get("timestamp", "")
         data = event.get("data", {})
 
-        # Parse timestamp (with milliseconds)
+        # Parse timestamp (with milliseconds), convert UTC to local time
         try:
             if timestamp_str:
                 dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
-                time_display = dt.strftime("%H:%M:%S.%f")[:-3]
+                # Convert to local time for display
+                local_dt = dt.astimezone()
+                time_display = local_dt.strftime("%H:%M:%S.%f")[:-3]
             else:
                 time_display = datetime.now().strftime("%H:%M:%S.%f")[:-3]
         except (ValueError, TypeError):
@@ -243,6 +250,8 @@ class MainWindow(QMainWindow):
             details = []
             if "command" in data:
                 details.append(f"cmd={data['command']}")
+            if "approved" in data:
+                details.append("APPROVED" if data["approved"] else "DENIED")
             if "decision" in data:
                 details.append(f"decision={data['decision']}")
             if "plugin_name" in data:
