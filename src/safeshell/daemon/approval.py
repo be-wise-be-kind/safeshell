@@ -43,6 +43,8 @@ class PendingApproval:
     reason: str
     timeout_seconds: float
     future: asyncio.Future[tuple[ApprovalResult, str | None]]
+    working_dir: str | None = field(default=None)
+    client_pid: int | None = field(default=None)
     timeout_task: asyncio.Task[None] | None = field(default=None)
     created_at: float = field(default_factory=time.monotonic)
 
@@ -98,6 +100,8 @@ class ApprovalManager:
         reason: str,
         timeout: float | None = None,
         approval_id: str | None = None,
+        working_dir: str | None = None,
+        client_pid: int | None = None,
     ) -> tuple[ApprovalResult, str | None]:
         """Request approval for a command.
 
@@ -110,6 +114,8 @@ class ApprovalManager:
             reason: Human-readable reason why approval is required
             timeout: Optional timeout override in seconds
             approval_id: Optional pre-generated approval ID
+            working_dir: Working directory for the command
+            client_pid: PID of the calling shell process
 
         Returns:
             Tuple of (result, denial_reason):
@@ -132,6 +138,8 @@ class ApprovalManager:
             reason=reason,
             timeout_seconds=timeout_seconds,
             future=future,
+            working_dir=working_dir,
+            client_pid=client_pid,
         )
 
         async with self._lock:
@@ -148,6 +156,8 @@ class ApprovalManager:
             command=command,
             plugin_name=plugin_name,
             reason=reason,
+            working_dir=working_dir,
+            client_pid=client_pid,
         )
 
         # Start timeout task
@@ -200,6 +210,8 @@ class ApprovalManager:
         await self._event_publisher.approval_resolved(
             approval_id=approval_id,
             approved=True,
+            working_dir=pending.working_dir,
+            client_pid=pending.client_pid,
         )
 
         action = "Approved (remember)" if remember else "Approved"
@@ -238,6 +250,8 @@ class ApprovalManager:
             approval_id=approval_id,
             approved=False,
             reason=reason,
+            working_dir=pending.working_dir,
+            client_pid=pending.client_pid,
         )
 
         action = "Denied (remember)" if remember else "Denied"
@@ -273,6 +287,8 @@ class ApprovalManager:
                 approval_id=approval_id,
                 approved=False,
                 reason="Approval timed out",
+                working_dir=pending.working_dir,
+                client_pid=pending.client_pid,
             )
 
             logger.warning(f"Approval timed out: {approval_id[:8]}... " f"after {timeout_seconds}s")

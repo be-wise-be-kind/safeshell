@@ -60,6 +60,8 @@ class ApprovalNeededEvent(BaseModel):
     command: str = Field(description="The command awaiting approval")
     plugin_name: str = Field(description="Plugin that requires approval")
     reason: str = Field(description="Why approval is needed")
+    working_dir: str | None = Field(default=None, description="Working directory for the command")
+    client_pid: int | None = Field(default=None, description="PID of the calling shell process")
     challenge_code: str | None = Field(
         default=None, description="Optional challenge code for verification"
     )
@@ -71,6 +73,8 @@ class ApprovalResolvedEvent(BaseModel):
     approval_id: str = Field(description="The approval request that was resolved")
     approved: bool = Field(description="Whether the request was approved")
     reason: str | None = Field(default=None, description="Reason for denial (if denied)")
+    working_dir: str | None = Field(default=None, description="Working directory for the command")
+    client_pid: int | None = Field(default=None, description="PID of the calling shell process")
 
 
 class DaemonStatusEvent(BaseModel):
@@ -140,6 +144,8 @@ class Event(BaseModel):
         command: str,
         plugin_name: str,
         reason: str,
+        working_dir: str | None = None,
+        client_pid: int | None = None,
         challenge_code: str | None = None,
     ) -> "Event":
         """Create an APPROVAL_NEEDED event."""
@@ -150,19 +156,30 @@ class Event(BaseModel):
                 command=command,
                 plugin_name=plugin_name,
                 reason=reason,
+                working_dir=working_dir,
+                client_pid=client_pid,
                 challenge_code=challenge_code,
             ).model_dump(),
         )
 
     @classmethod
     def approval_resolved(
-        cls, approval_id: str, approved: bool, reason: str | None = None
+        cls,
+        approval_id: str,
+        approved: bool,
+        reason: str | None = None,
+        working_dir: str | None = None,
+        client_pid: int | None = None,
     ) -> "Event":
         """Create an APPROVAL_RESOLVED event."""
         return cls(
             type=EventType.APPROVAL_RESOLVED,
             data=ApprovalResolvedEvent(
-                approval_id=approval_id, approved=approved, reason=reason
+                approval_id=approval_id,
+                approved=approved,
+                reason=reason,
+                working_dir=working_dir,
+                client_pid=client_pid,
             ).model_dump(),
         )
 
