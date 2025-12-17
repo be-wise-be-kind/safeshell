@@ -30,17 +30,22 @@ def start(
     ),
 ) -> None:
     """Start the SafeShell daemon."""
-    if DaemonLifecycle.is_running():
-        console.print("[yellow]Daemon is already running[/yellow]")
-        raise typer.Exit(0)
+    try:
+        with DaemonLifecycle.startup_lock():
+            if DaemonLifecycle.is_running():
+                console.print("[yellow]Daemon is already running[/yellow]")
+                raise typer.Exit(0)
 
-    if foreground:
-        console.print("[green]Starting daemon in foreground...[/green]")
-        console.print("Press Ctrl+C to stop")
-        asyncio.run(run_daemon())
-    else:
-        _daemonize()
-        console.print("[green]Daemon started[/green]")
+            if foreground:
+                console.print("[green]Starting daemon in foreground...[/green]")
+                console.print("Press Ctrl+C to stop")
+                asyncio.run(run_daemon())
+            else:
+                _daemonize()
+                console.print("[green]Daemon started[/green]")
+    except RuntimeError as e:
+        console.print(f"[yellow]{e}[/yellow]")
+        raise typer.Exit(0) from e
 
 
 @app.command()

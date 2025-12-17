@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon
 from safeshell.common import SAFESHELL_DIR
 from safeshell.daemon.lifecycle import DaemonLifecycle
 from safeshell.events.types import EventType
+from safeshell.gui.approval_dialog import ApprovalDialog
 from safeshell.gui.main_window import MainWindow
 from safeshell.gui.settings import GuiSettings
 from safeshell.gui.tray import SafeShellTray, TrayStatus
@@ -62,10 +63,11 @@ class SafeShellGuiApp(QObject):
         self.client = MonitorClient()
         self.client.add_event_callback(self._on_event_received)
 
-        # Main window (unified event log + approvals)
+        # Track active approval dialogs (spawned as separate windows for focus)
+        self.approval_dialogs: dict[str, ApprovalDialog] = {}
+
+        # Main window (event log viewer)
         self.main_window = MainWindow()
-        self.main_window.approval_approved.connect(self._on_approval_approved)
-        self.main_window.approval_denied.connect(self._on_approval_denied)
         self.main_window.toggle_enabled_clicked.connect(self._on_toggle_enabled)
         self.main_window.reload_rules_clicked.connect(self._on_reload_rules)
 
@@ -171,7 +173,7 @@ class SafeShellGuiApp(QObject):
         self._update_pending_count()
 
     def _handle_approval_needed(self, data: dict[str, Any]) -> None:
-        """Handle APPROVAL_NEEDED event by adding to main window."""
+        """Handle APPROVAL_NEEDED event by spawning a new approval dialog."""
         approval_id = data.get("approval_id", "")
         command = data.get("command", "")
         reason = data.get("reason", "")
@@ -181,8 +183,14 @@ class SafeShellGuiApp(QObject):
             logger.warning("Received approval_needed without approval_id")
             return
 
-        # Add to main window's approval section
-        self.main_window.add_pending_approval(approval_id, command, reason, plugin_name)
+        # Spawn a new approval dialog (new windows get focus on Wayland)
+        dialog = ApprovalDialog(approval_id, command, reason, plugin_name)
+        dialog.approved.connect(self._on_dialog_approved)
+        dialog.denied.connect(self._on_dialog_denied)
+        self.approval_dialogs[approval_id] = dialog
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
 
         # Show system notification if enabled
         if self.settings.show_notifications:
@@ -193,17 +201,28 @@ class SafeShellGuiApp(QObject):
             )
 
     def _handle_approval_resolved(self, data: dict[str, Any]) -> None:
-        """Handle APPROVAL_RESOLVED event by removing from main window."""
+        """Handle APPROVAL_RESOLVED event by closing the dialog."""
         approval_id = data.get("approval_id", "")
-        self.main_window.remove_pending_approval(approval_id)
 
-    def _on_approval_approved(self, approval_id: str, remember: bool) -> None:
-        """Handle approval from main window."""
+        # Close the approval dialog if it exists
+        if approval_id in self.approval_dialogs:
+            dialog = self.approval_dialogs.pop(approval_id)
+            dialog.close()
+            dialog.deleteLater()
+
+    def _on_dialog_approved(self, approval_id: str, remember: bool) -> None:
+        """Handle approval from popup dialog."""
         asyncio.ensure_future(self.client.approve(approval_id, remember=remember))
+        # Clean up dialog reference
+        if approval_id in self.approval_dialogs:
+            self.approval_dialogs.pop(approval_id)
 
-    def _on_approval_denied(self, approval_id: str, remember: bool) -> None:
-        """Handle denial from main window."""
+    def _on_dialog_denied(self, approval_id: str, reason: str, remember: bool) -> None:
+        """Handle denial from popup dialog."""
         asyncio.ensure_future(self.client.deny(approval_id, remember=remember))
+        # Clean up dialog reference
+        if approval_id in self.approval_dialogs:
+            self.approval_dialogs.pop(approval_id)
 
     def _on_toggle_enabled(self, enabled: bool) -> None:
         """Handle enable/disable toggle from main window."""
@@ -261,7 +280,7 @@ class SafeShellGuiApp(QObject):
 
     def _update_pending_count(self) -> None:
         """Update tray icon based on pending approval count."""
-        count = len(self.main_window.approval_cards)
+        count = len(self.approval_dialogs)
         self.tray.set_pending(count)
 
     def toggle_debug_window(self) -> None:

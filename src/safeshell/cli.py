@@ -163,6 +163,45 @@ def down() -> None:
 
 
 @app.command()
+def restart() -> None:
+    """Restart SafeShell (daemon + GUI).
+
+    Stops both processes, then starts them again.
+    Useful for development iteration.
+    """
+    import subprocess
+    import time
+
+    # Stop everything
+    stopped_gui = _stop_gui() if _is_gui_running() else False
+    stopped_daemon = DaemonLifecycle.stop_daemon() if DaemonLifecycle.is_running() else False
+
+    if stopped_gui or stopped_daemon:
+        console.print("Stopping SafeShell...")
+        time.sleep(0.5)  # Allow clean shutdown
+
+    # Start daemon
+    console.print("Starting daemon...")
+    _daemonize()
+    time.sleep(0.5)
+    if DaemonLifecycle.is_running():
+        console.print("[green]Daemon started.[/green]")
+    else:
+        console.print("[red]Failed to start daemon.[/red]")
+        raise typer.Exit(1)
+
+    # Start GUI in background
+    console.print("Starting system tray...")
+    subprocess.Popen(  # noqa: S603
+        [sys.executable, "-m", "safeshell.gui"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    console.print("[green]SafeShell restarted.[/green]")
+
+
+@app.command()
 def check(command: str) -> None:
     """Check if a command would be allowed by SafeShell.
 

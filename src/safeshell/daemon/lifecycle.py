@@ -1,15 +1,17 @@
 """
 File: src/safeshell/daemon/lifecycle.py
 Purpose: Daemon process lifecycle management
-Exports: DaemonLifecycle, SOCKET_PATH, MONITOR_SOCKET_PATH, PID_PATH, SAFESHELL_DIR
+Exports: DaemonLifecycle, SOCKET_PATH, MONITOR_SOCKET_PATH, PID_PATH, LOCK_PATH, SAFESHELL_DIR
 Depends: pathlib, os, signal, socket, safeshell.common
 Overview: Manages daemon start/stop, PID files, and socket cleanup
 """
 
 import contextlib
+import fcntl
 import os
 import signal
 import socket
+from collections.abc import Generator
 from pathlib import Path
 
 from loguru import logger
@@ -20,6 +22,7 @@ from safeshell.common import SAFESHELL_DIR
 SOCKET_PATH = SAFESHELL_DIR / "daemon.sock"
 MONITOR_SOCKET_PATH = SAFESHELL_DIR / "monitor.sock"
 PID_PATH = SAFESHELL_DIR / "daemon.pid"
+LOCK_PATH = SAFESHELL_DIR / "daemon.lock"
 
 
 class DaemonLifecycle:
@@ -31,6 +34,30 @@ class DaemonLifecycle:
 
     socket_path: Path = SOCKET_PATH
     pid_path: Path = PID_PATH
+    lock_path: Path = LOCK_PATH
+
+    @classmethod
+    @contextlib.contextmanager
+    def startup_lock(cls) -> Generator[None, None, None]:
+        """Acquire exclusive lock for daemon startup.
+
+        Uses flock() for atomic locking. Prevents race conditions
+        where multiple processes try to start the daemon simultaneously.
+
+        Raises:
+            RuntimeError: If another process holds the lock
+        """
+        cls.ensure_directories()
+        lock_file = open(cls.lock_path, "w")  # noqa: SIM115, PTH123
+        try:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            yield
+        except BlockingIOError as e:
+            lock_file.close()
+            raise RuntimeError("Another process is starting the daemon") from e
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+            lock_file.close()
 
     @classmethod
     def ensure_directories(cls) -> None:
