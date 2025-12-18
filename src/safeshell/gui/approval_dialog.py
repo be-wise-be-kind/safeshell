@@ -44,6 +44,7 @@ class ApprovalDialog(QDialog):
         command: str,
         reason: str,
         plugin_name: str,
+        working_dir: str | None = None,
         parent: object = None,
     ) -> None:
         """Initialize the approval dialog.
@@ -53,13 +54,14 @@ class ApprovalDialog(QDialog):
             command: The command awaiting approval
             reason: Why approval is required
             plugin_name: Name of the rule that triggered approval
+            working_dir: Working directory for the command
             parent: Optional parent widget
         """
         super().__init__(parent)  # type: ignore[arg-type]
         self.approval_id = approval_id
 
         self._setup_window()
-        self._setup_ui(command, reason, plugin_name)
+        self._setup_ui(command, reason, plugin_name, working_dir)
         self._setup_shortcuts()
 
     def _setup_window(self) -> None:
@@ -73,7 +75,9 @@ class ApprovalDialog(QDialog):
         self.setMinimumWidth(_MIN_DIALOG_WIDTH)
         self.setMinimumHeight(_MIN_DIALOG_HEIGHT)
 
-    def _setup_ui(self, command: str, reason: str, plugin_name: str) -> None:
+    def _setup_ui(
+        self, command: str, reason: str, plugin_name: str, working_dir: str | None
+    ) -> None:
         """Set up the dialog UI components."""
         layout = QVBoxLayout(self)
         layout.setSpacing(_LAYOUT_SPACING)
@@ -97,6 +101,13 @@ class ApprovalDialog(QDialog):
             "background-color: #2D2D2D; color: #FFFFFF; padding: 8px; border-radius: 4px;"
         )
         layout.addWidget(self.cmd_text)
+
+        # Working directory (if provided)
+        if working_dir:
+            workdir_label = QLabel(f"<b>Directory:</b> {working_dir}")
+            workdir_label.setWordWrap(True)
+            workdir_label.setStyleSheet("color: #888888;")
+            layout.addWidget(workdir_label)
 
         # Reason and rule
         reason_label = QLabel(f"<b>Reason:</b> {reason}")

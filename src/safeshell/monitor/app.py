@@ -204,10 +204,13 @@ class MonitorApp(App[None]):
         command = data.get("command", "")
         reason = data.get("reason", "")
         plugin_name = data.get("plugin_name", "")
+        working_dir = data.get("working_dir", "")
 
         self._log_debug(f"Approval needed: {command}", "warning")
         self._log_debug(f"  ID: {approval_id[:_ID_DISPLAY_LENGTH]}...", "debug")
         self._log_debug(f"  Reason: {reason}", "info")
+        if working_dir:
+            self._log_debug(f"  Dir: {working_dir}", "debug")
 
         approval_pane.add_pending_approval(
             {
@@ -215,6 +218,7 @@ class MonitorApp(App[None]):
                 "command": command,
                 "reason": reason,
                 "plugin_name": plugin_name,
+                "working_dir": working_dir,
             }
         )
 

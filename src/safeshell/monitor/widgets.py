@@ -248,6 +248,11 @@ class ApprovalPane(Static):
         margin: 1 0;
     }
 
+    ApprovalPane .approval-workdir {
+        color: $text-muted;
+        margin: 0 0 1 0;
+    }
+
     ApprovalPane #button-row {
         dock: bottom;
         layout: horizontal;
@@ -329,6 +334,7 @@ class ApprovalPane(Static):
         yield Static("Pending Approvals", classes="pane-title")
         yield Static("No pending approvals", id="approval-status", classes="no-approvals")
         yield Static("", id="approval-command", classes="approval-command")
+        yield Static("", id="approval-workdir", classes="approval-workdir")
         yield Static("", id="approval-reason", classes="approval-reason")
         yield Input(placeholder="Reason for denial (optional)", id="denial-reason")
         yield Horizontal(
@@ -371,6 +377,7 @@ class ApprovalPane(Static):
         """Update the display based on current state."""
         status = self.query_one("#approval-status", Static)
         command = self.query_one("#approval-command", Static)
+        workdir = self.query_one("#approval-workdir", Static)
         reason = self.query_one("#approval-reason", Static)
         denial_input = self.query_one("#denial-reason", Input)
         approve_btn = self.query_one("#approve-btn", Button)
@@ -382,6 +389,13 @@ class ApprovalPane(Static):
             pending_count = len(self._pending_approvals)
             status.update(f"[bold yellow]Approval Required[/bold yellow] ({pending_count} pending)")
             command.update(f"[bold]{self._current_approval.get('command', 'Unknown')}[/bold]")
+            working_dir = self._current_approval.get("working_dir", "")
+            if working_dir:
+                workdir.update(f"[dim]Directory:[/dim] {working_dir}")
+                workdir.display = True
+            else:
+                workdir.update("")
+                workdir.display = False
             reason.update(f"Reason: {self._current_approval.get('reason', 'No reason given')}")
             denial_input.display = True
             approve_btn.disabled = False
@@ -393,6 +407,7 @@ class ApprovalPane(Static):
         else:
             status.update("[dim]No pending approvals[/dim]")
             command.update("")
+            workdir.update("")
             reason.update("")
             denial_input.display = False
             approve_btn.disabled = True
@@ -400,6 +415,7 @@ class ApprovalPane(Static):
             deny_btn.disabled = True
             deny_remember_btn.disabled = True
             command.display = False
+            workdir.display = False
             reason.display = False
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
