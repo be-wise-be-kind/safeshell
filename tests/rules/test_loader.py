@@ -5,13 +5,14 @@ from unittest.mock import patch
 
 import pytest
 
-from safeshell.exceptions import RuleLoadError
+from safeshell.exceptions import OverrideError, RuleLoadError
 from safeshell.rules.loader import (
+    _apply_overrides,
     _find_repo_rules,
     _load_rule_file,
     load_rules,
 )
-from safeshell.rules.schema import RuleAction
+from safeshell.rules.schema import Rule, RuleAction, RuleContext, RuleOverride
 
 
 class TestLoadRuleFile:
@@ -27,24 +28,27 @@ rules:
     action: deny
     message: "Blocked"
 """)
-        rules = _load_rule_file(rules_file)
+        rules, overrides = _load_rule_file(rules_file)
         assert len(rules) == 1
         assert rules[0].name == "test-rule"
         assert rules[0].action == RuleAction.DENY
+        assert overrides == []
 
     def test_load_empty_file(self, tmp_path: Path) -> None:
-        """Test loading an empty rules file returns empty list."""
+        """Test loading an empty rules file returns empty lists."""
         rules_file = tmp_path / "rules.yaml"
         rules_file.write_text("")
-        rules = _load_rule_file(rules_file)
+        rules, overrides = _load_rule_file(rules_file)
         assert rules == []
+        assert overrides == []
 
     def test_load_file_with_empty_rules(self, tmp_path: Path) -> None:
         """Test loading a file with empty rules list."""
         rules_file = tmp_path / "rules.yaml"
         rules_file.write_text("rules: []")
-        rules = _load_rule_file(rules_file)
+        rules, overrides = _load_rule_file(rules_file)
         assert rules == []
+        assert overrides == []
 
     def test_load_invalid_yaml_raises(self, tmp_path: Path) -> None:
         """Test that invalid YAML raises RuleLoadError."""
@@ -87,11 +91,31 @@ rules:
     redirect_to: "curl-wrapper $ARGS"
     message: "Rule 3"
 """)
-        rules = _load_rule_file(rules_file)
+        rules, overrides = _load_rule_file(rules_file)
         assert len(rules) == 3
         assert rules[0].name == "rule1"
         assert rules[1].name == "rule2"
         assert rules[2].name == "rule3"
+        assert overrides == []
+
+    def test_load_rules_with_overrides(self, tmp_path: Path) -> None:
+        """Test loading a file with both rules and overrides."""
+        rules_file = tmp_path / "rules.yaml"
+        rules_file.write_text("""
+rules:
+  - name: custom-rule
+    commands: ["echo"]
+    action: deny
+    message: "Custom"
+overrides:
+  - name: some-default-rule
+    disabled: true
+""")
+        rules, overrides = _load_rule_file(rules_file)
+        assert len(rules) == 1
+        assert len(overrides) == 1
+        assert overrides[0].name == "some-default-rule"
+        assert overrides[0].disabled is True
 
 
 class TestFindRepoRules:
@@ -256,3 +280,183 @@ rules:
         assert rules[0].name == "deny-rm-rf-root"
         # User rule should be at the end
         assert rules[-1].name == "user-rule"
+
+
+class TestApplyOverrides:
+    """Tests for _apply_overrides function."""
+
+    def test_disable_rule(self) -> None:
+        """Test disabling a rule removes it from the list."""
+        rules = [
+            Rule(
+                name="rule-1",
+                commands=["git"],
+                action=RuleAction.DENY,
+                message="Rule 1",
+            ),
+            Rule(
+                name="rule-2",
+                commands=["rm"],
+                action=RuleAction.DENY,
+                message="Rule 2",
+            ),
+        ]
+        overrides = [RuleOverride(name="rule-1", disabled=True)]
+
+        result = _apply_overrides(rules, overrides, "test.yaml")
+
+        assert len(result) == 1
+        assert result[0].name == "rule-2"
+
+    def test_modify_action(self) -> None:
+        """Test modifying a rule's action."""
+        rules = [
+            Rule(
+                name="rule-1",
+                commands=["git"],
+                action=RuleAction.DENY,
+                message="Rule 1",
+            ),
+        ]
+        overrides = [RuleOverride(name="rule-1", action=RuleAction.REQUIRE_APPROVAL)]
+
+        result = _apply_overrides(rules, overrides, "test.yaml")
+
+        assert len(result) == 1
+        assert result[0].action == RuleAction.REQUIRE_APPROVAL
+        assert result[0].message == "Rule 1"  # Unchanged
+
+    def test_modify_multiple_properties(self) -> None:
+        """Test modifying multiple properties at once."""
+        rules = [
+            Rule(
+                name="rule-1",
+                commands=["git"],
+                action=RuleAction.DENY,
+                message="Original message",
+                context=RuleContext.ALL,
+            ),
+        ]
+        overrides = [
+            RuleOverride(
+                name="rule-1",
+                action=RuleAction.ALLOW,
+                message="Modified message",
+                context=RuleContext.AI_ONLY,
+            )
+        ]
+
+        result = _apply_overrides(rules, overrides, "test.yaml")
+
+        assert result[0].action == RuleAction.ALLOW
+        assert result[0].message == "Modified message"
+        assert result[0].context == RuleContext.AI_ONLY
+
+    def test_nonexistent_rule_raises(self) -> None:
+        """Test that overriding non-existent rule raises OverrideError."""
+        rules = [
+            Rule(
+                name="rule-1",
+                commands=["git"],
+                action=RuleAction.DENY,
+                message="Rule 1",
+            ),
+        ]
+        overrides = [RuleOverride(name="nonexistent", disabled=True)]
+
+        with pytest.raises(OverrideError) as exc_info:
+            _apply_overrides(rules, overrides, "test.yaml")
+
+        assert "non-existent rule 'nonexistent'" in str(exc_info.value)
+        assert "rule-1" in str(exc_info.value)  # Shows available rules
+
+    def test_original_rules_unchanged(self) -> None:
+        """Test that original rule objects are not mutated."""
+        original_rule = Rule(
+            name="rule-1",
+            commands=["git"],
+            action=RuleAction.DENY,
+            message="Original",
+        )
+        rules = [original_rule]
+        overrides = [RuleOverride(name="rule-1", action=RuleAction.ALLOW)]
+
+        result = _apply_overrides(rules, overrides, "test.yaml")
+
+        # Original unchanged
+        assert original_rule.action == RuleAction.DENY
+        # Result modified
+        assert result[0].action == RuleAction.ALLOW
+
+    def test_empty_overrides_returns_same_rules(self) -> None:
+        """Test that empty overrides list returns rules unchanged."""
+        rules = [
+            Rule(
+                name="rule-1",
+                commands=["git"],
+                action=RuleAction.DENY,
+                message="Rule 1",
+            ),
+        ]
+        overrides: list[RuleOverride] = []
+
+        result = _apply_overrides(rules, overrides, "test.yaml")
+
+        assert len(result) == 1
+        assert result[0].name == "rule-1"
+
+
+class TestLoadRulesWithOverrides:
+    """Integration tests for load_rules with overrides."""
+
+    def test_global_override_disables_default(self, tmp_path: Path) -> None:
+        """Test global rules can disable default rules."""
+        global_rules = tmp_path / "rules.yaml"
+        global_rules.write_text("""
+rules: []
+overrides:
+  - name: deny-rm-rf-root
+    disabled: true
+""")
+
+        with patch("safeshell.rules.loader.GLOBAL_RULES_PATH", global_rules):
+            rules = load_rules(tmp_path)
+
+        rule_names = {r.name for r in rules}
+        assert "deny-rm-rf-root" not in rule_names
+
+    def test_global_override_modifies_default(self, tmp_path: Path) -> None:
+        """Test global rules can modify default rule action."""
+        global_rules = tmp_path / "rules.yaml"
+        global_rules.write_text("""
+rules: []
+overrides:
+  - name: approve-force-push
+    action: allow
+""")
+
+        with patch("safeshell.rules.loader.GLOBAL_RULES_PATH", global_rules):
+            rules = load_rules(tmp_path)
+
+        force_push_rule = next(r for r in rules if r.name == "approve-force-push")
+        assert force_push_rule.action == RuleAction.ALLOW
+
+    def test_repo_overrides_ignored(self, tmp_path: Path) -> None:
+        """Test repo rules cannot override (security)."""
+        repo_dir = tmp_path / ".safeshell"
+        repo_dir.mkdir()
+        repo_rules = repo_dir / "rules.yaml"
+        repo_rules.write_text("""
+rules: []
+overrides:
+  - name: deny-rm-rf-root
+    disabled: true
+""")
+
+        nonexistent = tmp_path / "nonexistent" / "rules.yaml"
+        with patch("safeshell.rules.loader.GLOBAL_RULES_PATH", nonexistent):
+            rules = load_rules(tmp_path)
+
+        # Rule should still exist - repo overrides are ignored
+        rule_names = {r.name for r in rules}
+        assert "deny-rm-rf-root" in rule_names

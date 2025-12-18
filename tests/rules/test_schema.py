@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from safeshell.rules.condition_types import CommandMatches, FileExists
-from safeshell.rules.schema import Rule, RuleAction, RuleSet
+from safeshell.rules.schema import Rule, RuleAction, RuleContext, RuleOverride, RuleSet
 
 
 class TestRuleAction:
@@ -164,3 +164,90 @@ class TestRuleSet:
         assert len(ruleset.rules) == 2
         assert ruleset.rules[0].name == "rule1"
         assert ruleset.rules[1].action == RuleAction.REQUIRE_APPROVAL
+
+    def test_ruleset_with_overrides(self) -> None:
+        """Test creating a ruleset with overrides section."""
+        data = {
+            "rules": [
+                {
+                    "name": "test-rule",
+                    "commands": ["git"],
+                    "action": "deny",
+                    "message": "Test",
+                }
+            ],
+            "overrides": [{"name": "default-rule", "disabled": True}],
+        }
+        ruleset = RuleSet.model_validate(data)
+        assert len(ruleset.rules) == 1
+        assert len(ruleset.overrides) == 1
+        assert ruleset.overrides[0].name == "default-rule"
+        assert ruleset.overrides[0].disabled is True
+
+    def test_ruleset_empty_overrides_defaults_to_empty_list(self) -> None:
+        """Test that RuleSet without overrides defaults to empty list."""
+        data = {"rules": []}
+        ruleset = RuleSet.model_validate(data)
+        assert ruleset.overrides == []
+
+
+class TestRuleOverride:
+    """Tests for RuleOverride model."""
+
+    def test_valid_disabled_override(self) -> None:
+        """Test creating a valid override that disables a rule."""
+        override = RuleOverride(name="git-force-push", disabled=True)
+        assert override.name == "git-force-push"
+        assert override.disabled is True
+        assert override.action is None
+        assert override.message is None
+        assert override.context is None
+        assert override.allow_override is None
+
+    def test_valid_action_override(self) -> None:
+        """Test creating a valid override that changes action."""
+        override = RuleOverride(
+            name="rm-recursive-force",
+            action=RuleAction.REQUIRE_APPROVAL,
+        )
+        assert override.name == "rm-recursive-force"
+        assert override.action == RuleAction.REQUIRE_APPROVAL
+        assert override.disabled is False
+
+    def test_valid_multiple_property_override(self) -> None:
+        """Test overriding multiple properties at once."""
+        override = RuleOverride(
+            name="test-rule",
+            action=RuleAction.ALLOW,
+            message="Custom message",
+            context=RuleContext.HUMAN_ONLY,
+        )
+        assert override.action == RuleAction.ALLOW
+        assert override.message == "Custom message"
+        assert override.context == RuleContext.HUMAN_ONLY
+
+    def test_invalid_empty_override_raises(self) -> None:
+        """Test that override with no changes raises validation error."""
+        with pytest.raises(ValidationError) as exc_info:
+            RuleOverride(name="some-rule")
+        assert "must either set disabled=true" in str(exc_info.value)
+
+    def test_valid_allow_override_property(self) -> None:
+        """Test overriding allow_override property."""
+        override = RuleOverride(
+            name="test-rule",
+            allow_override=False,
+        )
+        assert override.allow_override is False
+
+    def test_override_from_yaml_dict(self) -> None:
+        """Test creating override from dictionary (as loaded from YAML)."""
+        data = {
+            "name": "git-force-push",
+            "action": "allow",
+            "message": "I trust myself with force push",
+        }
+        override = RuleOverride.model_validate(data)
+        assert override.name == "git-force-push"
+        assert override.action == RuleAction.ALLOW
+        assert override.message == "I trust myself with force push"

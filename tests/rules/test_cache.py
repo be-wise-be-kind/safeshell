@@ -68,7 +68,7 @@ class TestRuleCache:
 
         with (
             tempfile.TemporaryDirectory() as tmpdir,
-            patch("safeshell.rules.cache._load_rule_file", return_value=sample_rules),
+            patch("safeshell.rules.cache._load_rule_file", return_value=(sample_rules, [])),
             patch(
                 "safeshell.rules.cache.GLOBAL_RULES_PATH",
                 Path(tmpdir) / "nonexistent.yaml",
@@ -90,7 +90,10 @@ class TestRuleCache:
             rules_path.write_text("rules: []")
 
             with (
-                patch("safeshell.rules.cache._load_rule_file", return_value=sample_rules),
+                patch(
+                    "safeshell.rules.cache._load_rule_file",
+                    return_value=(sample_rules, []),
+                ),
                 patch("safeshell.rules.cache.GLOBAL_RULES_PATH", rules_path),
             ):
                 # First request - cache miss
@@ -115,7 +118,10 @@ class TestRuleCache:
             rules_path.write_text("rules: []")
 
             with (
-                patch("safeshell.rules.cache._load_rule_file", return_value=sample_rules),
+                patch(
+                    "safeshell.rules.cache._load_rule_file",
+                    return_value=(sample_rules, []),
+                ),
                 patch("safeshell.rules.cache.GLOBAL_RULES_PATH", rules_path),
             ):
                 # First request - cache miss
@@ -142,7 +148,10 @@ class TestRuleCache:
             rules_path.write_text("rules: []")
 
             with (
-                patch("safeshell.rules.cache._load_rule_file", return_value=sample_rules),
+                patch(
+                    "safeshell.rules.cache._load_rule_file",
+                    return_value=(sample_rules, []),
+                ),
                 patch("safeshell.rules.cache.GLOBAL_RULES_PATH", rules_path),
             ):
                 # First request - cache miss
@@ -172,7 +181,7 @@ class TestRuleCache:
             rules2 = Path(tmpdir2) / "rules.yaml"
             rules2.write_text("rules: []")
 
-            with patch("safeshell.rules.cache._load_rule_file", return_value=sample_rules):
+            with patch("safeshell.rules.cache._load_rule_file", return_value=(sample_rules, [])):
                 # Populate cache for both directories
                 with patch("safeshell.rules.cache.GLOBAL_RULES_PATH", rules1):
                     cache.get_rules(tmpdir1)
@@ -199,7 +208,7 @@ class TestRuleCache:
             rules2 = Path(tmpdir2) / "rules.yaml"
             rules2.write_text("rules: []")
 
-            with patch("safeshell.rules.cache._load_rule_file", return_value=sample_rules):
+            with patch("safeshell.rules.cache._load_rule_file", return_value=(sample_rules, [])):
                 # Populate cache for both directories
                 with patch("safeshell.rules.cache.GLOBAL_RULES_PATH", rules1):
                     cache.get_rules(tmpdir1)
@@ -219,7 +228,7 @@ class TestRuleCache:
         with (
             tempfile.TemporaryDirectory() as tmpdir1,
             tempfile.TemporaryDirectory() as tmpdir2,
-            patch("safeshell.rules.cache._load_rule_file", return_value=sample_rules),
+            patch("safeshell.rules.cache._load_rule_file", return_value=(sample_rules, [])),
             patch(
                 "safeshell.rules.cache.GLOBAL_RULES_PATH",
                 Path("/nonexistent/rules.yaml"),

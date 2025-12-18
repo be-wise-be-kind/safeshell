@@ -1,7 +1,7 @@
 """
 File: src/safeshell/rules/schema.py
 Purpose: Pydantic models for YAML-based rule configuration
-Exports: RuleAction, Rule, RuleSet
+Exports: RuleAction, RuleContext, Rule, RuleOverride, RuleSet
 Depends: pydantic, enum, condition_types
 Overview: Defines the schema for rules loaded from ~/.safeshell/rules.yaml and .safeshell/rules.yaml
 """
@@ -94,7 +94,53 @@ class Rule(BaseModel):
         return self
 
 
+class RuleOverride(BaseModel):
+    """Override configuration for a default or global rule.
+
+    Allows users to disable or modify rules by name. Overrides are applied
+    at load time so disabled rules never enter the evaluator.
+    """
+
+    name: str = Field(description="Name of the rule to override (must exist)")
+    disabled: bool = Field(
+        default=False,
+        description="If true, completely removes this rule from evaluation",
+    )
+    action: RuleAction | None = Field(
+        default=None,
+        description="Override the rule's action (e.g., change deny to require_approval)",
+    )
+    message: str | None = Field(
+        default=None,
+        description="Override the rule's user-facing message",
+    )
+    context: RuleContext | None = Field(
+        default=None,
+        description="Override the rule's context (all, ai_only, human_only)",
+    )
+    allow_override: bool | None = Field(
+        default=None,
+        description="Override whether user can approve anyway via monitor",
+    )
+
+    @model_validator(mode="after")
+    def validate_not_empty_override(self) -> "RuleOverride":
+        """Ensure at least one override field is set besides name."""
+        if not self.disabled and all(
+            v is None for v in [self.action, self.message, self.context, self.allow_override]
+        ):
+            raise ValueError(
+                f"Override for '{self.name}' must either set disabled=true "
+                "or provide at least one property to override"
+            )
+        return self
+
+
 class RuleSet(BaseModel):
     """A collection of rules from a single source file."""
 
     rules: list[Rule] = Field(default_factory=list)
+    overrides: list[RuleOverride] = Field(
+        default_factory=list,
+        description="Overrides for rules from earlier sources (defaults, global)",
+    )

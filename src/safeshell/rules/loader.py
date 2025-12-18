@@ -1,7 +1,7 @@
 """
 File: src/safeshell/rules/loader.py
 Purpose: Load and merge rule files from global and repo locations
-Exports: load_rules, load_default_rules, GLOBAL_RULES_PATH, BUILTIN_RULE_SOURCES
+Exports: load_rules, load_default_rules, _apply_overrides, GLOBAL_RULES_PATH, BUILTIN_RULE_SOURCES
 Depends: safeshell.rules.schema, safeshell.rules.defaults, safeshell.rules.azure,
          safeshell.exceptions, safeshell.common, pyyaml, pathlib, loguru
 Overview: Loads rules from built-in sources (defaults.py, azure.py),
@@ -9,17 +9,18 @@ Overview: Loads rules from built-in sources (defaults.py, azure.py),
 """
 
 from pathlib import Path
+from typing import Any
 
 import yaml
 from loguru import logger
 from pydantic import ValidationError
 
 from safeshell.common import SAFESHELL_DIR
-from safeshell.exceptions import RuleLoadError
+from safeshell.exceptions import OverrideError, RuleLoadError
 from safeshell.rules.azure import AZURE_RULES_YAML
 from safeshell.rules.defaults import DEFAULT_RULES_YAML
 from safeshell.rules.github import GITHUB_RULES_YAML
-from safeshell.rules.schema import Rule, RuleSet
+from safeshell.rules.schema import Rule, RuleOverride, RuleSet
 
 # All built-in rule sources, loaded in order
 BUILTIN_RULE_SOURCES = [
@@ -112,16 +113,95 @@ def load_default_rules() -> list[Rule]:
     return _default_rules_cache.get()
 
 
+def _apply_overrides(
+    rules: list[Rule],
+    overrides: list[RuleOverride],
+    source_path: str,
+) -> list[Rule]:
+    """Apply overrides to a list of rules.
+
+    Overrides are applied in order. A rule can be:
+    - Disabled (removed from list)
+    - Modified (properties updated)
+
+    Args:
+        rules: The current rule list to modify
+        overrides: List of overrides to apply
+        source_path: Path of the file containing overrides (for error messages)
+
+    Returns:
+        New list of rules with overrides applied
+
+    Raises:
+        OverrideError: If an override references a non-existent rule
+    """
+    if not overrides:
+        return rules
+
+    # Build name -> rule index for efficient lookup
+    rule_by_name: dict[str, Rule] = {r.name: r for r in rules}
+
+    # Track which rules to remove
+    rules_to_remove: set[str] = set()
+
+    # Track modifications
+    modifications: dict[str, dict[str, Any]] = {}
+
+    for override in overrides:
+        if override.name not in rule_by_name:
+            available = ", ".join(sorted(rule_by_name.keys())[:10])
+            raise OverrideError(
+                f"Override in {source_path} references non-existent rule '{override.name}'. "
+                f"Available rules: {available}..."
+            )
+
+        if override.disabled:
+            rules_to_remove.add(override.name)
+            logger.info(f"Override: disabling rule '{override.name}' from {source_path}")
+        else:
+            # Collect modifications
+            mods: dict[str, Any] = {}
+            if override.action is not None:
+                mods["action"] = override.action
+            if override.message is not None:
+                mods["message"] = override.message
+            if override.context is not None:
+                mods["context"] = override.context
+            if override.allow_override is not None:
+                mods["allow_override"] = override.allow_override
+
+            if mods:
+                modifications[override.name] = mods
+                logger.info(
+                    f"Override: modifying rule '{override.name}' "
+                    f"({list(mods.keys())}) from {source_path}"
+                )
+
+    # Apply modifications and filter out disabled rules
+    result: list[Rule] = []
+    for rule in rules:
+        if rule.name in rules_to_remove:
+            continue
+
+        if rule.name in modifications:
+            # Create modified copy using model_copy
+            rule = rule.model_copy(update=modifications[rule.name])
+
+        result.append(rule)
+
+    return result
+
+
 def load_rules(working_dir: str | Path) -> list[Rule]:
-    """Load and merge default, global, and repo rules.
+    """Load and merge default, global, and repo rules with overrides.
 
-    Load order:
+    Load order with overrides:
     1. Default rules (built-in, from defaults.py)
-    2. Global rules (~/.safeshell/rules.yaml)
-    3. Repo rules (.safeshell/rules.yaml in working_dir or parents)
+    2. Global rules (~/.safeshell/rules.yaml) - can override defaults
+    3. Repo rules (.safeshell/rules.yaml) - can add rules but NOT override
 
-    Rules are additive - later rules can add restrictions but cannot relax earlier ones.
-    A malicious repo cannot disable your global protections.
+    Security: Repo rules can only ADD restrictions, never weaken.
+    Global rules can disable/modify default rules since user controls them.
 
     Args:
         working_dir: Current working directory for repo rule discovery
@@ -131,6 +211,7 @@ def load_rules(working_dir: str | Path) -> list[Rule]:
 
     Raises:
         RuleLoadError: If a rules file exists but is invalid
+        OverrideError: If an override references a non-existent rule
     """
     rules: list[Rule] = []
 
@@ -139,16 +220,30 @@ def load_rules(working_dir: str | Path) -> list[Rule]:
     rules.extend(default_rules)
     logger.debug(f"Loaded {len(default_rules)} default rules")
 
-    # 2. Load global rules (user's protections)
+    # 2. Load global rules with overrides (user's protections)
     if GLOBAL_RULES_PATH.exists():
-        global_rules = _load_rule_file(GLOBAL_RULES_PATH)
+        global_rules, global_overrides = _load_rule_file(GLOBAL_RULES_PATH)
+
+        # Apply global overrides to default rules
+        if global_overrides:
+            rules = _apply_overrides(rules, global_overrides, str(GLOBAL_RULES_PATH))
+            logger.debug(f"Applied {len(global_overrides)} global overrides")
+
         rules.extend(global_rules)
         logger.debug(f"Loaded {len(global_rules)} global rules")
 
-    # 3. Load repo rules (additive only)
+    # 3. Load repo rules (additive only - no overrides allowed for security)
     repo_path = _find_repo_rules(Path(working_dir))
     if repo_path:
-        repo_rules = _load_rule_file(repo_path)
+        repo_rules, repo_overrides = _load_rule_file(repo_path)
+
+        # SECURITY: Ignore repo overrides - malicious repo cannot weaken protections
+        if repo_overrides:
+            logger.warning(
+                f"Ignoring {len(repo_overrides)} overrides in repo rules ({repo_path}). "
+                "Repo rules cannot override default or global rules for security reasons."
+            )
+
         rules.extend(repo_rules)
         logger.debug(f"Loaded {len(repo_rules)} repo rules from {repo_path}")
 
@@ -156,14 +251,14 @@ def load_rules(working_dir: str | Path) -> list[Rule]:
     return rules
 
 
-def _load_rule_file(path: Path) -> list[Rule]:
-    """Load rules from a YAML file.
+def _load_rule_file(path: Path) -> tuple[list[Rule], list[RuleOverride]]:
+    """Load rules and overrides from a YAML file.
 
     Args:
         path: Path to the rules YAML file
 
     Returns:
-        List of Rule objects from the file
+        Tuple of (rules list, overrides list)
 
     Raises:
         RuleLoadError: If the file is invalid YAML or fails validation
@@ -174,10 +269,10 @@ def _load_rule_file(path: Path) -> list[Rule]:
 
         if data is None:
             # Empty file
-            return []
+            return [], []
 
         ruleset = RuleSet.model_validate(data)
-        return ruleset.rules
+        return ruleset.rules, ruleset.overrides
 
     except yaml.YAMLError as e:
         raise RuleLoadError(f"Invalid YAML in {path}: {e}") from e
