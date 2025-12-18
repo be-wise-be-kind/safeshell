@@ -2570,14 +2570,14 @@ syntax = ["tree-sitter (>=0.25.0) ; python_version >= \"3.10\"", "tree-sitter-ba
 
 [[package]]
 name = "thailint"
-version = "0.4.6"
+version = "0.9.0"
 description = "The AI Linter - Enterprise-grade linting and governance for AI-generated code across multiple languages"
 optional = false
 python-versions = "<4.0,>=3.11"
 groups = ["dev"]
 files = [
-    {file = "thailint-0.4.6-py3-none-any.whl", hash = "sha256:3b800a16e5d0ff9ca08f06b569b8b89f5db65349c6624333b96fd189d91f3f97"},
-    {file = "thailint-0.4.6.tar.gz", hash = "sha256:418aa9fcf2dfcd376ac6c6ff0080bf07e970b6ffd26e72cfc2acbd8c05d9a195"},
+    {file = "thailint-0.9.0-py3-none-any.whl", hash = "sha256:992afc02189eb08cf08421c6c5c24612e1f3fa587864566fc603623caf43afaa"},
+    {file = "thailint-0.9.0.tar.gz", hash = "sha256:6cb983b44846db320a1ef0354599b84aa27eb8bab1c8ce636741f91f8724fa9e"},
 ]
 
 [package.dependencies]
@@ -2871,4 +2871,4 @@ dev = ["black (>=19.3b0) ; python_version >= \"3.6\"", "pytest (>=4.6.2)"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "3949da1bf29436635100e4d9bfced7b5007c6d6d42958334e853885e068c4e11"
+content-hash = "c9ff0bdd163532158c37bb05996ef651ae35871ab75511e3d8b4d5efed0f22a3"

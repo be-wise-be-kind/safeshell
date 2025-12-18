@@ -35,6 +35,9 @@ from safeshell.events.bus import EventBus
 from safeshell.exceptions import ProtocolError
 from safeshell.models import DaemonRequest, DaemonResponse, Decision
 
+# Socket permissions (owner read/write only)
+_SOCKET_PERMISSIONS = 0o600
+
 
 class DaemonServer:
     """Asyncio-based Unix socket daemon server.
@@ -211,7 +214,7 @@ class DaemonServer:
             self._handle_wrapper_client,
             path=str(self.socket_path),
         )
-        self.socket_path.chmod(0o600)
+        self.socket_path.chmod(_SOCKET_PERMISSIONS)
         logger.info(f"Wrapper server started on {self.socket_path}")
 
         # Create and start monitor server (event streaming)
@@ -219,7 +222,7 @@ class DaemonServer:
             self._monitor_handler.handle_monitor,
             path=str(self.monitor_socket_path),
         )
-        self.monitor_socket_path.chmod(0o600)
+        self.monitor_socket_path.chmod(_SOCKET_PERMISSIONS)
         logger.info(f"Monitor server started on {self.monitor_socket_path}")
 
         logger.info("Rule-based evaluation enabled")

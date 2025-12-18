@@ -20,6 +20,13 @@ from safeshell.exceptions import ConfigError
 # Config-specific path derived from SAFESHELL_DIR
 CONFIG_PATH = SAFESHELL_DIR / "config.yaml"
 
+# Configuration limits and defaults
+_MAX_CONDITION_TIMEOUT_MS = 5000  # Maximum allowed condition evaluation timeout
+_DEFAULT_APPROVAL_TIMEOUT_SECONDS = 300.0  # 5 minutes
+_MAX_APPROVAL_TIMEOUT_SECONDS = 3600.0  # 1 hour
+_DEFAULT_APPROVAL_MEMORY_TTL_SECONDS = 300  # 5 minutes
+_MAX_APPROVAL_MEMORY_TTL_SECONDS = 86400  # 24 hours
+
 
 class UnreachableBehavior(str, Enum):
     """Behavior when daemon is unreachable."""
@@ -58,21 +65,21 @@ class SafeShellConfig(BaseModel):
         default=100,
         description="Timeout in milliseconds for bash condition evaluation",
         ge=10,
-        le=5000,
+        le=_MAX_CONDITION_TIMEOUT_MS,
     )
 
     approval_timeout_seconds: float = Field(
-        default=300.0,
+        default=_DEFAULT_APPROVAL_TIMEOUT_SECONDS,
         description="Timeout in seconds for approval requests",
         ge=10.0,
-        le=3600.0,
+        le=_MAX_APPROVAL_TIMEOUT_SECONDS,
     )
 
     approval_memory_ttl_seconds: int = Field(
-        default=300,
+        default=_DEFAULT_APPROVAL_MEMORY_TTL_SECONDS,
         description="TTL for 'don't ask again' approvals. 0 = session-only (no expiry)",
         ge=0,
-        le=86400,
+        le=_MAX_APPROVAL_MEMORY_TTL_SECONDS,
     )
 
     # Builtin override settings - control which shell builtins are intercepted

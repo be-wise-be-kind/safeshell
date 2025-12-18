@@ -20,6 +20,10 @@ _git_context_cache: dict[str, tuple[str | None, str | None, float]] = {}
 _GIT_CONTEXT_CACHE_TTL = 10.0  # 10 seconds TTL
 _GIT_CONTEXT_CACHE_MAX_SIZE = 100  # Maximum cache entries
 
+# Git HEAD file parsing constants
+_GIT_REF_PREFIX = "ref: refs/heads/"
+_GIT_REF_PREFIX_LEN = len(_GIT_REF_PREFIX)  # 16
+
 
 class Decision(str, Enum):
     """Plugin decision for a command."""
@@ -162,8 +166,8 @@ class CommandContext(BaseModel):
                 if head_file.exists():
                     try:
                         content = head_file.read_text().strip()
-                        if content.startswith("ref: refs/heads/"):
-                            branch = content[16:]  # len("ref: refs/heads/") == 16
+                        if content.startswith(_GIT_REF_PREFIX):
+                            branch = content[_GIT_REF_PREFIX_LEN:]
                         elif content.startswith("ref: "):
                             # Other ref format
                             branch = content[5:].split("/")[-1]

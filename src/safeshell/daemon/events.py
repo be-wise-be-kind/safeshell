@@ -12,6 +12,9 @@ from safeshell.events.bus import EventBus
 from safeshell.events.types import Event
 from safeshell.models import Decision
 
+# Logging constants
+_ID_LOG_PREVIEW_LENGTH = 8
+
 
 class DaemonEventPublisher:
     """Publishes daemon events to connected monitors.
@@ -119,7 +122,9 @@ class DaemonEventPublisher:
         event = Event.approval_needed(
             approval_id, command, plugin_name, reason, working_dir, client_pid, challenge_code
         )
-        logger.info(f"Publishing approval_needed: {command} (id={approval_id[:8]}...)")
+        logger.info(
+            f"Publishing approval_needed: {command} (id={approval_id[:_ID_LOG_PREVIEW_LENGTH]}...)"
+        )
         return await self._bus.publish(event)
 
     async def approval_resolved(
@@ -144,7 +149,9 @@ class DaemonEventPublisher:
         """
         event = Event.approval_resolved(approval_id, approved, reason, working_dir, client_pid)
         status = "approved" if approved else "denied"
-        logger.info(f"Publishing approval_resolved: {approval_id[:8]}... -> {status}")
+        logger.info(
+            f"Publishing approval_resolved: {approval_id[:_ID_LOG_PREVIEW_LENGTH]}... -> {status}"
+        )
         return await self._bus.publish(event)
 
     async def daemon_status(

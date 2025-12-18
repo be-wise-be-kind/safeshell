@@ -19,6 +19,11 @@ from rich.console import Console
 from safeshell.daemon.lifecycle import DaemonLifecycle
 from safeshell.daemon.server import run_daemon
 
+# CLI constants
+_DAEMON_STARTUP_DELAY = 0.5  # seconds to wait for daemon to start
+_DEFAULT_LOG_LINES = 50
+_LOG_POLL_INTERVAL = 0.1  # seconds between log polls
+
 app = typer.Typer(name="daemon", help="Manage the SafeShell daemon")
 console = Console()
 
@@ -85,7 +90,7 @@ def restart() -> None:
         # Wait a moment for clean shutdown
         import time
 
-        time.sleep(0.5)
+        time.sleep(_DAEMON_STARTUP_DELAY)
 
     _daemonize()
     console.print("[green]Daemon restarted[/green]")
@@ -94,7 +99,7 @@ def restart() -> None:
 @app.command()
 def logs(
     follow: bool = typer.Option(False, "--follow", "-f", help="Follow log output (like tail -f)"),
-    lines: int = typer.Option(50, "--lines", "-n", help="Number of lines to show"),
+    lines: int = typer.Option(_DEFAULT_LOG_LINES, "--lines", "-n", help="Number of lines to show"),
 ) -> None:
     """View daemon log file.
 
@@ -168,7 +173,7 @@ def _follow_log(log_path: "os.PathLike[str]", initial_lines: int) -> None:
                 if line:
                     console.print(line.rstrip())
                 else:
-                    time.sleep(0.1)
+                    time.sleep(_LOG_POLL_INTERVAL)
         except KeyboardInterrupt:
             pass
 
@@ -185,7 +190,7 @@ def _daemonize() -> None:
             # Parent - wait briefly for child to start
             import time
 
-            time.sleep(0.5)
+            time.sleep(_DAEMON_STARTUP_DELAY)
             return
     except OSError as e:
         console.print(f"[red]Fork failed: {e}[/red]")

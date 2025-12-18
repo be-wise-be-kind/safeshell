@@ -17,6 +17,14 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+# UI dimension and spacing constants
+_MIN_DIALOG_WIDTH = 500
+_MIN_DIALOG_HEIGHT = 300
+_LAYOUT_SPACING = 12
+_BUTTON_SPACING = 8
+_COMMAND_MAX_HEIGHT = 100
+_MONOSPACE_FONT_SIZE = 10
+
 
 class ApprovalDialog(QDialog):
     """Dialog for approving or denying a command.
@@ -62,13 +70,13 @@ class ApprovalDialog(QDialog):
             | Qt.WindowType.WindowStaysOnTopHint
             | Qt.WindowType.WindowCloseButtonHint
         )
-        self.setMinimumWidth(500)
-        self.setMinimumHeight(300)
+        self.setMinimumWidth(_MIN_DIALOG_WIDTH)
+        self.setMinimumHeight(_MIN_DIALOG_HEIGHT)
 
     def _setup_ui(self, command: str, reason: str, plugin_name: str) -> None:
         """Set up the dialog UI components."""
         layout = QVBoxLayout(self)
-        layout.setSpacing(12)
+        layout.setSpacing(_LAYOUT_SPACING)
 
         # Header
         header = QLabel("A command requires your approval:")
@@ -83,8 +91,8 @@ class ApprovalDialog(QDialog):
         self.cmd_text = QTextEdit()
         self.cmd_text.setPlainText(command)
         self.cmd_text.setReadOnly(True)
-        self.cmd_text.setMaximumHeight(100)
-        self.cmd_text.setFont(QFont("monospace", 10))
+        self.cmd_text.setMaximumHeight(_COMMAND_MAX_HEIGHT)
+        self.cmd_text.setFont(QFont("monospace", _MONOSPACE_FONT_SIZE))
         self.cmd_text.setStyleSheet(
             "background-color: #2D2D2D; color: #FFFFFF; padding: 8px; border-radius: 4px;"
         )
@@ -99,11 +107,11 @@ class ApprovalDialog(QDialog):
         layout.addWidget(plugin_label)
 
         # Spacer
-        layout.addSpacing(12)
+        layout.addSpacing(_LAYOUT_SPACING)
 
         # Button grid (2x2)
         btn_layout = QGridLayout()
-        btn_layout.setSpacing(8)
+        btn_layout.setSpacing(_BUTTON_SPACING)
 
         # Approve buttons (green variants)
         self.approve_btn = QPushButton("Approve (A)")

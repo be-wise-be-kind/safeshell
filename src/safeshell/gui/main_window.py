@@ -27,6 +27,16 @@ from PyQt6.QtWidgets import (
 
 from safeshell.rules.loader import GLOBAL_RULES_PATH
 
+# UI dimension constants
+_MIN_WINDOW_WIDTH = 400
+_MIN_WINDOW_HEIGHT = 200
+_DEFAULT_WINDOW_WIDTH = 800
+_DEFAULT_WINDOW_HEIGHT = 600
+_LAYOUT_MARGIN = 8
+_MONOSPACE_FONT_SIZE = 9
+_TEXT_TRUNCATION_LENGTH = 50
+_TEXT_TRUNCATION_SUFFIX_LEN = 3  # Length of "..."
+
 # Event type to color mapping
 EVENT_COLORS: dict[str, str] = {
     "command_received": "#64B5F6",  # Light blue
@@ -67,8 +77,8 @@ class MainWindow(QMainWindow):
 
     def _setup_window(self) -> None:
         self.setWindowTitle("SafeShell Monitor")
-        self.setMinimumSize(400, 200)
-        self.resize(800, 600)
+        self.setMinimumSize(_MIN_WINDOW_WIDTH, _MIN_WINDOW_HEIGHT)
+        self.resize(_DEFAULT_WINDOW_WIDTH, _DEFAULT_WINDOW_HEIGHT)
 
     def _setup_toolbar(self) -> None:
         """Set up the toolbar with control buttons."""
@@ -156,7 +166,7 @@ class MainWindow(QMainWindow):
         central = QWidget()
         self.setCentralWidget(central)
         layout = QVBoxLayout(central)
-        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setContentsMargins(_LAYOUT_MARGIN, _LAYOUT_MARGIN, _LAYOUT_MARGIN, _LAYOUT_MARGIN)
 
         # Header
         log_header = QLabel("Event Log")
@@ -166,7 +176,7 @@ class MainWindow(QMainWindow):
         # Event log text area
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
-        self.log_text.setFont(QFont("monospace", 9))
+        self.log_text.setFont(QFont("monospace", _MONOSPACE_FONT_SIZE))
         self.log_text.setStyleSheet(
             "background-color: #1E1E1E; color: #D4D4D4; padding: 8px; border-radius: 4px;"
         )
@@ -268,8 +278,8 @@ class MainWindow(QMainWindow):
             details.append(f"rule={data['plugin_name']}")
         if "reason" in data and data["reason"]:
             reason = data["reason"]
-            if len(reason) > 50:
-                reason = reason[:47] + "..."
+            if len(reason) > _TEXT_TRUNCATION_LENGTH:
+                reason = reason[: _TEXT_TRUNCATION_LENGTH - _TEXT_TRUNCATION_SUFFIX_LEN] + "..."
             details.append(f"reason={reason}")
 
         # Format: LABEL | details

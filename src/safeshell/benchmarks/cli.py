@@ -18,6 +18,12 @@ if TYPE_CHECKING:
     from safeshell.benchmarks.evaluation import EvaluationBenchmarkResult
     from safeshell.benchmarks.overhead import BenchmarkResult
 
+# Benchmark iteration counts
+_QUICK_EVAL_ITERATIONS = 50
+_FULL_EVAL_ITERATIONS = 100
+_QUICK_CONDITION_ITERATIONS = 500
+_FULL_CONDITION_ITERATIONS = 1000
+
 app = typer.Typer(
     name="perf",
     help="Performance benchmarking tools.",
@@ -82,7 +88,9 @@ def stats(
         # Run evaluation benchmark only
         console.print()
         console.print("[bold]Rule Evaluation Benchmark[/bold]")
-        eval_result = run_evaluation_benchmark(iterations=50 if quick else 100)
+        eval_result = run_evaluation_benchmark(
+            iterations=_QUICK_EVAL_ITERATIONS if quick else _FULL_EVAL_ITERATIONS
+        )
 
         table = Table(show_header=False)
         table.add_column("Metric", style="cyan")
@@ -120,14 +128,18 @@ def stats(
     # Rule evaluation benchmark
     console.print()
     console.print("[dim]Measuring rule evaluation...[/dim]")
-    eval_result = run_evaluation_benchmark(iterations=50 if quick else 100)
+    eval_result = run_evaluation_benchmark(
+        iterations=_QUICK_EVAL_ITERATIONS if quick else _FULL_EVAL_ITERATIONS
+    )
     _print_evaluation_results(eval_result)
 
     # Detailed condition benchmarks
     if detailed:
         console.print()
         console.print("[dim]Measuring individual condition types...[/dim]")
-        condition_results = run_condition_benchmark(iterations=500 if quick else 1000)
+        condition_results = run_condition_benchmark(
+            iterations=_QUICK_CONDITION_ITERATIONS if quick else _FULL_CONDITION_ITERATIONS
+        )
         _print_condition_results(condition_results)
 
     # Summary

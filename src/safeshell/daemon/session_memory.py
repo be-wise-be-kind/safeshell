@@ -13,6 +13,9 @@ from dataclasses import dataclass
 
 from loguru import logger
 
+# Default TTL for approval memory (5 minutes)
+_DEFAULT_APPROVAL_MEMORY_TTL_SECONDS = 300
+
 
 @dataclass(frozen=True)
 class ApprovalMemoryKey:
@@ -52,7 +55,7 @@ class SessionMemory:
         a single async event loop (the daemon's asyncio loop).
     """
 
-    def __init__(self, ttl_seconds: int = 300) -> None:
+    def __init__(self, ttl_seconds: int = _DEFAULT_APPROVAL_MEMORY_TTL_SECONDS) -> None:
         """Initialize session memory.
 
         Args:
