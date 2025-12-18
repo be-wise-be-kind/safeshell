@@ -91,7 +91,12 @@ def evaluate_fast(
                         sys.stderr.flush()
                     continue
 
-                # Final response
+                # Final response - output status_message if present (e.g., approval granted)
+                status_msg = response.get("status_message")
+                if status_msg:
+                    sys.stderr.write(status_msg + "\n")
+                    sys.stderr.flush()
+
                 should_execute = response.get("should_execute", True)
                 denial_message = response.get("denial_message")
                 return (should_execute, denial_message)
@@ -249,6 +254,11 @@ class DaemonClient:
                         sys.stderr.write(response.status_message + "\n")
                         sys.stderr.flush()
                         continue  # Wait for final response
+
+                    # Output status_message for final responses (e.g., approval granted)
+                    if response.status_message:
+                        sys.stderr.write(response.status_message + "\n")
+                        sys.stderr.flush()
 
                     return response
 

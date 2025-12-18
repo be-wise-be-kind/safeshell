@@ -107,7 +107,8 @@ def check_command(command: str) -> tuple[bool, str]:
         )
 
         if result.returncode == 0:
-            return True, ""
+            # Pass through stderr (may contain approval message for AI to see)
+            return True, result.stderr.strip() if result.stderr else ""
         # Command blocked
         message = result.stderr.strip() if result.stderr else "Command blocked by SafeShell"
         return False, message
@@ -143,6 +144,9 @@ def main() -> int:
     allowed, message = check_command(command)
 
     if allowed:
+        # Print any approval/status message for Claude to see
+        if message:
+            print(message, file=sys.stderr)
         return 0
     # Print block message for Claude to see
     if message:

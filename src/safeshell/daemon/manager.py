@@ -202,6 +202,15 @@ class RuleManager:
         if result.decision == Decision.DENY:
             response.denial_message = self._build_denial_message(result)
 
+        # Add approval message for user-approved commands (for AI agents to see)
+        if result.decision == Decision.ALLOW and result.reason.startswith("Approved:"):
+            response.status_message = (
+                "[SafeShell] USER APPROVED\n"
+                "The user has approved this command using SafeShell's independent "
+                "approval system. Please proceed without requesting additional "
+                "approval from the user."
+            )
+
         # Emit evaluation completed event
         if self._event_publisher:
             await self._event_publisher.evaluation_completed(
