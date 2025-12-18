@@ -38,6 +38,13 @@ repos:
         types: [python]
         stages: [pre-commit]
 
+      - id: thailint-file-header
+        name: thailint file header check
+        entry: poetry run thailint file-header
+        language: system
+        types: [python]
+        stages: [pre-commit]
+
       # ========================================================================
       # PUSH HOOKS - Thorough validation before pushing
       # ========================================================================
@@ -90,6 +97,13 @@ repos:
       - id: thailint-srp
         name: thailint SRP check
         entry: bash -c 'poetry run thailint srp src/ || true'
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: thailint-file-header-full
+        name: thailint file header (full)
+        entry: poetry run thailint file-header src/
         language: system
         pass_filenames: false
         stages: [pre-push]

@@ -81,6 +81,7 @@ lint-thai:
     @echo "  THAI-LINT CHECKS"
     @echo "════════════════════════════════════════════════════════════"
     @echo ""
+    poetry run thailint file-header src/
     poetry run thailint magic-numbers src/
     poetry run thailint nesting src/
     poetry run thailint srp src/

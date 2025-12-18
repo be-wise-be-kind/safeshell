@@ -17,6 +17,9 @@ from pydantic import BaseModel, Field, PrivateAttr
 if TYPE_CHECKING:
     from safeshell.models import CommandContext
 
+# Error message formatting
+_ERROR_MSG_PREVIEW_LENGTH = 50
+
 
 class CommandMatches(BaseModel):
     """Match command against regex pattern.
@@ -202,7 +205,7 @@ def parse_condition(data: dict[str, Any] | str) -> Condition:
     if isinstance(data, str):
         raise ValueError(
             f"Bash string conditions are no longer supported. "
-            f"Use structured conditions instead. Got: {data[:50]}..."
+            f"Use structured conditions instead. Got: {data[:_ERROR_MSG_PREVIEW_LENGTH]}..."
         )
 
     if not isinstance(data, dict):

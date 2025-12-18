@@ -19,6 +19,9 @@ from safeshell.daemon.lifecycle import MONITOR_SOCKET_PATH
 from safeshell.daemon.monitor import MonitorCommand, MonitorCommandType
 from safeshell.daemon.protocol import decode_message, encode_message
 
+# Logging constants
+_ID_LOG_PREVIEW_LENGTH = 8
+
 
 class MonitorClientMessage(BaseModel):
     """Message to send to daemon."""
@@ -195,7 +198,7 @@ class MonitorClient:
             self._writer.write(encode_message(command))
             await self._writer.drain()
             action = "approve (remember)" if remember else "approve"
-            logger.info(f"Sent {action} for {approval_id[:8]}...")
+            logger.info(f"Sent {action} for {approval_id[:_ID_LOG_PREVIEW_LENGTH]}...")
             return True
 
         except Exception as e:
@@ -228,7 +231,7 @@ class MonitorClient:
             self._writer.write(encode_message(command))
             await self._writer.drain()
             action = "deny (remember)" if remember else "deny"
-            logger.info(f"Sent {action} for {approval_id[:8]}...")
+            logger.info(f"Sent {action} for {approval_id[:_ID_LOG_PREVIEW_LENGTH]}...")
             return True
 
         except Exception as e:

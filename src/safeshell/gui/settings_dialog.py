@@ -18,6 +18,9 @@ from PyQt6.QtWidgets import (
 
 from safeshell.gui.settings import GuiSettings
 
+# UI dimension constants
+_MIN_DIALOG_WIDTH = 350
+
 
 class SettingsDialog(QDialog):
     """Dialog for editing GUI preferences.
@@ -44,7 +47,7 @@ class SettingsDialog(QDialog):
     def _setup_window(self) -> None:
         """Configure window properties."""
         self.setWindowTitle("SafeShell - Settings")
-        self.setMinimumWidth(350)
+        self.setMinimumWidth(_MIN_DIALOG_WIDTH)
 
     def _setup_ui(self) -> None:
         """Set up the dialog UI components."""

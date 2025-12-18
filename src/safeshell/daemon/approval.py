@@ -22,6 +22,12 @@ from loguru import logger
 if TYPE_CHECKING:
     from safeshell.daemon.events import DaemonEventPublisher
 
+# Logging constants
+_ID_PREVIEW_LEN = 8  # Characters to show in log messages for UUIDs
+
+# Default timeout for approval requests (5 minutes)
+_DEFAULT_APPROVAL_TIMEOUT_SECONDS = 300.0
+
 
 class ApprovalResult(str, Enum):
     """Result of an approval request."""
@@ -75,7 +81,7 @@ class ApprovalManager:
     def __init__(
         self,
         event_publisher: DaemonEventPublisher,
-        default_timeout: float = 300.0,
+        default_timeout: float = _DEFAULT_APPROVAL_TIMEOUT_SECONDS,
     ) -> None:
         """Initialize the approval manager.
 
@@ -146,7 +152,7 @@ class ApprovalManager:
             self._pending[approval_id] = pending
 
         logger.info(
-            f"Approval requested: {approval_id[:8]}... "
+            f"Approval requested: {approval_id[:_ID_PREVIEW_LEN]}... "
             f"for '{command}' (timeout={timeout_seconds}s)"
         )
 
@@ -167,7 +173,7 @@ class ApprovalManager:
         # Wait for resolution
         try:
             result, denial_reason = await future
-            logger.info(f"Approval {approval_id[:8]}... resolved: {result.value}")
+            logger.info(f"Approval {approval_id[:_ID_PREVIEW_LEN]}... resolved: {result.value}")
             return result, denial_reason
         finally:
             # Clean up timeout task if still running
@@ -193,13 +199,14 @@ class ApprovalManager:
         async with self._lock:
             pending = self._pending.get(approval_id)
             if pending is None:
-                logger.warning(f"Approve called for unknown approval: {approval_id[:8]}...")
+                logger.warning(
+                    f"Approve called for unknown approval: {approval_id[:_ID_PREVIEW_LEN]}..."
+                )
                 return False
 
             if pending.future.done():
-                logger.warning(
-                    f"Approve called for already-resolved approval: {approval_id[:8]}..."
-                )
+                aid = approval_id[:_ID_PREVIEW_LEN]
+                logger.warning(f"Approve called for already-resolved approval: {aid}...")
                 return False
 
             # Resolve the future with appropriate result type
@@ -215,7 +222,7 @@ class ApprovalManager:
         )
 
         action = "Approved (remember)" if remember else "Approved"
-        logger.info(f"{action}: {approval_id[:8]}... for '{pending.command}'")
+        logger.info(f"{action}: {approval_id[:_ID_PREVIEW_LEN]}... for '{pending.command}'")
         return True
 
     async def deny(
@@ -234,11 +241,15 @@ class ApprovalManager:
         async with self._lock:
             pending = self._pending.get(approval_id)
             if pending is None:
-                logger.warning(f"Deny called for unknown approval: {approval_id[:8]}...")
+                logger.warning(
+                    f"Deny called for unknown approval: {approval_id[:_ID_PREVIEW_LEN]}..."
+                )
                 return False
 
             if pending.future.done():
-                logger.warning(f"Deny called for already-resolved approval: {approval_id[:8]}...")
+                logger.warning(
+                    f"Deny called for already-resolved approval: {approval_id[:_ID_PREVIEW_LEN]}..."
+                )
                 return False
 
             # Resolve the future with appropriate result type
@@ -256,7 +267,7 @@ class ApprovalManager:
 
         action = "Denied (remember)" if remember else "Denied"
         logger.info(
-            f"{action}: {approval_id[:8]}... for '{pending.command}'"
+            f"{action}: {approval_id[:_ID_PREVIEW_LEN]}... for '{pending.command}'"
             + (f" (reason: {reason})" if reason else "")
         )
         return True
@@ -291,7 +302,10 @@ class ApprovalManager:
                 client_pid=pending.client_pid,
             )
 
-            logger.warning(f"Approval timed out: {approval_id[:8]}... " f"after {timeout_seconds}s")
+            logger.warning(
+                f"Approval timed out: {approval_id[:_ID_PREVIEW_LEN]}... "
+                f"after {timeout_seconds}s"
+            )
 
             # Resolve as timeout (after publishing event)
             pending.future.set_result((ApprovalResult.TIMEOUT, None))

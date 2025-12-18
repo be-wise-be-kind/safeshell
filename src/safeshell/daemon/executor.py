@@ -14,6 +14,9 @@ import subprocess
 import time
 from dataclasses import dataclass
 
+# Shell exit codes
+_EXIT_CODE_COMMAND_NOT_FOUND = 127  # Standard shell exit code for command not found
+
 
 @dataclass
 class ExecutionResult:
@@ -63,7 +66,7 @@ def execute_command(
         stderr = result.stderr
     except Exception as e:
         # Handle execution errors (e.g., working_dir doesn't exist)
-        exit_code = 127  # Command not found / execution error
+        exit_code = _EXIT_CODE_COMMAND_NOT_FOUND
         stdout = ""
         stderr = f"Execution error: {e}"
 

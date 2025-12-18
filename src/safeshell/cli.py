@@ -26,6 +26,9 @@ from safeshell.wrapper.cli import app as wrapper_app
 # GUI PID file for preventing duplicate instances
 GUI_PID_PATH = SAFESHELL_DIR / "gui.pid"
 
+# Daemon startup delay (seconds) - wait for daemon to initialize
+_DAEMON_STARTUP_DELAY = 0.5
+
 
 def _is_gui_running() -> bool:
     """Check if GUI process is running."""
@@ -99,7 +102,7 @@ def up() -> None:
     if not DaemonLifecycle.is_running():
         console.print("Starting daemon...")
         _daemonize()
-        time.sleep(0.5)
+        time.sleep(_DAEMON_STARTUP_DELAY)
         if DaemonLifecycle.is_running():
             console.print("[green]Daemon started.[/green]")
         else:
@@ -180,12 +183,12 @@ def restart() -> None:
 
     if stopped_gui or stopped_daemon:
         console.print("Stopping SafeShell...")
-        time.sleep(0.5)  # Allow clean shutdown
+        time.sleep(_DAEMON_STARTUP_DELAY)  # Allow clean shutdown
 
     # Start daemon
     console.print("Starting daemon...")
     _daemonize()
-    time.sleep(0.5)
+    time.sleep(_DAEMON_STARTUP_DELAY)
     if DaemonLifecycle.is_running():
         console.print("[green]Daemon started.[/green]")
     else:
@@ -346,7 +349,7 @@ def tray() -> None:
             console.print("Starting daemon...")
             _daemonize()
             # Wait briefly for daemon to start
-            time.sleep(0.5)
+            time.sleep(_DAEMON_STARTUP_DELAY)
             if DaemonLifecycle.is_running():
                 console.print("[green]Daemon started.[/green]")
             else:

@@ -20,6 +20,9 @@ from safeshell.events.bus import EventBus
 from safeshell.events.types import Event
 from safeshell.exceptions import ProtocolError
 
+# Logging constants
+_ID_LOG_PREVIEW_LENGTH = 8
+
 
 class MonitorCommandType(str, Enum):
     """Types of commands from monitor to daemon."""
@@ -157,7 +160,7 @@ class MonitorConnectionHandler:
 
             # Subscribe to events
             sub_id = await self._bus.subscribe(send_event)
-            logger.debug(f"Monitor {peer} subscribed with ID {sub_id[:8]}...")
+            logger.debug(f"Monitor {peer} subscribed with ID {sub_id[:_ID_LOG_PREVIEW_LENGTH]}...")
 
             # Send welcome message
             welcome = MonitorResponse.ok("Connected to SafeShell daemon")
@@ -177,7 +180,7 @@ class MonitorConnectionHandler:
             # Clean up subscription
             if sub_id:
                 await self._bus.unsubscribe(sub_id)
-                logger.debug(f"Monitor {peer} unsubscribed ({sub_id[:8]}...)")
+                logger.debug(f"Monitor {peer} unsubscribed ({sub_id[:_ID_LOG_PREVIEW_LENGTH]}...)")
 
             # Close connection
             try:
@@ -291,7 +294,7 @@ class MonitorConnectionHandler:
         try:
             await self._approve_callback(approval_id, remember=remember)
             action = "Approved (remember)" if remember else "Approved"
-            return MonitorResponse.ok(f"{action} {approval_id[:8]}...")
+            return MonitorResponse.ok(f"{action} {approval_id[:_ID_LOG_PREVIEW_LENGTH]}...")
         except Exception as e:
             return MonitorResponse.err(f"Failed to approve: {e}")
 
@@ -314,7 +317,7 @@ class MonitorConnectionHandler:
         try:
             await self._deny_callback(approval_id, reason, remember=remember)
             action = "Denied (remember)" if remember else "Denied"
-            return MonitorResponse.ok(f"{action} {approval_id[:8]}...")
+            return MonitorResponse.ok(f"{action} {approval_id[:_ID_LOG_PREVIEW_LENGTH]}...")
         except Exception as e:
             return MonitorResponse.err(f"Failed to deny: {e}")
 

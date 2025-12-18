@@ -17,6 +17,9 @@ from safeshell.events.types import Event
 # Type alias for event callbacks
 EventCallback = Callable[[Event], Awaitable[None]]
 
+# Logging constants
+_ID_LOG_PREVIEW_LENGTH = 8
+
 
 class EventBus:
     """Async event bus for daemon-monitor communication.
@@ -58,7 +61,7 @@ class EventBus:
         sub_id = str(uuid.uuid4())
         async with self._lock:
             self._subscribers[sub_id] = callback
-        logger.debug(f"Subscriber {sub_id[:8]}... registered")
+        logger.debug(f"Subscriber {sub_id[:_ID_LOG_PREVIEW_LENGTH]}... registered")
         return sub_id
 
     async def unsubscribe(self, sub_id: str) -> bool:
@@ -73,9 +76,9 @@ class EventBus:
         async with self._lock:
             if sub_id in self._subscribers:
                 del self._subscribers[sub_id]
-                logger.debug(f"Subscriber {sub_id[:8]}... unregistered")
+                logger.debug(f"Subscriber {sub_id[:_ID_LOG_PREVIEW_LENGTH]}... unregistered")
                 return True
-        logger.warning(f"Subscriber {sub_id[:8]}... not found for unsubscribe")
+        logger.warning(f"Subscriber {sub_id[:_ID_LOG_PREVIEW_LENGTH]}... not found for unsubscribe")
         return False
 
     async def publish(self, event: Event) -> int:
@@ -124,7 +127,7 @@ class EventBus:
             await callback(event)
             return True
         except Exception as e:
-            logger.exception(f"Error delivering event to {sub_id[:8]}...: {e}")
+            logger.exception(f"Error delivering event to {sub_id[:_ID_LOG_PREVIEW_LENGTH]}...: {e}")
             return False
 
     @property

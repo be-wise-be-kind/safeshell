@@ -22,6 +22,10 @@ from typing import TYPE_CHECKING
 # Socket path constant - avoid importing daemon.lifecycle
 _DEFAULT_SOCKET_PATH = Path.home() / ".safeshell" / "daemon.sock"
 
+# Fast-path constants
+_FAST_PATH_TIMEOUT = 120.0  # 2 minute default timeout for fast path
+_RECV_BUFFER_SIZE = 65536  # Buffer size for receiving response
+
 if TYPE_CHECKING:
     from safeshell.config import SafeShellConfig
     from safeshell.models import DaemonRequest, DaemonResponse, ExecutionContext
@@ -67,7 +71,7 @@ def evaluate_fast(
 
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
-            sock.settimeout(120.0)  # 2 minute default timeout
+            sock.settimeout(_FAST_PATH_TIMEOUT)
             sock.connect(str(sock_path))
 
             # Send request
@@ -100,7 +104,7 @@ def _recv_line(sock: socket.socket) -> bytes:
     """Receive one JSON line from socket."""
     data = b""
     while True:
-        chunk = sock.recv(65536)
+        chunk = sock.recv(_RECV_BUFFER_SIZE)
         if not chunk:
             break
         data += chunk
@@ -108,6 +112,12 @@ def _recv_line(sock: socket.socket) -> bytes:
             line, _, _ = data.partition(b"\n")
             return line.strip()
     return data.strip()
+
+
+# DaemonClient class constants
+_MAX_START_WAIT = 5.0  # seconds to wait for daemon startup
+_POLL_INTERVAL = 0.05  # 50ms between connection attempts
+_TIMEOUT_MULTIPLIER = 2.0  # Socket timeout = approval_timeout * this
 
 
 class DaemonClient:
@@ -120,10 +130,10 @@ class DaemonClient:
     For maximum performance, use evaluate_fast() instead.
     """
 
-    MAX_START_WAIT: float = 5.0  # seconds to wait for daemon startup
-    POLL_INTERVAL: float = 0.05  # 50ms between connection attempts
-    RECV_BUFFER: int = 65536  # Buffer size for receiving response
-    TIMEOUT_MULTIPLIER: float = 2.0  # Socket timeout = approval_timeout * this
+    MAX_START_WAIT: float = _MAX_START_WAIT
+    POLL_INTERVAL: float = _POLL_INTERVAL
+    RECV_BUFFER: int = _RECV_BUFFER_SIZE
+    TIMEOUT_MULTIPLIER: float = _TIMEOUT_MULTIPLIER
 
     def __init__(self, socket_path: Path | None = None) -> None:
         """Initialize client.

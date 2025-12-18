@@ -15,6 +15,12 @@ from textual.containers import Horizontal, ScrollableContainer
 from textual.message import Message
 from textual.widgets import Button, Input, RichLog, Static
 
+# UI constants
+_MAX_HISTORY_ITEMS = 50
+_MAX_DISPLAY_ITEMS = 20
+_COMMAND_TRUNCATE_LENGTH = 40
+_REASON_TRUNCATE_LENGTH = 50
+
 
 class CommandHistoryItem(BaseModel):
     """Represents a command in the history."""
@@ -146,9 +152,9 @@ class HistoryPane(Static):
             item: Command history item to add
         """
         self._history.insert(0, item)
-        # Keep only last 50 items
-        if len(self._history) > 50:
-            self._history = self._history[:50]
+        # Keep only last N items
+        if len(self._history) > _MAX_HISTORY_ITEMS:
+            self._history = self._history[:_MAX_HISTORY_ITEMS]
         self._render_history()
 
     def update_command(
@@ -192,14 +198,18 @@ class HistoryPane(Static):
             "waiting": ("??", "cmd-waiting"),
         }
 
-        for item in self._history[:20]:  # Show last 20
+        for item in self._history[:_MAX_DISPLAY_ITEMS]:
             icon, css_class = status_icons.get(item.status, ("?", "cmd-pending"))
             time_str = item.timestamp.strftime("%H:%M:%S.%f")[:-3]  # Include milliseconds
-            cmd_short = item.command[:40] + "..." if len(item.command) > 40 else item.command
+            cmd_short = (
+                item.command[:_COMMAND_TRUNCATE_LENGTH] + "..."
+                if len(item.command) > _COMMAND_TRUNCATE_LENGTH
+                else item.command
+            )
 
             text = f"[{icon}] {time_str} {cmd_short}"
             if item.reason:
-                text += f"\n    [dim]{item.reason[:50]}[/dim]"
+                text += f"\n    [dim]{item.reason[:_REASON_TRUNCATE_LENGTH]}[/dim]"
 
             container.mount(Static(text, classes=f"history-item {css_class}"))
 

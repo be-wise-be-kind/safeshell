@@ -32,6 +32,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Timeout for approval flow (10 minutes)
+_APPROVAL_TIMEOUT_SECONDS = 600
+
 
 def find_wrapper() -> str | None:
     """Find safeshell-wrapper executable."""
@@ -100,7 +103,7 @@ def check_command(command: str) -> tuple[bool, str]:
             env=env,
             capture_output=True,
             text=True,
-            timeout=600,  # 10 minutes for approval flow
+            timeout=_APPROVAL_TIMEOUT_SECONDS,
         )
 
         if result.returncode == 0:

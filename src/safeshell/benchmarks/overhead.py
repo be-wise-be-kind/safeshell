@@ -14,6 +14,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from statistics import mean, stdev
 
+# Benchmark constants
+_TARGET_OVERHEAD_MS = 50.0  # Target maximum overhead in milliseconds
+_DEFAULT_SOCKET_ITERATIONS = 20
+_PING_RECV_BUFFER_SIZE = 4096  # Buffer size for ping response
+
 
 @dataclass
 class BenchmarkResult:
@@ -30,7 +35,7 @@ class BenchmarkResult:
     @property
     def meets_target(self) -> bool:
         """Check if overhead meets the target of <50ms."""
-        return self.overhead_ms < 50.0
+        return self.overhead_ms < _TARGET_OVERHEAD_MS
 
 
 def _time_command(command: str, env: dict[str, str] | None = None) -> float:
@@ -146,7 +151,7 @@ def run_overhead_benchmark(
 
 
 def run_socket_latency_benchmark(
-    iterations: int = 20,
+    iterations: int = _DEFAULT_SOCKET_ITERATIONS,
 ) -> dict[str, float | str | int]:
     """Benchmark raw socket communication latency with daemon.
 
@@ -176,7 +181,7 @@ def run_socket_latency_benchmark(
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.connect(str(socket_path))
             sock.sendall(ping_request)
-            sock.recv(4096)
+            sock.recv(_PING_RECV_BUFFER_SIZE)
             sock.close()
 
             end = time.perf_counter()

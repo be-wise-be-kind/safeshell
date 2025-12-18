@@ -16,6 +16,9 @@ from PyQt6.QtWidgets import QMenu, QSystemTrayIcon
 if TYPE_CHECKING:
     from safeshell.gui.app import SafeShellGuiApp
 
+# UI constants
+_NOTIFICATION_TIMEOUT_MS = 5000
+
 
 class TrayStatus:
     """Enum-like class for tray icon status."""
@@ -177,7 +180,9 @@ class SafeShellTray(QSystemTrayIcon):
             message: Notification body text
         """
         if self.supportsMessages():
-            self.showMessage(title, message, QSystemTrayIcon.MessageIcon.Warning, 5000)
+            self.showMessage(
+                title, message, QSystemTrayIcon.MessageIcon.Warning, _NOTIFICATION_TIMEOUT_MS
+            )
 
     def _on_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         """Handle tray icon activation (click)."""

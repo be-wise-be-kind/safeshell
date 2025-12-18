@@ -19,6 +19,9 @@ from safeshell.events.types import EventType
 from safeshell.monitor.client import MonitorClient
 from safeshell.monitor.widgets import ApprovalPane, CommandHistoryItem, DebugPane, HistoryPane
 
+# UI constants
+_ID_DISPLAY_LENGTH = 12
+
 
 class MonitorApp(App[None]):
     """SafeShell Monitor TUI Application.
@@ -195,7 +198,7 @@ class MonitorApp(App[None]):
                 plugin_name = data.get("plugin_name", "")
 
                 self._log_debug(f"Approval needed: {command}", "warning")
-                self._log_debug(f"  ID: {approval_id[:12]}...", "debug")
+                self._log_debug(f"  ID: {approval_id[:_ID_DISPLAY_LENGTH]}...", "debug")
                 self._log_debug(f"  Reason: {reason}", "info")
 
                 approval_pane.add_pending_approval(
@@ -218,9 +221,9 @@ class MonitorApp(App[None]):
                 reason = data.get("reason")
 
                 if approved:
-                    self._log_debug(f"Approved: {approval_id[:12]}...", "success")
+                    self._log_debug(f"Approved: {approval_id[:_ID_DISPLAY_LENGTH]}...", "success")
                 else:
-                    self._log_debug(f"Denied: {approval_id[:12]}...", "error")
+                    self._log_debug(f"Denied: {approval_id[:_ID_DISPLAY_LENGTH]}...", "error")
                     if reason:
                         self._log_debug(f"  Reason: {reason}", "info")
 
@@ -247,14 +250,16 @@ class MonitorApp(App[None]):
         """
         if event.approved:
             remember_msg = " (remember)" if event.remember else ""
-            self._log_debug(f"Approving{remember_msg} {event.approval_id[:12]}...", "info")
+            self._log_debug(
+                f"Approving{remember_msg} {event.approval_id[:_ID_DISPLAY_LENGTH]}...", "info"
+            )
             success = await self._client.approve(event.approval_id, remember=event.remember)
             if not success:
                 self._log_debug("Failed to send approval", "error")
         else:
             remember_msg = " (remember)" if event.remember else ""
             reason_msg = f" (reason: {event.reason})" if event.reason else ""
-            msg = f"Denying{remember_msg} {event.approval_id[:12]}...{reason_msg}"
+            msg = f"Denying{remember_msg} {event.approval_id[:_ID_DISPLAY_LENGTH]}...{reason_msg}"
             self._log_debug(msg, "info")
             success = await self._client.deny(
                 event.approval_id, event.reason, remember=event.remember

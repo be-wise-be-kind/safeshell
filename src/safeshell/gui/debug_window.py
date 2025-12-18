@@ -19,6 +19,14 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+# UI dimension constants
+_MIN_WINDOW_WIDTH = 600
+_MIN_WINDOW_HEIGHT = 400
+_DEFAULT_WINDOW_WIDTH = 800
+_DEFAULT_WINDOW_HEIGHT = 500
+_MONOSPACE_FONT_SIZE = 9
+_APPROVAL_ID_PREVIEW_LEN = 8
+
 # Event type to color mapping
 EVENT_COLORS: dict[str, str] = {
     "command_received": "#64B5F6",  # Light blue
@@ -50,8 +58,8 @@ class DebugWindow(QMainWindow):
     def _setup_window(self) -> None:
         """Configure window properties."""
         self.setWindowTitle("SafeShell Monitor")
-        self.setMinimumSize(600, 400)
-        self.resize(800, 500)
+        self.setMinimumSize(_MIN_WINDOW_WIDTH, _MIN_WINDOW_HEIGHT)
+        self.resize(_DEFAULT_WINDOW_WIDTH, _DEFAULT_WINDOW_HEIGHT)
 
     def _setup_ui(self) -> None:
         """Set up the window UI components."""
@@ -62,7 +70,7 @@ class DebugWindow(QMainWindow):
         # Log display
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
-        self.log_text.setFont(QFont("monospace", 9))
+        self.log_text.setFont(QFont("monospace", _MONOSPACE_FONT_SIZE))
         self.log_text.setStyleSheet("background-color: #1E1E1E; color: #D4D4D4; padding: 8px;")
         layout.addWidget(self.log_text)
 
@@ -116,7 +124,7 @@ class DebugWindow(QMainWindow):
             if "reason" in data:
                 details.append(f"reason={data['reason']}")
             if "approval_id" in data:
-                details.append(f"id={data['approval_id'][:8]}...")
+                details.append(f"id={data['approval_id'][:_APPROVAL_ID_PREVIEW_LEN]}...")
             if "working_dir" in data:
                 details.append(f"dir={data['working_dir']}")
             if details:

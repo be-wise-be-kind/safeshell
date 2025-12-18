@@ -32,6 +32,11 @@ from safeshell.monitor.client import MonitorClient
 # GUI PID file path
 GUI_PID_PATH = SAFESHELL_DIR / "gui.pid"
 
+# UI constants
+_COMMAND_PREVIEW_LENGTH = 50
+_DAEMON_STOP_DELAY = 0.5  # seconds to wait for daemon to stop
+_DAEMON_READY_DELAY = 1.0  # seconds to wait for daemon to be ready
+
 
 class SafeShellGuiApp(QObject):
     """Main GUI application coordinating all components.
@@ -194,7 +199,11 @@ class SafeShellGuiApp(QObject):
 
         # Show system notification if enabled
         if self.settings.show_notifications:
-            cmd_preview = command[:50] + "..." if len(command) > 50 else command
+            cmd_preview = (
+                command[:_COMMAND_PREVIEW_LENGTH] + "..."
+                if len(command) > _COMMAND_PREVIEW_LENGTH
+                else command
+            )
             self.tray.show_notification(
                 "Approval Required",
                 f"Command: {cmd_preview}",
@@ -252,13 +261,13 @@ class SafeShellGuiApp(QObject):
             DaemonLifecycle.stop_daemon()
 
             # Wait for daemon to stop
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(_DAEMON_STOP_DELAY)
 
             # Start daemon again
             self._start_daemon()
 
             # Wait for daemon to be ready and reconnect
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(_DAEMON_READY_DELAY)
 
             # Reconnect the client
             connected = await self.client.connect()
