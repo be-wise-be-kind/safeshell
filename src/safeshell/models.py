@@ -219,6 +219,10 @@ class EvaluationResult(BaseModel):
         default=False,
         description="True if user explicitly denied in Monitor TUI (not timeout)",
     )
+    is_timeout: bool = Field(
+        default=False,
+        description="True if approval request timed out without user response",
+    )
 
 
 class RequestType(str, Enum):
@@ -363,3 +367,25 @@ IMPORTANT INSTRUCTIONS FOR AI AGENT:
 
 YOUR NEXT STEP: Acknowledge to the user that they denied this operation and ask
 them what they would like you to do instead."""
+
+    @staticmethod
+    def _format_timeout_message(command: str, plugin_name: str) -> str:
+        """Format a message when approval request timed out."""
+        return f"""[SafeShell] APPROVAL TIMED OUT
+The approval request expired before the user responded.
+Command: {command}
+Policy: {plugin_name}
+
+WHAT HAPPENED: SafeShell requested user approval via popup dialog, but the user
+did not respond within the timeout period. This could mean:
+- The user was away from their computer
+- The user did not see the approval popup
+- The approval dialog was accidentally dismissed
+
+IMPORTANT INSTRUCTIONS FOR AI AGENT:
+Your next message to the user MUST:
+1. Inform them that SafeShell requested their approval but they did not respond in time
+2. Ask if they would like you to try the command again so they can approve it
+
+Example response: "SafeShell requested your approval for a command, but the request
+timed out before you responded. Would you like me to try again so you can approve it?" """

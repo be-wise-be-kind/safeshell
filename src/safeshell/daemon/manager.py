@@ -229,6 +229,7 @@ class RuleManager:
                 result,
                 command=request.command,
                 is_user_denial=result.is_user_denial,
+                is_timeout=result.is_timeout,
             )
 
         # Add approval message for user-approved commands (for AI agents to see)
@@ -269,17 +270,21 @@ class RuleManager:
         result: EvaluationResult,
         command: str | None = None,
         is_user_denial: bool = False,
+        is_timeout: bool = False,
     ) -> str:
         """Build denial message from result.
 
         Args:
             result: Evaluation result with DENY decision
-            command: Original command (needed for user denial messages)
+            command: Original command (needed for user denial/timeout messages)
             is_user_denial: True if user explicitly denied in Monitor TUI
+            is_timeout: True if approval request timed out
 
         Returns:
             Formatted denial message for AI terminal
         """
+        if is_timeout and command:
+            return DaemonResponse._format_timeout_message(command, result.plugin_name)
         if is_user_denial and command:
             return DaemonResponse._format_user_denial_message(
                 command, result.reason, result.plugin_name
@@ -391,8 +396,10 @@ class RuleManager:
 
         # Denied, denied_remember, or timed out
         is_user_denial = False
+        is_timeout = False
         if approval_result == ApprovalResult.TIMEOUT:
             denial_reason = "Approval timed out"
+            is_timeout = True
             logger.warning(f"Command timed out waiting for approval: {command}")
         else:
             # User explicitly denied - mark it so we generate the right message
@@ -410,6 +417,7 @@ class RuleManager:
             plugin_name=result.plugin_name,
             reason=denial_reason or result.reason,
             is_user_denial=is_user_denial,
+            is_timeout=is_timeout,
         )
 
     async def _handle_execute(
