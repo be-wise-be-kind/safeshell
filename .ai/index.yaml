@@ -40,6 +40,7 @@ documentation:
     - PROJECT_CONTEXT.md
     - PYTHON_STANDARDS.md
     - file-header-format.md
+    - fail-open-behavior.md
 
 howtos:
   location: .ai/howtos/

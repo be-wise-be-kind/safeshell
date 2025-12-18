@@ -83,5 +83,14 @@ fi
 
 # Use daemon-based execution (no Python startup!)
 # safeshell-check -e sends execute request to daemon
+# Exit code 2 = daemon error (fail open), 0 = success, 1 = denied
 "$SAFESHELL_CHECK" -e "$FULL_CMD"
-exit $?
+CHECK_EXIT=$?
+
+# If check script had internal error (exit 2), fail open by executing directly
+if [[ $CHECK_EXIT -eq 2 ]]; then
+    exec "$REAL_CMD" "$@"
+fi
+
+# Otherwise pass through the result (0=success, 1=denied)
+exit $CHECK_EXIT
