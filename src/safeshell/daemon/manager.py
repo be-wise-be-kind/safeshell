@@ -232,7 +232,10 @@ class RuleManager:
             )
 
         # Add approval message for user-approved commands (for AI agents to see)
-        if result.decision == Decision.ALLOW and result.reason.startswith("Approved:"):
+        # Match both "Approved:" (first approval) and "Auto-approved" (remembered approval)
+        if result.decision == Decision.ALLOW and (
+            result.reason.startswith("Approved:") or result.reason.startswith("Auto-approved")
+        ):
             response.status_message = (
                 "[SafeShell] USER APPROVED\n"
                 "The user has approved this command using SafeShell's independent "
