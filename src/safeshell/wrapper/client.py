@@ -63,6 +63,7 @@ def evaluate_fast(
     command: str,
     working_dir: str,
     socket_path: Path | None = None,
+    fail_open: bool = False,
 ) -> tuple[bool, str | None]:
     """Fast-path command evaluation with minimal imports.
 
@@ -74,6 +75,7 @@ def evaluate_fast(
         command: Command string to evaluate
         working_dir: Current working directory
         socket_path: Path to daemon socket (defaults to standard location)
+        fail_open: If True, allow command when daemon is unreachable (default: False)
 
     Returns:
         Tuple of (should_execute, denial_message)
@@ -81,10 +83,12 @@ def evaluate_fast(
         - denial_message: Message to show if denied, or None
 
     Raises:
-        ConnectionError: If cannot connect to daemon
+        ConnectionError: If cannot connect to daemon (only when fail_open=False)
     """
     sock_path = socket_path or _DEFAULT_SOCKET_PATH
     if not sock_path.exists():
+        if fail_open:
+            return (True, None)  # Daemon not running - fail open
         raise ConnectionError(f"Daemon socket not found at {sock_path}")
 
     # Build request JSON directly (no pydantic import)
@@ -109,6 +113,8 @@ def evaluate_fast(
             return _receive_final_response(sock)
 
     except (ConnectionRefusedError, FileNotFoundError, TimeoutError) as e:
+        if fail_open:
+            return (True, None)  # Daemon unreachable - fail open
         raise ConnectionError(f"Cannot connect to daemon: {e}") from e
 
 

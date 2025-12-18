@@ -84,31 +84,45 @@ fi
 REQUEST="{\"type\":\"${REQUEST_TYPE}\",\"command\":\"${CMD_ESCAPED}\",\"working_dir\":\"${DIR_ESCAPED}\",\"env\":{},\"execution_context\":\"human\"}"
 
 # Send request and get response using timeout + nc/socat
+# Returns empty string on any communication failure (fail-open)
 send_request() {
+    local response=""
+    
     if command -v socat &>/dev/null; then
-        echo "$REQUEST" | socat -t 30 - "UNIX-CONNECT:$SOCKET" 2>/dev/null
+        # Use socat with timeout - capture exit code
+        response=$(echo "$REQUEST" | timeout 30 socat -t 30 - "UNIX-CONNECT:$SOCKET" 2>/dev/null)
+        local exit_code=$?
+        # Exit codes: 124=timeout, 1+=socat error
+        if [[ $exit_code -ne 0 ]]; then
+            return 1  # Signal failure
+        fi
     elif command -v nc &>/dev/null; then
         # BSD nc uses -U for Unix sockets
-        echo "$REQUEST" | timeout 30 nc -U "$SOCKET" 2>/dev/null
+        response=$(echo "$REQUEST" | timeout 30 nc -U "$SOCKET" 2>/dev/null)
+        local exit_code=$?
+        if [[ $exit_code -ne 0 ]]; then
+            return 1  # Signal failure
+        fi
     else
         # No suitable tool - fail open
-        if [[ $EXECUTE_MODE -eq 1 ]]; then
-            echo '{"executed":false,"should_execute":true}'
-        else
-            echo '{"should_execute":true}'
-        fi
+        return 1
     fi
+    
+    echo "$response"
+    return 0
 }
 
 RESPONSE=$(send_request)
+COMM_EXIT=$?
 
-if [[ -z "$RESPONSE" ]]; then
-    # Empty response - daemon issue, fail open
+# If communication failed (timeout, connection refused, etc.) - fail open
+if [[ $COMM_EXIT -ne 0 ]] || [[ -z "$RESPONSE" ]]; then
+    # Daemon unreachable or broken - fail open
     if [[ $EXECUTE_MODE -eq 1 ]]; then
         eval "$COMMAND"
         exit $?
     else
-        exit 0
+        exit 0  # Check mode: allow
     fi
 fi
 
