@@ -215,6 +215,10 @@ class EvaluationResult(BaseModel):
     challenge_code: str | None = Field(
         default=None, description="Challenge code for approval workflow (Phase 2)"
     )
+    is_user_denial: bool = Field(
+        default=False,
+        description="True if user explicitly denied in Monitor TUI (not timeout)",
+    )
 
 
 class RequestType(str, Enum):
@@ -342,3 +346,20 @@ Policy: {plugin_name}
 
 This operation has been intentionally prevented by SafeShell policy.
 Do not attempt to work around this restriction."""
+
+    @staticmethod
+    def _format_user_denial_message(command: str, reason: str | None, plugin_name: str) -> str:
+        """Format a denial message when the user explicitly denied the command."""
+        reason_line = f"\nReason given: {reason}" if reason else ""
+        return f"""[SafeShell] USER DENIED
+The user has EXPLICITLY DENIED this command.
+Command: {command}
+Policy: {plugin_name}{reason_line}
+
+IMPORTANT INSTRUCTIONS FOR AI AGENT:
+- DO NOT retry this command
+- DO NOT attempt workarounds or alternative approaches to achieve the same goal
+- DO NOT re-request approval for this command
+
+YOUR NEXT STEP: Acknowledge to the user that they denied this operation and ask
+them what they would like you to do instead."""

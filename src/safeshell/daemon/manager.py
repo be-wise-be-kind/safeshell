@@ -225,7 +225,11 @@ class RuleManager:
 
         # Add denial message if blocked
         if result.decision == Decision.DENY:
-            response.denial_message = self._build_denial_message(result)
+            response.denial_message = self._build_denial_message(
+                result,
+                command=request.command,
+                is_user_denial=result.is_user_denial,
+            )
 
         # Add approval message for user-approved commands (for AI agents to see)
         if result.decision == Decision.ALLOW and result.reason.startswith("Approved:"):
@@ -257,15 +261,26 @@ class RuleManager:
 
         return response
 
-    def _build_denial_message(self, result: EvaluationResult) -> str:
+    def _build_denial_message(
+        self,
+        result: EvaluationResult,
+        command: str | None = None,
+        is_user_denial: bool = False,
+    ) -> str:
         """Build denial message from result.
 
         Args:
             result: Evaluation result with DENY decision
+            command: Original command (needed for user denial messages)
+            is_user_denial: True if user explicitly denied in Monitor TUI
 
         Returns:
             Formatted denial message for AI terminal
         """
+        if is_user_denial and command:
+            return DaemonResponse._format_user_denial_message(
+                command, result.reason, result.plugin_name
+            )
         return DaemonResponse._format_denial_message(result.reason, result.plugin_name)
 
     async def _handle_approval(
@@ -372,22 +387,26 @@ class RuleManager:
             )
 
         # Denied, denied_remember, or timed out
+        is_user_denial = False
         if approval_result == ApprovalResult.TIMEOUT:
             denial_reason = "Approval timed out"
             logger.warning(f"Command timed out waiting for approval: {command}")
         else:
+            # User explicitly denied - mark it so we generate the right message
+            is_user_denial = True
             # Store denial in session memory if "remember" was selected
             if (
                 approval_result == ApprovalResult.DENIED_REMEMBER
                 and self._session_memory is not None
             ):
                 self._session_memory.remember_denial(result.plugin_name, command)
-            logger.info(f"Command denied: {command}")
+            logger.info(f"Command denied by user: {command}")
 
         return EvaluationResult(
             decision=Decision.DENY,
             plugin_name=result.plugin_name,
             reason=denial_reason or result.reason,
+            is_user_denial=is_user_denial,
         )
 
     async def _handle_execute(
