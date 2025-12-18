@@ -183,13 +183,14 @@ class SafeShellGuiApp(QObject):
         command = data.get("command", "")
         reason = data.get("reason", "")
         plugin_name = data.get("plugin_name", "")
+        working_dir = data.get("working_dir")
 
         if not approval_id:
             logger.warning("Received approval_needed without approval_id")
             return
 
         # Spawn a new approval dialog (new windows get focus on Wayland)
-        dialog = ApprovalDialog(approval_id, command, reason, plugin_name)
+        dialog = ApprovalDialog(approval_id, command, reason, plugin_name, working_dir)
         dialog.approved.connect(self._on_dialog_approved)
         dialog.denied.connect(self._on_dialog_denied)
         self.approval_dialogs[approval_id] = dialog
