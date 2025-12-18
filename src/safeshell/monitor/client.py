@@ -122,6 +122,14 @@ class MonitorClient:
             return
         self._receive_task = asyncio.create_task(self._receive_loop())
 
+    def _dispatch_to_callbacks(self, message: dict[str, Any]) -> None:
+        """Dispatch a message to all registered callbacks."""
+        for callback in self._event_callbacks:
+            try:
+                callback(message)
+            except Exception as e:
+                logger.error(f"Error in event callback: {e}")
+
     async def _receive_loop(self) -> None:
         """Receive events from the daemon and dispatch to callbacks."""
         if not self._reader:
@@ -136,13 +144,7 @@ class MonitorClient:
                     break
 
                 message = decode_message(line.strip())
-
-                # Dispatch to callbacks
-                for callback in self._event_callbacks:
-                    try:
-                        callback(message)
-                    except Exception as e:
-                        logger.error(f"Error in event callback: {e}")
+                self._dispatch_to_callbacks(message)
 
             except asyncio.CancelledError:
                 break
@@ -287,6 +289,20 @@ class MonitorClient:
             logger.error(f"Failed to send reload_rules: {e}")
             return False
 
+    def _parse_status_response(self, response: dict[str, Any]) -> dict[str, Any] | None:
+        """Parse a status response from the daemon."""
+        if not response.get("success"):
+            return None
+
+        import ast
+
+        message = response.get("message", "{}")
+        try:
+            result = ast.literal_eval(message)
+            return dict(result) if isinstance(result, dict) else {"message": message}
+        except (ValueError, SyntaxError):
+            return {"message": message}
+
     async def get_status(self) -> dict[str, Any] | None:
         """Get current daemon status.
 
@@ -297,27 +313,15 @@ class MonitorClient:
             return None
 
         try:
-            command = MonitorCommand(
-                type=MonitorCommandType.GET_STATUS,
-            )
+            command = MonitorCommand(type=MonitorCommandType.GET_STATUS)
             self._writer.write(encode_message(command))
             await self._writer.drain()
 
             line = await asyncio.wait_for(self._reader.readline(), timeout=5.0)
-            if line:
-                response = decode_message(line.strip())
-                if response.get("success"):
-                    # Parse the status from the message field
-                    import ast
-
-                    try:
-                        result = ast.literal_eval(response.get("message", "{}"))
-                        if isinstance(result, dict):
-                            return dict(result)
-                        return {"message": response.get("message")}
-                    except (ValueError, SyntaxError):
-                        return {"message": response.get("message")}
-            return None
+            if not line:
+                return None
+            response = decode_message(line.strip())
+            return self._parse_status_response(response)
 
         except Exception as e:
             logger.error(f"Failed to get status: {e}")

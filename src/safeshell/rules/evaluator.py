@@ -34,27 +34,36 @@ class RuleEvaluator:
             rules: List of rules to evaluate against
         """
         self._rules = rules
-
-        # Build command -> rules index for fast lookup
-        self._command_index: dict[str, list[Rule]] = {}
-        for rule in rules:
-            for cmd in rule.commands:
-                self._command_index.setdefault(cmd, []).append(rule)
-
-        # Pre-compile directory regex patterns for performance
-        self._compiled_directories: dict[str, re.Pattern[str] | None] = {}
-        for rule in rules:
-            if rule.directory:
-                try:
-                    self._compiled_directories[rule.name] = re.compile(rule.directory)
-                except re.error as e:
-                    logger.warning(f"Invalid regex in rule '{rule.name}': {e}")
-                    self._compiled_directories[rule.name] = None
-            else:
-                self._compiled_directories[rule.name] = None
+        self._command_index = self._build_command_index(rules)
+        self._compiled_directories = self._compile_directory_patterns(rules)
 
         logger.debug(f"RuleEvaluator initialized with {len(rules)} rules")
         logger.debug(f"Command index: {list(self._command_index.keys())}")
+
+    def _build_command_index(self, rules: list[Rule]) -> dict[str, list[Rule]]:
+        """Build command -> rules index for fast lookup."""
+        index: dict[str, list[Rule]] = {}
+        for rule in rules:
+            for cmd in rule.commands:
+                index.setdefault(cmd, []).append(rule)
+        return index
+
+    def _compile_directory_patterns(self, rules: list[Rule]) -> dict[str, re.Pattern[str] | None]:
+        """Pre-compile directory regex patterns for performance."""
+        compiled: dict[str, re.Pattern[str] | None] = {}
+        for rule in rules:
+            compiled[rule.name] = self._compile_directory_pattern(rule)
+        return compiled
+
+    def _compile_directory_pattern(self, rule: Rule) -> re.Pattern[str] | None:
+        """Compile a single rule's directory pattern."""
+        if not rule.directory:
+            return None
+        try:
+            return re.compile(rule.directory)
+        except re.error as e:
+            logger.warning(f"Invalid regex in rule '{rule.name}': {e}")
+            return None
 
     async def evaluate(self, context: CommandContext) -> EvaluationResult:
         """Evaluate a command against all applicable rules.

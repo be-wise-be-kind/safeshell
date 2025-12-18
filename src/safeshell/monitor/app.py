@@ -128,6 +128,150 @@ class MonitorApp(App[None]):
         # Schedule in Textual's event loop (call_later works from async tasks)
         self.call_later(self._process_event, message)
 
+    def _handle_command_received(
+        self, data: dict[str, Any], history_pane: HistoryPane | None
+    ) -> None:
+        """Handle COMMAND_RECEIVED event."""
+        command = data.get("command", "unknown")
+        working_dir = data.get("working_dir", "")
+        self._log_debug(f"Command received: {command}", "info")
+        self._log_debug(f"  Working dir: {working_dir}", "debug")
+
+        if history_pane:
+            history_pane.add_command(
+                CommandHistoryItem(command=command, timestamp=datetime.now(), status="pending")
+            )
+
+    def _log_decision_allow(
+        self, command: str, decision: str, history_pane: HistoryPane | None
+    ) -> None:
+        """Log and update history for allowed command."""
+        self._log_debug(f"ALLOWED: {command}", "success")
+        if history_pane:
+            history_pane.update_command(command, "allowed", decision)
+
+    def _log_decision_deny(
+        self,
+        command: str,
+        decision: str,
+        reason: str | None,
+        plugin_name: str | None,
+        history_pane: HistoryPane | None,
+    ) -> None:
+        """Log and update history for denied command."""
+        self._log_debug(f"BLOCKED: {command}", "error")
+        if reason:
+            self._log_debug(f"  Reason: {reason}", "warning")
+        if plugin_name:
+            self._log_debug(f"  Rule: {plugin_name}", "debug")
+        if history_pane:
+            history_pane.update_command(command, "blocked", decision, reason)
+
+    def _log_decision_approval(
+        self, command: str, decision: str, reason: str | None, history_pane: HistoryPane | None
+    ) -> None:
+        """Log and update history for command requiring approval."""
+        self._log_debug(f"APPROVAL REQUIRED: {command}", "warning")
+        if history_pane:
+            history_pane.update_command(command, "waiting", decision, reason)
+
+    def _handle_evaluation_completed(
+        self, data: dict[str, Any], history_pane: HistoryPane | None
+    ) -> None:
+        """Handle EVALUATION_COMPLETED event."""
+        command = data.get("command", "unknown")
+        decision = data.get("decision", "unknown")
+        reason = data.get("reason")
+        plugin_name = data.get("plugin_name")
+
+        if decision == "allow":
+            self._log_decision_allow(command, decision, history_pane)
+        elif decision == "deny":
+            self._log_decision_deny(command, decision, reason, plugin_name, history_pane)
+        elif decision == "require_approval":
+            self._log_decision_approval(command, decision, reason, history_pane)
+
+    def _handle_approval_needed(
+        self,
+        data: dict[str, Any],
+        approval_pane: ApprovalPane,
+        history_pane: HistoryPane | None,
+    ) -> None:
+        """Handle APPROVAL_NEEDED event."""
+        approval_id = data.get("approval_id", "")
+        command = data.get("command", "")
+        reason = data.get("reason", "")
+        plugin_name = data.get("plugin_name", "")
+
+        self._log_debug(f"Approval needed: {command}", "warning")
+        self._log_debug(f"  ID: {approval_id[:_ID_DISPLAY_LENGTH]}...", "debug")
+        self._log_debug(f"  Reason: {reason}", "info")
+
+        approval_pane.add_pending_approval(
+            {
+                "approval_id": approval_id,
+                "command": command,
+                "reason": reason,
+                "plugin_name": plugin_name,
+            }
+        )
+
+        if history_pane:
+            history_pane.update_command(command, "waiting", "require_approval", reason, approval_id)
+
+    def _handle_approval_resolved(self, data: dict[str, Any], approval_pane: ApprovalPane) -> None:
+        """Handle APPROVAL_RESOLVED event."""
+        approval_id = data.get("approval_id", "")
+        approved = data.get("approved", False)
+        reason = data.get("reason")
+
+        if approved:
+            self._log_debug(f"Approved: {approval_id[:_ID_DISPLAY_LENGTH]}...", "success")
+        else:
+            self._log_debug(f"Denied: {approval_id[:_ID_DISPLAY_LENGTH]}...", "error")
+            if reason:
+                self._log_debug(f"  Reason: {reason}", "info")
+
+        approval_pane.remove_pending_approval(approval_id)
+
+    def _handle_evaluation_started(self, data: dict[str, Any]) -> None:
+        """Handle EVALUATION_STARTED event."""
+        plugin_count = data.get("plugin_count", 0)
+        self._log_debug(f"Evaluating with {plugin_count} rules...", "debug")
+
+    def _handle_daemon_status(self, data: dict[str, Any]) -> None:
+        """Handle DAEMON_STATUS event."""
+        status = data.get("status", "unknown")
+        self._log_debug(f"Daemon status: {status}", "info")
+
+    def _process_daemon_event(
+        self,
+        event_data: dict[str, Any],
+        approval_pane: ApprovalPane,
+        history_pane: HistoryPane | None,
+    ) -> None:
+        """Process a daemon event."""
+        event_type = event_data.get("type")
+        data = event_data.get("data", {})
+
+        if event_type == EventType.COMMAND_RECEIVED.value:
+            self._handle_command_received(data, history_pane)
+            return
+        if event_type == EventType.EVALUATION_STARTED.value:
+            self._handle_evaluation_started(data)
+            return
+        if event_type == EventType.EVALUATION_COMPLETED.value:
+            self._handle_evaluation_completed(data, history_pane)
+            return
+        if event_type == EventType.APPROVAL_NEEDED.value:
+            self._handle_approval_needed(data, approval_pane, history_pane)
+            return
+        if event_type == EventType.APPROVAL_RESOLVED.value:
+            self._handle_approval_resolved(data, approval_pane)
+            return
+        if event_type == EventType.DAEMON_STATUS.value:
+            self._handle_daemon_status(data)
+
     def _process_event(self, message: dict[str, Any]) -> None:
         """Process an event message from the daemon.
 
@@ -135,112 +279,18 @@ class MonitorApp(App[None]):
             message: Event message
         """
         approval_pane = self.query_one("#approval-pane", ApprovalPane)
-
-        # Get optional panes (only exist in debug mode)
-        history_pane = None
-        if self._debug_mode:
-            history_pane = self.query_one("#history-pane", HistoryPane)
+        history_pane = self.query_one("#history-pane", HistoryPane) if self._debug_mode else None
 
         msg_type = message.get("type")
 
         if msg_type == "event":
-            event_data = message.get("event", {})
-            event_type = event_data.get("type")
-            data = event_data.get("data", {})
-
-            if event_type == EventType.COMMAND_RECEIVED.value:
-                command = data.get("command", "unknown")
-                working_dir = data.get("working_dir", "")
-                self._log_debug(f"Command received: {command}", "info")
-                self._log_debug(f"  Working dir: {working_dir}", "debug")
-
-                # Add to history (debug mode only)
-                if history_pane:
-                    history_pane.add_command(
-                        CommandHistoryItem(
-                            command=command,
-                            timestamp=datetime.now(),
-                            status="pending",
-                        )
-                    )
-
-            elif event_type == EventType.EVALUATION_STARTED.value:
-                plugin_count = data.get("plugin_count", 0)
-                self._log_debug(f"Evaluating with {plugin_count} rules...", "debug")
-
-            elif event_type == EventType.EVALUATION_COMPLETED.value:
-                command = data.get("command", "unknown")
-                decision = data.get("decision", "unknown")
-                reason = data.get("reason")
-                plugin_name = data.get("plugin_name")
-
-                if decision == "allow":
-                    self._log_debug(f"ALLOWED: {command}", "success")
-                    if history_pane:
-                        history_pane.update_command(command, "allowed", decision)
-                elif decision == "deny":
-                    self._log_debug(f"BLOCKED: {command}", "error")
-                    if reason:
-                        self._log_debug(f"  Reason: {reason}", "warning")
-                    if plugin_name:
-                        self._log_debug(f"  Rule: {plugin_name}", "debug")
-                    if history_pane:
-                        history_pane.update_command(command, "blocked", decision, reason)
-                elif decision == "require_approval":
-                    self._log_debug(f"APPROVAL REQUIRED: {command}", "warning")
-                    if history_pane:
-                        history_pane.update_command(command, "waiting", decision, reason)
-
-            elif event_type == EventType.APPROVAL_NEEDED.value:
-                approval_id = data.get("approval_id", "")
-                command = data.get("command", "")
-                reason = data.get("reason", "")
-                plugin_name = data.get("plugin_name", "")
-
-                self._log_debug(f"Approval needed: {command}", "warning")
-                self._log_debug(f"  ID: {approval_id[:_ID_DISPLAY_LENGTH]}...", "debug")
-                self._log_debug(f"  Reason: {reason}", "info")
-
-                approval_pane.add_pending_approval(
-                    {
-                        "approval_id": approval_id,
-                        "command": command,
-                        "reason": reason,
-                        "plugin_name": plugin_name,
-                    }
-                )
-
-                if history_pane:
-                    history_pane.update_command(
-                        command, "waiting", "require_approval", reason, approval_id
-                    )
-
-            elif event_type == EventType.APPROVAL_RESOLVED.value:
-                approval_id = data.get("approval_id", "")
-                approved = data.get("approved", False)
-                reason = data.get("reason")
-
-                if approved:
-                    self._log_debug(f"Approved: {approval_id[:_ID_DISPLAY_LENGTH]}...", "success")
-                else:
-                    self._log_debug(f"Denied: {approval_id[:_ID_DISPLAY_LENGTH]}...", "error")
-                    if reason:
-                        self._log_debug(f"  Reason: {reason}", "info")
-
-                approval_pane.remove_pending_approval(approval_id)
-
-            elif event_type == EventType.DAEMON_STATUS.value:
-                status = data.get("status", "unknown")
-                self._log_debug(f"Daemon status: {status}", "info")
-
+            self._process_daemon_event(message.get("event", {}), approval_pane, history_pane)
         elif msg_type == "response":
-            # Response to a command we sent
             success = message.get("success", False)
             msg = message.get("message") or message.get("error")
-            if success:
-                self._log_debug(f"Response: {msg}", "success")
-            else:
-                self._log_debug(f"Error: {msg}", "error")
+            level = "success" if success else "error"
+            prefix = "Response" if success else "Error"
+            self._log_debug(f"{prefix}: {msg}", level)
 
     async def on_approval_pane_approval_action(self, event: ApprovalPane.ApprovalAction) -> None:
         """Handle approval/denial from the approval pane.
