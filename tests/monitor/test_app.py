@@ -22,10 +22,12 @@ class TestMonitorApp:
 
         # Check that expected bindings exist
         binding_keys = [b.key for b in app.BINDINGS]
-        assert "q" in binding_keys
-        assert "a" in binding_keys
-        assert "d" in binding_keys
-        assert "r" in binding_keys
+        assert "ctrl+q" in binding_keys
+        assert "1" in binding_keys
+        assert "2" in binding_keys
+        assert "3" in binding_keys
+        assert "4" in binding_keys
+        assert "ctrl+r" in binding_keys
 
     def test_css_path_exists(self) -> None:
         """Test that CSS path is defined."""
