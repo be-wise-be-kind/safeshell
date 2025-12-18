@@ -39,10 +39,12 @@ class MonitorApp(App[None]):
     CSS_PATH = Path(__file__).parent / "styles.css"
 
     BINDINGS = [
-        Binding("q", "quit", "Quit", priority=True),
-        Binding("a", "approve", "Approve", priority=True),
-        Binding("d", "deny", "Deny", priority=True),
-        Binding("r", "reconnect", "Reconnect", priority=True),
+        Binding("ctrl+q", "quit", "^Q:Quit", priority=True),
+        Binding("1", "approve", "1:Approve", priority=True),
+        Binding("2", "approve_timed", "2:Approve 5m", priority=True),
+        Binding("3", "deny", "3:Deny", priority=True),
+        Binding("4", "deny_timed", "4:Deny 5m", priority=True),
+        Binding("ctrl+r", "reconnect", "^R:Reconnect", priority=True),
     ]
 
     def __init__(self, debug_mode: bool = False) -> None:
@@ -330,6 +332,16 @@ class MonitorApp(App[None]):
         """Deny the current pending approval via keyboard."""
         approval_pane = self.query_one("#approval-pane", ApprovalPane)
         approval_pane.deny_current()
+
+    def action_approve_timed(self) -> None:
+        """Approve the current pending approval for 5 minutes."""
+        approval_pane = self.query_one("#approval-pane", ApprovalPane)
+        approval_pane.approve_current_timed()
+
+    def action_deny_timed(self) -> None:
+        """Deny the current pending approval for 5 minutes."""
+        approval_pane = self.query_one("#approval-pane", ApprovalPane)
+        approval_pane.deny_current_timed()
 
     async def action_reconnect(self) -> None:
         """Attempt to reconnect to the daemon."""

@@ -114,7 +114,7 @@ class ApprovalDialog(QDialog):
         btn_layout.setSpacing(_BUTTON_SPACING)
 
         # Approve buttons (green variants)
-        self.approve_btn = QPushButton("Approve (A)")
+        self.approve_btn = QPushButton("Approve (1)")
         self.approve_btn.setStyleSheet(
             "QPushButton { background-color: #4CAF50; color: white; padding: 10px 20px; "
             "border: none; border-radius: 4px; font-weight: bold; }"
@@ -122,7 +122,7 @@ class ApprovalDialog(QDialog):
             "QPushButton:pressed { background-color: #3D8B40; }"
         )
 
-        self.approve_remember_btn = QPushButton("Approve (5 min)")
+        self.approve_remember_btn = QPushButton("Approve 5m (2)")
         self.approve_remember_btn.setStyleSheet(
             "QPushButton { background-color: #388E3C; color: white; padding: 10px 20px; "
             "border: none; border-radius: 4px; font-weight: bold; }"
@@ -131,7 +131,7 @@ class ApprovalDialog(QDialog):
         )
 
         # Deny buttons (red variants)
-        self.deny_btn = QPushButton("Deny (D)")
+        self.deny_btn = QPushButton("Deny (3)")
         self.deny_btn.setStyleSheet(
             "QPushButton { background-color: #F44336; color: white; padding: 10px 20px; "
             "border: none; border-radius: 4px; font-weight: bold; }"
@@ -139,7 +139,7 @@ class ApprovalDialog(QDialog):
             "QPushButton:pressed { background-color: #C62828; }"
         )
 
-        self.deny_remember_btn = QPushButton("Deny (5 min)")
+        self.deny_remember_btn = QPushButton("Deny 5m (4)")
         self.deny_remember_btn.setStyleSheet(
             "QPushButton { background-color: #D32F2F; color: white; padding: 10px 20px; "
             "border: none; border-radius: 4px; font-weight: bold; }"
@@ -162,13 +162,21 @@ class ApprovalDialog(QDialog):
 
     def _setup_shortcuts(self) -> None:
         """Set up keyboard shortcuts."""
-        # A for Approve
-        approve_shortcut = QShortcut(QKeySequence("A"), self)
+        # 1 for Approve
+        approve_shortcut = QShortcut(QKeySequence("1"), self)
         approve_shortcut.activated.connect(lambda: self._approve(remember=False))
 
-        # D for Deny
-        deny_shortcut = QShortcut(QKeySequence("D"), self)
+        # 2 for Approve (5 min)
+        approve_timed_shortcut = QShortcut(QKeySequence("2"), self)
+        approve_timed_shortcut.activated.connect(lambda: self._approve(remember=True))
+
+        # 3 for Deny
+        deny_shortcut = QShortcut(QKeySequence("3"), self)
         deny_shortcut.activated.connect(lambda: self._deny(remember=False))
+
+        # 4 for Deny (5 min)
+        deny_timed_shortcut = QShortcut(QKeySequence("4"), self)
+        deny_timed_shortcut.activated.connect(lambda: self._deny(remember=True))
 
     def _approve(self, remember: bool) -> None:
         """Handle approval action."""

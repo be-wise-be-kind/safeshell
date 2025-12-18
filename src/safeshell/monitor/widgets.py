@@ -457,3 +457,30 @@ class ApprovalPane(Static):
             self._update_display()
             self.post_message(self.ApprovalAction(False, approval_id, reason))
             denial_input.value = ""
+
+    def approve_current_timed(self) -> None:
+        """Approve current pending approval with 5-min remember (for keyboard shortcut)."""
+        if self._current_approval:
+            approval_id = self._current_approval.get("approval_id", "")
+            # Remove from pending immediately to prevent double-press
+            self._pending_approvals = [
+                a for a in self._pending_approvals if a.get("approval_id") != approval_id
+            ]
+            self._current_approval = self._pending_approvals[0] if self._pending_approvals else None
+            self._update_display()
+            self.post_message(self.ApprovalAction(True, approval_id, remember=True))
+
+    def deny_current_timed(self) -> None:
+        """Deny current pending approval with 5-min remember (for keyboard shortcut)."""
+        if self._current_approval:
+            approval_id = self._current_approval.get("approval_id", "")
+            denial_input = self.query_one("#denial-reason", Input)
+            reason = denial_input.value or None
+            # Remove from pending immediately to prevent double-press
+            self._pending_approvals = [
+                a for a in self._pending_approvals if a.get("approval_id") != approval_id
+            ]
+            self._current_approval = self._pending_approvals[0] if self._pending_approvals else None
+            self._update_display()
+            self.post_message(self.ApprovalAction(False, approval_id, reason, remember=True))
+            denial_input.value = ""
