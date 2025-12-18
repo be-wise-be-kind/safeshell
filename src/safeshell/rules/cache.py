@@ -17,6 +17,7 @@ from loguru import logger
 
 from safeshell.rules.loader import (
     GLOBAL_RULES_PATH,
+    _apply_overrides,
     _find_repo_rules,
     _load_rule_file,
     load_default_rules,
@@ -187,6 +188,8 @@ class RuleCache:
     def _load_rules_with_mtimes(self, working_dir: str) -> tuple[list[Rule], dict[Path, float]]:
         """Load rules and track source file modification times.
 
+        Now includes override processing for global rules.
+
         Args:
             working_dir: Working directory for repo rule discovery
 
@@ -201,17 +204,31 @@ class RuleCache:
         rules.extend(default_rules)
         logger.debug(f"Loaded {len(default_rules)} default rules")
 
-        # Load global rules (user customizations)
+        # Load global rules with overrides (user customizations)
         if GLOBAL_RULES_PATH.exists():
-            global_rules = _load_rule_file(GLOBAL_RULES_PATH)
+            global_rules, global_overrides = _load_rule_file(GLOBAL_RULES_PATH)
+
+            # Apply global overrides to default rules
+            if global_overrides:
+                rules = _apply_overrides(rules, global_overrides, str(GLOBAL_RULES_PATH))
+                logger.debug(f"Applied {len(global_overrides)} global overrides")
+
             rules.extend(global_rules)
             file_mtimes[GLOBAL_RULES_PATH] = GLOBAL_RULES_PATH.stat().st_mtime
             logger.debug(f"Loaded {len(global_rules)} global rules")
 
-        # Load repo rules
+        # Load repo rules (no overrides allowed for security)
         repo_path = _find_repo_rules(Path(working_dir))
         if repo_path:
-            repo_rules = _load_rule_file(repo_path)
+            repo_rules, repo_overrides = _load_rule_file(repo_path)
+
+            # SECURITY: Ignore repo overrides - malicious repo cannot weaken protections
+            if repo_overrides:
+                logger.warning(
+                    f"Ignoring {len(repo_overrides)} overrides in repo rules ({repo_path}). "
+                    "Repo rules cannot override for security."
+                )
+
             rules.extend(repo_rules)
             file_mtimes[repo_path] = repo_path.stat().st_mtime
             logger.debug(f"Loaded {len(repo_rules)} repo rules from {repo_path}")

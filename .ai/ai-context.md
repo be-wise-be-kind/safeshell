@@ -191,8 +191,31 @@ DENY > REQUIRE_APPROVAL > REDIRECT > ALLOW
 ### Rule Loading Order
 
 1. **Default rules** - Built into SafeShell
-2. **Global rules** - `~/.safeshell/rules.yaml`
-3. **Repo rules** - `.safeshell/rules.yaml` (additive only, cannot weaken)
+2. **Global rules** - `~/.safeshell/rules.yaml` (can override defaults)
+3. **Repo rules** - `.safeshell/rules.yaml` (additive only, cannot override)
+
+### Rule Overrides
+
+Users can override or disable default rules in their global `~/.safeshell/rules.yaml`:
+
+```yaml
+# ~/.safeshell/rules.yaml
+rules: []
+
+overrides:
+  - name: approve-force-push
+    disabled: true  # Disable this default rule
+
+  - name: deny-rm-rf-star
+    action: require_approval  # Change from deny to approval
+    message: "Custom message"
+```
+
+**Security**: Repo rules cannot override - only global rules can. This prevents
+malicious repos from weakening your protections.
+
+**Performance**: Overrides are applied at load time (daemon startup). Disabled
+rules never enter the evaluator's index - zero runtime cost.
 
 ---
 

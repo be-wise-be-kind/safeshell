@@ -16,7 +16,7 @@ from rich.table import Table
 
 from safeshell.exceptions import RuleLoadError
 from safeshell.rules.loader import GLOBAL_RULES_PATH, _find_repo_rules, _load_rule_file
-from safeshell.rules.schema import Rule
+from safeshell.rules.schema import Rule, RuleOverride
 
 app = typer.Typer(
     name="rules",
@@ -70,11 +70,18 @@ def _validate_single_file(path: Path, verbose: bool) -> None:
         raise typer.Exit(1)
 
     try:
-        rules = _load_rule_file(path)
-        console.print(f"[green]Valid:[/green] {path} ({len(rules)} rules)")
+        rules, overrides = _load_rule_file(path)
+        msg = f"[green]Valid:[/green] {path} ({len(rules)} rules"
+        if overrides:
+            msg += f", {len(overrides)} overrides"
+        msg += ")"
+        console.print(msg)
 
-        if verbose and rules:
-            _show_rules_table(rules)
+        if verbose:
+            if rules:
+                _show_rules_table(rules)
+            if overrides:
+                _show_overrides_table(overrides)
 
     except RuleLoadError as e:
         console.print(f"[red]Invalid:[/red] {path}")
@@ -90,15 +97,23 @@ def _validate_all_rules(verbose: bool) -> None:
     """
     errors: list[Path] = []
     total_rules = 0
-    all_rules = []
+    total_overrides = 0
+    all_rules: list[Rule] = []
+    all_overrides: list[RuleOverride] = []
 
     # Check global rules
     if GLOBAL_RULES_PATH.exists():
         try:
-            rules = _load_rule_file(GLOBAL_RULES_PATH)
-            console.print(f"[green]Valid:[/green] {GLOBAL_RULES_PATH} ({len(rules)} rules)")
+            rules, overrides = _load_rule_file(GLOBAL_RULES_PATH)
+            msg = f"[green]Valid:[/green] {GLOBAL_RULES_PATH} ({len(rules)} rules"
+            if overrides:
+                msg += f", {len(overrides)} overrides"
+            msg += ")"
+            console.print(msg)
             total_rules += len(rules)
+            total_overrides += len(overrides)
             all_rules.extend(rules)
+            all_overrides.extend(overrides)
         except RuleLoadError as e:
             console.print(f"[red]Invalid:[/red] {GLOBAL_RULES_PATH}")
             console.print(f"  Error: {e}")
@@ -110,9 +125,14 @@ def _validate_all_rules(verbose: bool) -> None:
     repo_path = _find_repo_rules(Path.cwd())
     if repo_path:
         try:
-            rules = _load_rule_file(repo_path)
-            console.print(f"[green]Valid:[/green] {repo_path} ({len(rules)} rules)")
+            rules, overrides = _load_rule_file(repo_path)
+            msg = f"[green]Valid:[/green] {repo_path} ({len(rules)} rules"
+            if overrides:
+                msg += f", {len(overrides)} overrides [yellow](ignored)[/yellow]"
+            msg += ")"
+            console.print(msg)
             total_rules += len(rules)
+            # Note: repo overrides are ignored for security but we still validate them
             all_rules.extend(rules)
         except RuleLoadError as e:
             console.print(f"[red]Invalid:[/red] {repo_path}")
@@ -122,9 +142,13 @@ def _validate_all_rules(verbose: bool) -> None:
         console.print("[dim]No repo rules found in current directory[/dim]")
 
     # Show verbose output
-    if verbose and all_rules:
-        console.print()
-        _show_rules_table(all_rules)
+    if verbose:
+        if all_rules:
+            console.print()
+            _show_rules_table(all_rules)
+        if all_overrides:
+            console.print()
+            _show_overrides_table(all_overrides)
 
     # Summary
     console.print()
@@ -132,7 +156,10 @@ def _validate_all_rules(verbose: bool) -> None:
         console.print(f"[red]Validation failed:[/red] {len(errors)} file(s) with errors")
         raise typer.Exit(1)
 
-    console.print(f"[green]All rules valid:[/green] {total_rules} total rules")
+    summary = f"[green]All rules valid:[/green] {total_rules} total rules"
+    if total_overrides:
+        summary += f", {total_overrides} overrides"
+    console.print(summary)
 
 
 def _show_rules_table(rules: list[Rule]) -> None:
@@ -163,6 +190,37 @@ def _show_rules_table(rules: list[Rule]) -> None:
             rule.action.value,
             context,
             conditions,
+        )
+
+    console.print(table)
+
+
+def _show_overrides_table(overrides: list[RuleOverride]) -> None:
+    """Display overrides in a table.
+
+    Args:
+        overrides: List of RuleOverride objects to display
+    """
+    table = Table(title="Overrides")
+    table.add_column("Target Rule", style="cyan")
+    table.add_column("Disabled", style="red")
+    table.add_column("Modified Properties")
+
+    for override in overrides:
+        mods: list[str] = []
+        if override.action is not None:
+            mods.append(f"action={override.action.value}")
+        if override.message is not None:
+            mods.append("message")
+        if override.context is not None:
+            mods.append(f"context={override.context.value}")
+        if override.allow_override is not None:
+            mods.append(f"allow_override={override.allow_override}")
+
+        table.add_row(
+            override.name,
+            "Yes" if override.disabled else "-",
+            ", ".join(mods) if mods else "-",
         )
 
     console.print(table)

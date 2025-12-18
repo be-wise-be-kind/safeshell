@@ -286,6 +286,71 @@ directory or a parent directory.
 
 ---
 
+## Overriding Default Rules
+
+Default rules are built into SafeShell, but you can override or disable them in your
+global `~/.safeshell/rules.yaml` file using the `overrides` section.
+
+**Note**: For security, repo rules (`.safeshell/rules.yaml`) cannot override default
+or global rules - only the user's global config can do this.
+
+### Override Schema
+
+```yaml
+overrides:
+  - name: "rule-name-to-override"
+    disabled: true                   # Remove this rule entirely
+    action: require_approval         # Or change the action
+    message: "Custom message"        # Or change the message
+    context: human_only              # Or change the context
+    allow_override: false            # Or change allow_override
+```
+
+### Disable a Default Rule
+
+```yaml
+# ~/.safeshell/rules.yaml
+rules: []
+
+overrides:
+  - name: approve-force-push
+    disabled: true  # I know what I'm doing with force push
+```
+
+### Change Action from Deny to Approval
+
+```yaml
+# ~/.safeshell/rules.yaml
+rules: []
+
+overrides:
+  - name: deny-rm-rf-star
+    action: require_approval
+    message: "Are you sure you want to rm -rf *?"
+```
+
+### Change Context
+
+```yaml
+# ~/.safeshell/rules.yaml
+rules: []
+
+overrides:
+  - name: approve-pip-install
+    context: human_only  # Only apply to human terminals, not AI
+```
+
+### Viewing Available Default Rules
+
+To see which default rules you can override:
+
+```bash
+# List all loaded rules
+safeshell rules validate -v
+```
+
+---
+
 ## Verification Checklist
 
 Before deploying rules:
