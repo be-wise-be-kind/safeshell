@@ -145,6 +145,33 @@ class CommandContext(BaseModel):
         return git_root, git_branch
 
     @staticmethod
+    def _read_git_branch(git_dir: Path) -> str | None:
+        """Read branch name from git HEAD file.
+
+        Args:
+            git_dir: Path to .git directory
+
+        Returns:
+            Branch name or None if detached HEAD or unreadable
+        """
+        head_file = git_dir / "HEAD"
+        if not head_file.exists():
+            return None
+
+        try:
+            content = head_file.read_text().strip()
+        except OSError:
+            return None
+
+        if content.startswith(_GIT_REF_PREFIX):
+            return content[_GIT_REF_PREFIX_LEN:]
+        if content.startswith("ref: "):
+            # Other ref format
+            return content[5:].split("/")[-1]
+        # Detached HEAD (just a SHA)
+        return None
+
+    @staticmethod
     def _detect_git_context_uncached(working_dir: str) -> tuple[str | None, str | None]:
         """Detect git repository root and current branch (without caching).
 
@@ -160,20 +187,7 @@ class CommandContext(BaseModel):
         while current != current.parent:
             git_dir = current / ".git"
             if git_dir.is_dir():
-                # Found git repo, read branch from HEAD
-                head_file = git_dir / "HEAD"
-                branch = None
-                if head_file.exists():
-                    try:
-                        content = head_file.read_text().strip()
-                        if content.startswith(_GIT_REF_PREFIX):
-                            branch = content[_GIT_REF_PREFIX_LEN:]
-                        elif content.startswith("ref: "):
-                            # Other ref format
-                            branch = content[5:].split("/")[-1]
-                        # If detached HEAD (just a SHA), branch stays None
-                    except OSError:
-                        pass
+                branch = CommandContext._read_git_branch(git_dir)
                 return str(current), branch
             current = current.parent
 

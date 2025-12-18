@@ -209,6 +209,13 @@ class MonitorConnectionHandler:
         except Exception as e:
             logger.exception(f"Failed to send event: {e}")
 
+    async def _try_send_error(self, writer: asyncio.StreamWriter, error: str) -> None:
+        """Try to send an error response, ignoring failures."""
+        try:
+            await write_message(writer, MonitorResponse.err(error))
+        except Exception:
+            pass  # Best effort - client may have disconnected
+
     async def _handle_commands(
         self,
         reader: asyncio.StreamReader,
@@ -232,11 +239,7 @@ class MonitorConnectionHandler:
                 raise
             except Exception as e:
                 logger.exception(f"Error processing monitor command: {e}")
-                error_response = MonitorResponse.err(str(e))
-                try:
-                    await write_message(writer, error_response)
-                except Exception:
-                    pass
+                await self._try_send_error(writer, str(e))
 
     async def _process_command(self, message: dict[str, Any]) -> MonitorResponse:
         """Process a command from a monitor client.

@@ -120,6 +120,48 @@ class SessionMemory:
 
         return True
 
+    def get_approval_remaining_seconds(self, rule_name: str, command: str) -> float | None:
+        """Get remaining seconds for a pre-approval.
+
+        Args:
+            rule_name: Name of the rule that triggered approval
+            command: Full command string
+
+        Returns:
+            Remaining seconds until expiry, or None if not pre-approved
+        """
+        key = self._make_key(rule_name, command)
+        if key not in self._approved:
+            return None
+
+        if self._ttl_seconds <= 0:
+            return None  # No expiry
+
+        elapsed = time.time() - self._approved[key]
+        remaining = self._ttl_seconds - elapsed
+        return max(0.0, remaining)
+
+    def get_denial_remaining_seconds(self, rule_name: str, command: str) -> float | None:
+        """Get remaining seconds for a pre-denial.
+
+        Args:
+            rule_name: Name of the rule that triggered denial
+            command: Full command string
+
+        Returns:
+            Remaining seconds until expiry, or None if not pre-denied
+        """
+        key = self._make_key(rule_name, command)
+        if key not in self._denied:
+            return None
+
+        if self._ttl_seconds <= 0:
+            return None  # No expiry
+
+        elapsed = time.time() - self._denied[key]
+        remaining = self._ttl_seconds - elapsed
+        return max(0.0, remaining)
+
     def remember_approval(self, rule_name: str, command: str) -> None:
         """Remember an approval for this session.
 

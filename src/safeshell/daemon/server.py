@@ -255,6 +255,21 @@ class DaemonServer:
         if self._shutdown_event:
             self._shutdown_event.set()
 
+    async def _try_send_error(self, writer: asyncio.StreamWriter, error_msg: str) -> None:
+        """Try to send an error response, ignoring failures."""
+        try:
+            await write_message(writer, DaemonResponse.error(error_msg))
+        except Exception:
+            pass  # Best effort - client may have disconnected
+
+    async def _close_writer(self, writer: asyncio.StreamWriter) -> None:
+        """Close writer, ignoring errors from already-disconnected clients."""
+        try:
+            writer.close()
+            await writer.wait_closed()
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # Client already disconnected
+
     async def _handle_wrapper_client(
         self,
         reader: asyncio.StreamReader,
@@ -290,32 +305,26 @@ class DaemonServer:
             logger.debug(f"Sent: {response.model_dump()}")
 
         except ProtocolError as e:
-            # "Connection closed" is normal for health checks - don't log as warning
-            if "closed" in str(e).lower():
-                logger.debug(f"Client disconnected early: {peer}")
-            else:
-                logger.warning(f"Protocol error from {peer}: {e}")
-                error_response = DaemonResponse.error(str(e))
-                try:
-                    await write_message(writer, error_response)
-                except Exception:
-                    pass
+            await self._handle_protocol_error(peer, writer, e)
 
         except Exception as e:
             logger.exception(f"Error handling client {peer}: {e}")
-            error_response = DaemonResponse.error(f"Internal error: {e}")
-            try:
-                await write_message(writer, error_response)
-            except Exception:
-                pass
+            await self._try_send_error(writer, f"Internal error: {e}")
 
         finally:
-            try:
-                writer.close()
-                await writer.wait_closed()
-            except (BrokenPipeError, ConnectionResetError):
-                pass  # Client already disconnected
+            await self._close_writer(writer)
             logger.debug(f"Wrapper client disconnected: {peer}")
+
+    async def _handle_protocol_error(
+        self, peer: str | None, writer: asyncio.StreamWriter, error: ProtocolError
+    ) -> None:
+        """Handle protocol errors from wrapper clients."""
+        # "Connection closed" is normal for health checks - don't log as warning
+        if "closed" in str(error).lower():
+            logger.debug(f"Client disconnected early: {peer}")
+            return
+        logger.warning(f"Protocol error from {peer}: {error}")
+        await self._try_send_error(writer, str(error))
 
     async def _process_message(
         self,

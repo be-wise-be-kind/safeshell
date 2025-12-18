@@ -12,6 +12,8 @@ Overview: Provides start, stop, status commands for daemon management
 import asyncio
 import os
 import sys
+from collections.abc import Callable
+from typing import TextIO
 
 import typer
 from rich.console import Console
@@ -151,6 +153,24 @@ def logs(
             raise typer.Exit(1) from e
 
 
+def _tail_file(file: TextIO, sleep_fn: Callable[[float], None]) -> None:
+    """Continuously read and print new lines from a file.
+
+    Args:
+        file: Open file handle positioned at end of initial content
+        sleep_fn: Function to call for sleeping (allows injection for testing)
+    """
+    try:
+        while True:
+            line = file.readline()
+            if line:
+                console.print(line.rstrip())
+            else:
+                sleep_fn(_LOG_POLL_INTERVAL)
+    except KeyboardInterrupt:
+        pass
+
+
 def _follow_log(log_path: "os.PathLike[str]", initial_lines: int) -> None:
     """Follow a log file using Python (fallback when tail is unavailable).
 
@@ -160,22 +180,14 @@ def _follow_log(log_path: "os.PathLike[str]", initial_lines: int) -> None:
     """
     import time
 
-    # Show initial lines
     with open(log_path) as f:
+        # Show initial lines
         lines = f.readlines()
         for line in lines[-initial_lines:]:
             console.print(line.rstrip())
 
         # Follow new content
-        try:
-            while True:
-                line = f.readline()
-                if line:
-                    console.print(line.rstrip())
-                else:
-                    time.sleep(_LOG_POLL_INTERVAL)
-        except KeyboardInterrupt:
-            pass
+        _tail_file(f, time.sleep)
 
 
 def _daemonize() -> None:

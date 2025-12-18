@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
 
 if TYPE_CHECKING:
+    from safeshell.config import SafeShellConfig
     from safeshell.models import ExecutionContext
 
 
@@ -78,6 +79,20 @@ def _detect_execution_context() -> ExecutionContext:
     return ExecutionContext.HUMAN
 
 
+def _handle_denied_command(denial_message: str | None) -> int:
+    """Handle a denied command by printing the message and returning exit code."""
+    msg = denial_message or "[SafeShell] Command blocked by policy"
+    sys.stderr.write(msg + "\n")
+    return 1
+
+
+def _execute_or_signal(command: str, shell: str, check_only: bool) -> int:
+    """Execute command or signal allowed (for check-only mode)."""
+    if check_only:
+        return 0  # Signal allowed, shim will execute
+    return _execute(command, shell)
+
+
 def _evaluate_and_execute(command: str) -> int:
     """Evaluate command with daemon and execute if allowed.
 
@@ -87,24 +102,17 @@ def _evaluate_and_execute(command: str) -> int:
     Returns:
         Exit code from command execution or 1 if denied
     """
-    from safeshell.config import UnreachableBehavior, load_config
+    from safeshell.config import load_config
     from safeshell.exceptions import DaemonNotRunningError, DaemonStartError
     from safeshell.wrapper.client import DaemonClient
 
     config = load_config()
     client = DaemonClient()
-
-    # Check-only mode for shims - evaluate but don't execute
     check_only = os.environ.get("SAFESHELL_CHECK_ONLY") == "1"
-
-    # Determine execution context (vendor detection centralized here)
     execution_context = _detect_execution_context()
 
     try:
-        # Ensure daemon is running (auto-start if needed)
         client.ensure_daemon_running()
-
-        # Evaluate command
         response = client.evaluate(
             command=command,
             working_dir=str(Path.cwd()),
@@ -113,27 +121,30 @@ def _evaluate_and_execute(command: str) -> int:
         )
 
         if response.should_execute:
-            if check_only:
-                return 0  # Signal allowed, shim will execute
-            return _execute(command, config.delegate_shell)
-        # Command denied - print message and exit
-        if response.denial_message:
-            sys.stderr.write(response.denial_message + "\n")
-        else:
-            sys.stderr.write("[SafeShell] Command blocked by policy\n")
-        return 1
+            return _execute_or_signal(command, config.delegate_shell, check_only)
+        return _handle_denied_command(response.denial_message)
 
     except (DaemonNotRunningError, DaemonStartError) as e:
-        # Handle based on config
-        if config.unreachable_behavior == UnreachableBehavior.FAIL_OPEN:
-            sys.stderr.write(f"[SafeShell] Warning: Daemon unreachable ({e}), allowing command\n")
-            if check_only:
-                return 0  # Signal allowed, shim will execute
-            return _execute(command, config.delegate_shell)
-        # FAIL_CLOSED (default)
-        sys.stderr.write(f"[SafeShell] Error: Daemon unreachable ({e})\n")
-        sys.stderr.write("[SafeShell] Command blocked (fail-closed mode)\n")
-        return 1
+        return _handle_daemon_unreachable(e, config, command, check_only)
+
+
+def _handle_daemon_unreachable(
+    error: Exception,
+    config: SafeShellConfig,
+    command: str,
+    check_only: bool,
+) -> int:
+    """Handle daemon unreachable based on config."""
+    from safeshell.config import UnreachableBehavior
+
+    if config.unreachable_behavior == UnreachableBehavior.FAIL_OPEN:
+        sys.stderr.write(f"[SafeShell] Warning: Daemon unreachable ({error}), allowing command\n")
+        return _execute_or_signal(command, config.delegate_shell, check_only)
+
+    # FAIL_CLOSED (default)
+    sys.stderr.write(f"[SafeShell] Error: Daemon unreachable ({error})\n")
+    sys.stderr.write("[SafeShell] Command blocked (fail-closed mode)\n")
+    return 1
 
 
 def _execute(command: str, shell: str) -> int:

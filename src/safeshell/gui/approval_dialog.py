@@ -122,7 +122,7 @@ class ApprovalDialog(QDialog):
             "QPushButton:pressed { background-color: #3D8B40; }"
         )
 
-        self.approve_remember_btn = QPushButton("Approve, Remember")
+        self.approve_remember_btn = QPushButton("Approve (5 min)")
         self.approve_remember_btn.setStyleSheet(
             "QPushButton { background-color: #388E3C; color: white; padding: 10px 20px; "
             "border: none; border-radius: 4px; font-weight: bold; }"
@@ -139,7 +139,7 @@ class ApprovalDialog(QDialog):
             "QPushButton:pressed { background-color: #C62828; }"
         )
 
-        self.deny_remember_btn = QPushButton("Deny, Remember")
+        self.deny_remember_btn = QPushButton("Deny (5 min)")
         self.deny_remember_btn.setStyleSheet(
             "QPushButton { background-color: #D32F2F; color: white; padding: 10px 20px; "
             "border: none; border-radius: 4px; font-weight: bold; }"

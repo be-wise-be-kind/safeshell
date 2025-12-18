@@ -29,6 +29,9 @@ if TYPE_CHECKING:
     from safeshell.daemon.events import DaemonEventPublisher
     from safeshell.daemon.session_memory import SessionMemory
 
+# Time formatting constants
+_SECONDS_PER_MINUTE = 60
+
 
 class RuleManager:
     """Manages rule loading and command evaluation.
@@ -61,6 +64,28 @@ class RuleManager:
         # Cached evaluator for reuse when rules haven't changed
         self._cached_evaluator: RuleEvaluator | None = None
         self._cached_rules_hash: int | None = None
+
+    @staticmethod
+    def _format_remaining_time(remaining_seconds: float | None) -> str:
+        """Format remaining time for display in logs/messages.
+
+        Args:
+            remaining_seconds: Seconds remaining, or None if no expiry
+
+        Returns:
+            Formatted string like " [expires in 4m 30s]" or empty string
+        """
+        if remaining_seconds is None:
+            return ""
+
+        remaining = int(remaining_seconds)
+        if remaining <= 0:
+            return " [expiring]"
+
+        minutes, seconds = divmod(remaining, _SECONDS_PER_MINUTE)
+        if minutes > 0:
+            return f" [expires in {minutes}m {seconds}s]"
+        return f" [expires in {seconds}s]"
 
     @property
     def rule_count(self) -> int:
@@ -272,19 +297,27 @@ class RuleManager:
         # Check session memory first for "don't ask again" decisions
         if self._session_memory is not None:
             if self._session_memory.is_pre_approved(result.plugin_name, command):
-                logger.info(f"Auto-approved via session memory: {command}")
+                remaining = self._session_memory.get_approval_remaining_seconds(
+                    result.plugin_name, command
+                )
+                timeout_str = self._format_remaining_time(remaining)
+                logger.info(f"Auto-approved via session memory{timeout_str}: {command}")
                 return EvaluationResult(
                     decision=Decision.ALLOW,
                     plugin_name=result.plugin_name,
-                    reason=f"Auto-approved (remembered): {result.reason}",
+                    reason=f"Auto-approved{timeout_str}: {result.reason}",
                 )
 
             if self._session_memory.is_pre_denied(result.plugin_name, command):
-                logger.info(f"Auto-denied via session memory: {command}")
+                remaining = self._session_memory.get_denial_remaining_seconds(
+                    result.plugin_name, command
+                )
+                timeout_str = self._format_remaining_time(remaining)
+                logger.info(f"Auto-denied via session memory{timeout_str}: {command}")
                 return EvaluationResult(
                     decision=Decision.DENY,
                     plugin_name=result.plugin_name,
-                    reason=f"Auto-denied (remembered): {result.reason}",
+                    reason=f"Auto-denied{timeout_str}: {result.reason}",
                 )
 
         if self._approval_manager is None:

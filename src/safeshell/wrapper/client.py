@@ -31,6 +31,34 @@ if TYPE_CHECKING:
     from safeshell.models import DaemonRequest, DaemonResponse, ExecutionContext
 
 
+def _write_status_message(msg: str | None) -> None:
+    """Write a status message to stderr if present."""
+    if msg:
+        sys.stderr.write(msg + "\n")
+        sys.stderr.flush()
+
+
+def _receive_final_response(sock: socket.socket) -> tuple[bool, str | None]:
+    """Receive and process responses until we get a final one.
+
+    Returns:
+        Tuple of (should_execute, denial_message)
+    """
+    while True:
+        data = _recv_line(sock)
+        response = json.loads(data.decode("utf-8"))
+
+        # Check for intermediate "waiting" messages
+        if response.get("is_intermediate"):
+            _write_status_message(response.get("status_message"))
+            continue
+
+        # Final response
+        _write_status_message(response.get("status_message"))
+        should_execute = response.get("should_execute", True)
+        return (should_execute, response.get("denial_message"))
+
+
 def evaluate_fast(
     command: str,
     working_dir: str,
@@ -78,28 +106,7 @@ def evaluate_fast(
             message = json.dumps(request).encode("utf-8") + b"\n"
             sock.sendall(message)
 
-            # Receive response - handle intermediate messages
-            while True:
-                data = _recv_line(sock)
-                response = json.loads(data.decode("utf-8"))
-
-                # Check for intermediate "waiting" messages
-                if response.get("is_intermediate"):
-                    msg = response.get("status_message")
-                    if msg:
-                        sys.stderr.write(msg + "\n")
-                        sys.stderr.flush()
-                    continue
-
-                # Final response - output status_message if present (e.g., approval granted)
-                status_msg = response.get("status_message")
-                if status_msg:
-                    sys.stderr.write(status_msg + "\n")
-                    sys.stderr.flush()
-
-                should_execute = response.get("should_execute", True)
-                denial_message = response.get("denial_message")
-                return (should_execute, denial_message)
+            return _receive_final_response(sock)
 
     except (ConnectionRefusedError, FileNotFoundError, TimeoutError) as e:
         raise ConnectionError(f"Cannot connect to daemon: {e}") from e
@@ -213,6 +220,24 @@ class DaemonClient:
         except (DaemonNotRunningError, DaemonStartError):
             return False
 
+    def _receive_daemon_response(self, sock: socket.socket) -> DaemonResponse:
+        """Receive and process daemon responses until final one."""
+        from safeshell.models import DaemonResponse
+
+        while True:
+            response_data = self._recv_one(sock)
+            response_dict = json.loads(response_data.decode("utf-8"))
+            response = DaemonResponse.model_validate(response_dict)
+
+            # Print status messages for intermediate responses
+            if response.is_intermediate and response.status_message:
+                _write_status_message(response.status_message)
+                continue  # Wait for final response
+
+            # Output status_message for final responses (e.g., approval granted)
+            _write_status_message(response.status_message)
+            return response
+
     def _send_request(self, request: DaemonRequest) -> DaemonResponse:
         """Send a request to the daemon and receive response.
 
@@ -226,7 +251,6 @@ class DaemonClient:
             DaemonNotRunningError: If cannot connect to daemon
         """
         from safeshell.exceptions import DaemonNotRunningError
-        from safeshell.models import DaemonResponse
 
         if not self.socket_path.exists():
             raise DaemonNotRunningError(f"Daemon socket not found at {self.socket_path}")
@@ -243,24 +267,7 @@ class DaemonClient:
                 message = request.model_dump_json().encode("utf-8") + b"\n"
                 sock.sendall(message)
 
-                # Receive response(s) - may include intermediate "waiting" messages
-                while True:
-                    response_data = self._recv_one(sock)
-                    response_dict = json.loads(response_data.decode("utf-8"))
-                    response = DaemonResponse.model_validate(response_dict)
-
-                    # Print status messages for intermediate responses
-                    if response.is_intermediate and response.status_message:
-                        sys.stderr.write(response.status_message + "\n")
-                        sys.stderr.flush()
-                        continue  # Wait for final response
-
-                    # Output status_message for final responses (e.g., approval granted)
-                    if response.status_message:
-                        sys.stderr.write(response.status_message + "\n")
-                        sys.stderr.flush()
-
-                    return response
+                return self._receive_daemon_response(sock)
 
         except ConnectionRefusedError as e:
             raise DaemonNotRunningError("Daemon is not accepting connections") from e
