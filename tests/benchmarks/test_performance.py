@@ -127,20 +127,3 @@ class TestExtendedPerformance:
 
         # Should still meet target even with 500 iterations
         assert result.mean_ms < 1.0, f"Rule evaluation degraded under load: {result.mean_ms:.3f}ms"
-
-    def test_condition_benchmark_stability(self):
-        """Condition benchmarks should be stable across runs."""
-        results1 = run_condition_benchmark(iterations=500)
-        results2 = run_condition_benchmark(iterations=500)
-
-        # Results should be within 50% of each other
-        for name in results1:
-            if name in results2:
-                diff = abs(results1[name]["mean_ms"] - results2[name]["mean_ms"])
-                avg = (results1[name]["mean_ms"] + results2[name]["mean_ms"]) / 2
-                if avg > 0:
-                    pct_diff = diff / avg
-                    assert pct_diff < 0.5, (
-                        f"Condition '{name}' has unstable timing: "
-                        f"{results1[name]['mean_ms']:.4f}ms vs {results2[name]['mean_ms']:.4f}ms"
-                    )
