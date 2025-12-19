@@ -14,6 +14,9 @@
 
 set -euo pipefail
 
+# Prevent recursion - our internal commands (tail, grep, sed, etc.) should bypass shim interception
+export SAFESHELL_INTERNAL=1
+
 # Parse arguments
 EXECUTE_MODE=0
 COMMAND=""
@@ -87,7 +90,7 @@ REQUEST="{\"type\":\"${REQUEST_TYPE}\",\"command\":\"${CMD_ESCAPED}\",\"working_
 # Returns empty string on any communication failure (fail-open)
 send_request() {
     local response=""
-    
+
     if command -v socat &>/dev/null; then
         # Use socat with timeout - capture exit code
         response=$(echo "$REQUEST" | timeout 30 socat -t 30 - "UNIX-CONNECT:$SOCKET" 2>/dev/null)
@@ -107,7 +110,7 @@ send_request() {
         # No suitable tool - fail open
         return 1
     fi
-    
+
     echo "$response"
     return 0
 }
