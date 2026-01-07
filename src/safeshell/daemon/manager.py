@@ -452,7 +452,7 @@ class RuleManager:
         assert request.command is not None
         logger.debug(f"Executing command: {request.command}")
 
-        exec_result = execute_command(
+        exec_result = await execute_command(
             command=request.command,
             working_dir=request.working_dir or ".",
             env=request.env,

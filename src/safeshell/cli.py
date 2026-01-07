@@ -15,6 +15,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
+from safeshell.__version__ import __version__
 from safeshell.benchmarks.cli import app as perf_app
 from safeshell.common import SAFESHELL_DIR
 from safeshell.daemon.cli import _daemonize
@@ -79,7 +80,7 @@ app.add_typer(perf_app, name="perf")
 @app.command()
 def version() -> None:
     """Show the SafeShell version."""
-    console.print("[bold]SafeShell[/bold] v0.1.0")
+    console.print(f"[bold]SafeShell[/bold] v{__version__}")
 
 
 @app.command()
@@ -97,6 +98,9 @@ def up() -> None:
     """
     import subprocess
     import time
+
+    # Show version
+    console.print(f"[dim]SafeShell v{__version__}[/dim]")
 
     # Start daemon if not running
     if not DaemonLifecycle.is_running():

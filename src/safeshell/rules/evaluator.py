@@ -9,6 +9,7 @@ Overview: Evaluates commands against loaded rules using structured Python condit
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 from loguru import logger
 
@@ -81,10 +82,12 @@ class RuleEvaluator:
             EvaluationResult with decision and reasoning
         """
         executable = context.executable
+        # Extract base name for index lookup (rules use base names like "rm", not "/usr/bin/rm")
+        base_name = Path(executable).name if executable else None
 
         # Fast path: no rules for this executable
-        if not executable or executable not in self._command_index:
-            logger.debug(f"Fast path ALLOW: '{executable}' not in rule index")
+        if not base_name or base_name not in self._command_index:
+            logger.debug(f"Fast path ALLOW: '{base_name}' (from '{executable}') not in rule index")
             return EvaluationResult(
                 decision=Decision.ALLOW,
                 plugin_name="rules",
@@ -93,7 +96,7 @@ class RuleEvaluator:
 
         # Check each matching rule
         matching_rules: list[Rule] = []
-        for rule in self._command_index[executable]:
+        for rule in self._command_index[base_name]:
             if self._rule_matches(rule, context):
                 matching_rules.append(rule)
                 logger.debug(f"Rule '{rule.name}' matched command")
