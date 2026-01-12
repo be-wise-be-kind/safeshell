@@ -24,9 +24,9 @@ SHIM_SCRIPT_NAME = "safeshell-shim"
 # Commands that should never be shimmed (shell builtins handled by init.bash)
 BUILTIN_COMMANDS = frozenset({"cd", "source", "eval", ".", "export", "alias", "unalias"})
 
-# Internal tools used by safeshell-check - shimming these causes infinite recursion
-# because safeshell-check uses nc/socat to communicate with the daemon
-INTERNAL_TOOLS = frozenset({"nc", "netcat", "ncat", "socat", "timeout"})
+# Note: Internal tools (nc, socat, tail, grep, etc.) are no longer excluded here.
+# safeshell-check now exports SAFESHELL_INTERNAL=1 which causes shims to bypass
+# interception, preventing recursion without limiting what commands can be protected.
 
 
 def get_shim_dir() -> Path:
@@ -64,9 +64,8 @@ def get_commands_from_rules(working_dir: str | Path | None = None) -> set[str]:
 
     for rule in rules:
         for cmd in rule.commands:
-            # Skip builtins (handled by shell function overrides) and internal tools
-            # (used by safeshell-check to communicate with daemon)
-            if cmd not in BUILTIN_COMMANDS and cmd not in INTERNAL_TOOLS:
+            # Skip builtins (handled by shell function overrides)
+            if cmd not in BUILTIN_COMMANDS:
                 commands.add(cmd)
 
     return commands

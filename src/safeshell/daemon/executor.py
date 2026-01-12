@@ -10,7 +10,6 @@ Overview: Provides command execution with output capture for daemon-based execut
 
 from __future__ import annotations
 
-import subprocess
 import time
 from dataclasses import dataclass
 
@@ -28,12 +27,12 @@ class ExecutionResult:
     execution_time_ms: float
 
 
-def execute_command(
+async def execute_command(
     command: str,
     working_dir: str,
     env: dict[str, str] | None = None,
 ) -> ExecutionResult:
-    """Execute a shell command and capture output.
+    """Execute a shell command and capture output asynchronously.
 
     Args:
         command: The command string to execute
@@ -43,6 +42,7 @@ def execute_command(
     Returns:
         ExecutionResult with exit code, stdout, stderr, and timing
     """
+    import asyncio
     import os
 
     # Build environment - start with current env and overlay provided vars
@@ -53,17 +53,18 @@ def execute_command(
     start_time = time.perf_counter()
 
     try:
-        result = subprocess.run(  # nosec B602 - shell=True is intentional for shell command execution
+        # Use asyncio.create_subprocess_shell for non-blocking execution
+        process = await asyncio.create_subprocess_shell(
             command,
-            shell=True,
             cwd=working_dir,
             env=exec_env,
-            capture_output=True,
-            text=True,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        exit_code = result.returncode
-        stdout = result.stdout
-        stderr = result.stderr
+        stdout_bytes, stderr_bytes = await process.communicate()
+        exit_code = process.returncode or 0
+        stdout = stdout_bytes.decode("utf-8", errors="replace")
+        stderr = stderr_bytes.decode("utf-8", errors="replace")
     except Exception as e:
         # Handle execution errors (e.g., working_dir doesn't exist)
         exit_code = _EXIT_CODE_COMMAND_NOT_FOUND
