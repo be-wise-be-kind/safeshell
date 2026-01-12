@@ -36,12 +36,66 @@ from pathlib import Path
 _APPROVAL_TIMEOUT_SECONDS = 600
 
 
+def _is_executable(path: Path) -> bool:
+    """Check if path is an executable file."""
+    return path.is_file() and os.access(path, os.X_OK)
+
+
+def _find_in_pyenv_versions() -> str | None:
+    """Search pyenv versions for safeshell-wrapper.
+
+    Handles the case where safeshell is installed in a different Python version
+    than the currently active one.
+    """
+    pyenv_versions = Path.home() / ".pyenv/versions"
+    if not pyenv_versions.is_dir():
+        return None
+
+    for version_dir in pyenv_versions.iterdir():
+        if not version_dir.is_dir():
+            continue
+        wrapper = version_dir / "bin/safeshell-wrapper"
+        if _is_executable(wrapper):
+            return str(wrapper)
+
+    return None
+
+
+def _find_via_poetry() -> str | None:
+    """Try to find safeshell-wrapper via poetry run (development mode)."""
+    project_dir = Path.home() / "Projects/safeshell"
+    if not (project_dir / "pyproject.toml").exists():
+        return None
+
+    try:
+        result = subprocess.run(
+            ["poetry", "run", "which", "safeshell-wrapper"],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+
+    return None
+
+
 def find_wrapper() -> str | None:
-    """Find safeshell-wrapper executable."""
+    """Find safeshell-wrapper executable.
+
+    Searches in order:
+    1. Current PATH
+    2. Common installation locations (~/.local/bin, /usr/local/bin)
+    3. pyenv versions directories (handles pyenv version mismatch)
+    4. Development mode via poetry run
+    """
     # Check PATH first
     for path_dir in os.environ.get("PATH", "").split(os.pathsep):
         wrapper = Path(path_dir) / "safeshell-wrapper"
-        if wrapper.is_file() and os.access(wrapper, os.X_OK):
+        if _is_executable(wrapper):
             return str(wrapper)
 
     # Check common locations
@@ -51,26 +105,16 @@ def find_wrapper() -> str | None:
     ]
 
     for loc in locations:
-        if loc.is_file() and os.access(loc, os.X_OK):
+        if _is_executable(loc):
             return str(loc)
 
-    # Development mode: try poetry run
-    project_dir = Path.home() / "Projects/safeshell"
-    if (project_dir / "pyproject.toml").exists():
-        try:
-            result = subprocess.run(
-                ["poetry", "run", "which", "safeshell-wrapper"],
-                cwd=project_dir,
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                return result.stdout.strip()
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            pass
+    # Check pyenv versions
+    pyenv_result = _find_in_pyenv_versions()
+    if pyenv_result:
+        return pyenv_result
 
-    return None
+    # Development mode: try poetry run
+    return _find_via_poetry()
 
 
 def check_command(command: str) -> tuple[bool, str]:
