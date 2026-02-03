@@ -30,6 +30,7 @@ flowchart TB
     subgraph Sources["Command Sources"]
         Human["Human Terminal"]
         Claude["Claude Code"]
+        Warp["Warp AI Agent"]
         Scripts["Shell Scripts"]
     end
 
@@ -67,6 +68,8 @@ flowchart TB
     Human --> Shims
     Claude --> Hook
     Claude --> Wrapper
+    Warp --> Shims
+    Warp --> Wrapper
     Scripts --> Shims
 
     Shims --> Server
@@ -154,7 +157,34 @@ Add to your `~/.bashrc` or `~/.zshrc`:
 source ~/.safeshell/init.bash
 ```
 
-### 5. Test the Setup
+### 5. Set Up Claude Code Hook
+
+To intercept commands from Claude Code, add the following to `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.safeshell/hooks/claude_code_hook.py"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+> **Note:** If you installed SafeShell from source with Poetry, point the hook to the source file instead:
+> `"/path/to/safeshell/src/safeshell/hooks/claude_code_hook.py"`
+
+After editing `settings.json`, **restart Claude Code** for the hook to take effect.
+
+### 6. Test the Setup
 
 ```bash
 # Check a command without executing
@@ -215,11 +245,10 @@ poetry run ruff check src/
 ### Hook Executable Discovery
 
 The Claude Code hook automatically finds `safeshell-wrapper` in this order:
-1. **pyenv versions** - Direct lookup in `~/.pyenv/versions/*/bin/` (avoids shim issues)
-2. **pipx location** - `~/.local/bin/safeshell-wrapper`
-3. **System location** - `/usr/local/bin/safeshell-wrapper`
-4. **PATH** - Any other location (excluding pyenv shims)
-5. **Poetry** - Falls back to `poetry run` for development
+1. **PATH** - Searches all directories in `$PATH`
+2. **Common locations** - `~/.local/bin/safeshell-wrapper`, `/usr/local/bin/safeshell-wrapper`
+3. **pyenv versions** - Direct lookup in `~/.pyenv/versions/*/bin/` (handles version mismatch)
+4. **Poetry** - Falls back to `poetry run` for development
 
 ## Configuration
 
@@ -293,16 +322,54 @@ See [Rules Guide](.ai/howtos/how-to-write-rules.md) for complete documentation.
 
 ### Claude Code
 
-SafeShell integrates with Claude Code via a PreToolUse hook that intercepts Bash commands before execution.
+SafeShell integrates with Claude Code via a [PreToolUse hook](https://docs.anthropic.com/en/docs/claude-code/hooks) that intercepts Bash commands before execution.
 
 **Setup:**
 
-The hook is automatically installed during `safeshell init` at `~/.claude/hooks/safeshell_hook.py`.
+Add the hook to your `~/.claude/settings.json` (see [Quick Start step 5](#5-set-up-claude-code-hook) for the full configuration). The hook is located at `~/.safeshell/hooks/claude_code_hook.py` (or in the source tree at `src/safeshell/hooks/claude_code_hook.py` for development installs).
+
+**Requirements:**
+- SafeShell daemon must be running (`safeshell daemon start`)
+- Claude Code must be restarted after changing `settings.json`
 
 **Behavior:**
 - `allow` rules: Command executes normally
 - `deny` rules: Command is blocked with explanation
 - `require_approval` rules: Command waits for approval in Monitor TUI
+
+**Fail-open design:** If the daemon is not running or the hook encounters an error, commands are allowed through. This prevents SafeShell from blocking your workflow if the daemon crashes.
+
+### Warp Terminal
+
+SafeShell detects [Warp](https://www.warp.dev/)'s AI agent mode via the `WARP_AI_AGENT` environment variable. When `WARP_AI_AGENT=1` is set, SafeShell treats commands as AI-originated, enabling `ai_only` rules.
+
+**Setup:**
+
+Create a [Warp Rule](https://docs.warp.dev/knowledge-and-collaboration/rules) (global or project-level) that instructs Warp's AI agent to set the environment variable before every command:
+
+**Option 1: Global Rule** (applies to all projects)
+
+In Warp, open **Warp Drive > Personal > Rules** and add a new global rule:
+
+```
+Always prefix shell commands with `WARP_AI_AGENT=1` to enable SafeShell safety checks.
+For example: `WARP_AI_AGENT=1 git push --force`
+```
+
+**Option 2: Project Rule** (applies to a specific project)
+
+Add a `WARP.md` file to your project root:
+
+```markdown
+Always prefix shell commands with `WARP_AI_AGENT=1` to enable SafeShell safety checks.
+For example: `WARP_AI_AGENT=1 git push --force`
+```
+
+**Requirements:**
+- SafeShell daemon must be running (`safeshell daemon start`)
+- Shell integration must be loaded (`source ~/.safeshell/init.bash` in your shell config)
+
+**Behavior:** Same as Claude Code — `allow`, `deny`, and `require_approval` rules all apply. Rules with `ai_only: true` will match commands from Warp's AI agent.
 
 ## Contributing
 

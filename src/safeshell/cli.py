@@ -433,6 +433,12 @@ def init() -> None:
     console.print("  2. [bold]Add shell integration:[/bold]")
     console.print(get_shell_init_instructions())
     console.print("  3. Start the daemon: safeshell daemon start")
+    console.print(
+        "  4. [bold]For Claude Code:[/bold] Add the PreToolUse hook to ~/.claude/settings.json"
+    )
+    console.print(
+        "     See: https://github.com/be-wise-be-kind/safeshell#5-set-up-claude-code-hook"
+    )
 
 
 @app.command()
