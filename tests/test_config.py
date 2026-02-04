@@ -29,7 +29,7 @@ class TestSafeShellConfig:
     def test_defaults(self) -> None:
         """Test default configuration values."""
         config = SafeShellConfig()
-        assert config.unreachable_behavior == UnreachableBehavior.FAIL_CLOSED
+        assert config.unreachable_behavior == UnreachableBehavior.FAIL_OPEN
         assert config.delegate_shell == "/bin/bash"
         assert config.log_level == "INFO"
         assert config.log_file is None
@@ -95,7 +95,7 @@ class TestLoadConfig:
             config_path = Path(tmpdir) / "nonexistent.yaml"
             config = load_config(config_path)
             # Should return defaults
-            assert config.unreachable_behavior == UnreachableBehavior.FAIL_CLOSED
+            assert config.unreachable_behavior == UnreachableBehavior.FAIL_OPEN
 
     def test_load_empty_file(self) -> None:
         """Test loading config from empty file."""
@@ -104,7 +104,7 @@ class TestLoadConfig:
             config_path.write_text("")
             config = load_config(config_path)
             # Should return defaults
-            assert config.unreachable_behavior == UnreachableBehavior.FAIL_CLOSED
+            assert config.unreachable_behavior == UnreachableBehavior.FAIL_OPEN
 
     def test_load_valid_file(self) -> None:
         """Test loading config from valid YAML file."""
@@ -129,7 +129,7 @@ log_level: DEBUG
             # Specified value
             assert config.log_level == "WARNING"
             # Default values
-            assert config.unreachable_behavior == UnreachableBehavior.FAIL_CLOSED
+            assert config.unreachable_behavior == UnreachableBehavior.FAIL_OPEN
 
     def test_load_invalid_yaml(self) -> None:
         """Test loading config from invalid YAML."""

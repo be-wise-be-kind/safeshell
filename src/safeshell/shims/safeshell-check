@@ -12,7 +12,7 @@
 #   Check mode: 0=allowed, 1=denied, 2=error
 #   Execute mode: command's exit code (or 126/127 for errors)
 
-set -euo pipefail
+set -uo pipefail
 
 # Prevent recursion - our internal commands (tail, grep, sed, etc.) should bypass shim interception
 export SAFESHELL_INTERNAL=1

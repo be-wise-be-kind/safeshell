@@ -141,7 +141,7 @@ def _handle_daemon_unreachable(
         sys.stderr.write(f"[SafeShell] Warning: Daemon unreachable ({error}), allowing command\n")
         return _execute_or_signal(command, config.delegate_shell, check_only)
 
-    # FAIL_CLOSED (default)
+    # FAIL_CLOSED
     sys.stderr.write(f"[SafeShell] Error: Daemon unreachable ({error})\n")
     sys.stderr.write("[SafeShell] Command blocked (fail-closed mode)\n")
     return 1
