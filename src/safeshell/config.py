@@ -31,8 +31,8 @@ _MAX_APPROVAL_MEMORY_TTL_SECONDS = 86400  # 24 hours
 class UnreachableBehavior(str, Enum):
     """Behavior when daemon is unreachable."""
 
-    FAIL_CLOSED = "fail_closed"  # Block all commands (safe, default)
-    FAIL_OPEN = "fail_open"  # Allow with warning (less safe)
+    FAIL_CLOSED = "fail_closed"  # Block all commands (strictest)
+    FAIL_OPEN = "fail_open"  # Allow with warning (default)
 
 
 class SafeShellConfig(BaseModel):
@@ -42,7 +42,7 @@ class SafeShellConfig(BaseModel):
     """
 
     unreachable_behavior: UnreachableBehavior = Field(
-        default=UnreachableBehavior.FAIL_CLOSED,
+        default=UnreachableBehavior.FAIL_OPEN,
         description="Behavior when daemon is unreachable",
     )
 

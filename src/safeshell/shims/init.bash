@@ -11,6 +11,25 @@
 [[ -n "$SAFESHELL_LOADED" ]] && return
 export SAFESHELL_LOADED=1
 
+# --- Stale Socket Cleanup ---
+# After a reboot, the daemon dies but the socket file persists on disk.
+# Detect and remove stale sockets so the rest of init sees "daemon not running."
+__safeshell_socket="${SAFESHELL_SOCKET:-$HOME/.safeshell/daemon.sock}"
+if [[ -S "$__safeshell_socket" ]]; then
+    if command -v socat &>/dev/null; then
+        if ! socat /dev/null "UNIX-CONNECT:$__safeshell_socket" 2>/dev/null; then
+            rm -f "$__safeshell_socket" 2>/dev/null
+        fi
+    elif command -v nc &>/dev/null; then
+        if ! echo "" | nc -U "$__safeshell_socket" -w 1 2>/dev/null; then
+            rm -f "$__safeshell_socket" 2>/dev/null
+        fi
+    fi
+    # If neither socat nor nc available, skip cleanup — fail-open behavior
+    # in safeshell-check and the Python wrapper handles this case.
+fi
+unset __safeshell_socket
+
 # --- Context Detection ---
 # Determine if we're in an AI-controlled context.
 # Add vendor-specific checks here (only place for vendor detection).
