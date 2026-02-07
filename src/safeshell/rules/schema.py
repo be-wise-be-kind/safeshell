@@ -6,7 +6,7 @@ Depends: pydantic, enum, condition_types
 Overview: Defines the schema for rules loaded from ~/.safeshell/rules.yaml and .safeshell/rules.yaml
 """
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from safeshell.rules.condition_types import Condition, parse_condition
 
 
-class RuleAction(str, Enum):
+class RuleAction(StrEnum):
     """Actions a rule can take when matched."""
 
     ALLOW = "allow"
@@ -23,7 +23,7 @@ class RuleAction(str, Enum):
     REDIRECT = "redirect"
 
 
-class RuleContext(str, Enum):
+class RuleContext(StrEnum):
     """Context in which a rule applies."""
 
     ALL = "all"  # Applies to both AI and human (default)

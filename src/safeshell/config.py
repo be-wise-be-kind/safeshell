@@ -7,7 +7,7 @@ Overview: Loads and validates SafeShell configuration from ~/.safeshell/config.y
 """
 
 import os
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 import yaml
@@ -28,7 +28,7 @@ _DEFAULT_APPROVAL_MEMORY_TTL_SECONDS = 300  # 5 minutes
 _MAX_APPROVAL_MEMORY_TTL_SECONDS = 86400  # 24 hours
 
 
-class UnreachableBehavior(str, Enum):
+class UnreachableBehavior(StrEnum):
     """Behavior when daemon is unreachable."""
 
     FAIL_CLOSED = "fail_closed"  # Block all commands (strictest)

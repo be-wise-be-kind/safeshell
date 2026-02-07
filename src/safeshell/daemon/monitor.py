@@ -9,7 +9,7 @@ Overview: Handles monitor client connections and streams events to them
 # ruff: noqa: SIM105, S110 - contextlib.suppress doesn't work with await; best-effort error handling
 
 import asyncio
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from loguru import logger
@@ -24,7 +24,7 @@ from safeshell.exceptions import ProtocolError
 _ID_LOG_PREVIEW_LENGTH = 8
 
 
-class MonitorCommandType(str, Enum):
+class MonitorCommandType(StrEnum):
     """Types of commands from monitor to daemon."""
 
     SUBSCRIBE = "subscribe"
