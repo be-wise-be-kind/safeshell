@@ -37,9 +37,9 @@ class TestAWSRulesLoad:
         ruleset = RuleSet.model_validate(data)
 
         for rule in ruleset.rules:
-            assert (
-                rule.action.value == "require_approval"
-            ), f"Rule {rule.name} should use require_approval"
+            assert rule.action.value == "require_approval", (
+                f"Rule {rule.name} should use require_approval"
+            )
 
     def test_all_rules_ai_only(self) -> None:
         """Verify all AWS rules are ai_only context."""

@@ -47,9 +47,9 @@ class TestEvaluationPerformance:
             if stats["mean_ms"] > 0.1:
                 slow_conditions.append(f"{name}: {stats['mean_ms']:.4f}ms")
 
-        assert (
-            not slow_conditions
-        ), f"Slow condition types detected (>0.1ms): {', '.join(slow_conditions)}"
+        assert not slow_conditions, (
+            f"Slow condition types detected (>0.1ms): {', '.join(slow_conditions)}"
+        )
 
 
 class TestBenchmarkResultStructures:
@@ -112,8 +112,7 @@ class TestPerformanceTargets:
         result = run_evaluation_benchmark(iterations=100)
 
         assert result.mean_ms < self.RULE_EVAL_TARGET_MS, (
-            f"Rule evaluation exceeds target: "
-            f"{result.mean_ms:.3f}ms > {self.RULE_EVAL_TARGET_MS}ms"
+            f"Rule evaluation exceeds target: {result.mean_ms:.3f}ms > {self.RULE_EVAL_TARGET_MS}ms"
         )
 
 
