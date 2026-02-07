@@ -2,8 +2,8 @@
 File: src/safeshell/rules/loader.py
 Purpose: Load and merge rule files from global and repo locations
 Exports: load_rules, load_default_rules, _apply_overrides, GLOBAL_RULES_PATH, BUILTIN_RULE_SOURCES
-Depends: safeshell.rules.schema, safeshell.rules.defaults, safeshell.rules.azure,
-         safeshell.exceptions, safeshell.common, pyyaml, pathlib, loguru
+Depends: safeshell.rules.schema, safeshell.rules.defaults, safeshell.rules.aws,
+         safeshell.rules.azure, safeshell.exceptions, safeshell.common, pyyaml, pathlib, loguru
 Overview: Loads rules from built-in sources (defaults.py, azure.py),
           ~/.safeshell/rules.yaml, and .safeshell/rules.yaml
 """
@@ -17,6 +17,7 @@ from pydantic import ValidationError
 
 from safeshell.common import SAFESHELL_DIR
 from safeshell.exceptions import OverrideError, RuleLoadError
+from safeshell.rules.aws import AWS_RULES_YAML
 from safeshell.rules.azure import AZURE_RULES_YAML
 from safeshell.rules.defaults import DEFAULT_RULES_YAML
 from safeshell.rules.github import GITHUB_RULES_YAML
@@ -25,6 +26,7 @@ from safeshell.rules.schema import Rule, RuleOverride, RuleSet
 # All built-in rule sources, loaded in order
 BUILTIN_RULE_SOURCES = [
     DEFAULT_RULES_YAML,
+    AWS_RULES_YAML,
     AZURE_RULES_YAML,
     GITHUB_RULES_YAML,
 ]
