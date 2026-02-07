@@ -12,7 +12,7 @@ default:
 # Initial setup (install dependencies)
 init:
     @echo "🚀 Setting up SafeShell development environment..."
-    poetry install
+    uv sync
     @echo ""
     @echo "✅ Installation complete!"
     @echo ""
@@ -23,7 +23,7 @@ init:
 
 # Install/update dependencies
 install:
-    poetry install
+    uv sync
 
 # ============================================================================
 # LINTING & QUALITY
@@ -32,8 +32,8 @@ install:
 # Fast linting (Ruff only)
 lint:
     @echo "▶ Running fast linting (Ruff)..."
-    poetry run ruff check src/ tests/
-    poetry run ruff format --check src/ tests/
+    uv run ruff check src/ tests/
+    uv run ruff format --check src/ tests/
 
 # Comprehensive linting (Ruff + Pylint + MyPy)
 lint-all:
@@ -43,16 +43,16 @@ lint-all:
     @echo "════════════════════════════════════════════════════════════"
     @echo ""
     @echo "[1/4] Ruff (linter)"
-    poetry run ruff check src/ tests/
+    uv run ruff check src/ tests/
     @echo ""
     @echo "[2/4] Ruff (formatter)"
-    poetry run ruff format --check src/ tests/
+    uv run ruff format --check src/ tests/
     @echo ""
     @echo "[3/4] Pylint"
-    poetry run pylint src/safeshell
+    uv run pylint src/safeshell
     @echo ""
     @echo "[4/4] MyPy (type checking)"
-    poetry run mypy src/safeshell
+    uv run mypy src/safeshell
 
 # Security scanning (Bandit)
 lint-security:
@@ -62,7 +62,7 @@ lint-security:
     @echo "════════════════════════════════════════════════════════════"
     @echo ""
     @echo "[1/1] Bandit (security linter)"
-    poetry run bandit -r src/safeshell -c pyproject.toml
+    uv run bandit -r src/safeshell -c pyproject.toml
 
 # Complexity analysis (Radon)
 lint-complexity:
@@ -72,7 +72,7 @@ lint-complexity:
     @echo "════════════════════════════════════════════════════════════"
     @echo ""
     @echo "[1/1] Radon (cyclomatic complexity)"
-    poetry run radon cc src/safeshell -a -s
+    uv run radon cc src/safeshell -a -s
 
 # Thai-lint checks
 lint-thai:
@@ -81,10 +81,10 @@ lint-thai:
     @echo "  THAI-LINT CHECKS"
     @echo "════════════════════════════════════════════════════════════"
     @echo ""
-    poetry run thailint file-header src/
-    poetry run thailint magic-numbers src/
-    poetry run thailint nesting src/
-    poetry run thailint srp src/
+    uv run thailint file-header src/
+    uv run thailint magic-numbers src/
+    uv run thailint nesting src/
+    uv run thailint srp src/
 
 # ALL quality checks
 lint-full:
@@ -105,8 +105,8 @@ lint-full:
 
 # Auto-fix formatting and linting issues
 format:
-    poetry run ruff format src/ tests/
-    poetry run ruff check --fix src/ tests/
+    uv run ruff format src/ tests/
+    uv run ruff check --fix src/ tests/
 
 # ============================================================================
 # TESTING
@@ -114,11 +114,11 @@ format:
 
 # Run tests
 test:
-    poetry run pytest tests/ -v --tb=short
+    uv run pytest tests/ -v --tb=short
 
 # Run tests with coverage
 test-coverage:
-    poetry run pytest tests/ --cov=src/safeshell --cov-report=term --cov-report=html
+    uv run pytest tests/ --cov=src/safeshell --cov-report=term --cov-report=html
 
 # ============================================================================
 # DOCKER
@@ -144,4 +144,4 @@ clean:
 
 # Run the CLI
 run *args:
-    poetry run safeshell {{args}}
+    uv run safeshell {{args}}

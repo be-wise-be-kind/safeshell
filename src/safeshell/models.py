@@ -9,7 +9,7 @@ Overview: Defines all data models used for IPC between wrapper and daemon, and p
 from __future__ import annotations
 
 import time
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -25,7 +25,7 @@ _GIT_REF_PREFIX = "ref: refs/heads/"
 _GIT_REF_PREFIX_LEN = len(_GIT_REF_PREFIX)  # 16
 
 
-class Decision(str, Enum):
+class Decision(StrEnum):
     """Plugin decision for a command."""
 
     ALLOW = "allow"
@@ -33,7 +33,7 @@ class Decision(str, Enum):
     REQUIRE_APPROVAL = "require_approval"  # Phase 2
 
 
-class ExecutionContext(str, Enum):
+class ExecutionContext(StrEnum):
     """Context indicating who is executing the command."""
 
     AI = "ai"  # Command from AI agent (Claude Code, Cursor, etc.)
@@ -225,7 +225,7 @@ class EvaluationResult(BaseModel):
     )
 
 
-class RequestType(str, Enum):
+class RequestType(StrEnum):
     """Types of requests from wrapper to daemon."""
 
     EVALUATE = "evaluate"

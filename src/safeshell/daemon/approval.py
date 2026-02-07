@@ -14,7 +14,7 @@ import contextlib
 import time
 import uuid
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from loguru import logger
@@ -29,7 +29,7 @@ _ID_PREVIEW_LEN = 8  # Characters to show in log messages for UUIDs
 _DEFAULT_APPROVAL_TIMEOUT_SECONDS = 300.0
 
 
-class ApprovalResult(str, Enum):
+class ApprovalResult(StrEnum):
     """Result of an approval request."""
 
     APPROVED = "approved"
@@ -303,8 +303,7 @@ class ApprovalManager:
             )
 
             logger.warning(
-                f"Approval timed out: {approval_id[:_ID_PREVIEW_LEN]}... "
-                f"after {timeout_seconds}s"
+                f"Approval timed out: {approval_id[:_ID_PREVIEW_LEN]}... after {timeout_seconds}s"
             )
 
             # Resolve as timeout (after publishing event)

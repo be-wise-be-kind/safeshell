@@ -54,12 +54,12 @@ def find_wrapper() -> str | None:
         if loc.is_file() and os.access(loc, os.X_OK):
             return str(loc)
 
-    # Development mode: try poetry run
+    # Development mode: try uv run
     project_dir = Path.home() / "Projects/safeshell"
     if (project_dir / "pyproject.toml").exists():
         try:
             result = subprocess.run(
-                ["poetry", "run", "which", "safeshell-wrapper"],
+                ["uv", "run", "which", "safeshell-wrapper"],
                 cwd=project_dir,
                 capture_output=True,
                 text=True,

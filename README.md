@@ -35,9 +35,9 @@ flowchart TB
     end
 
     subgraph Install["Installation (choose one)"]
-        Pyenv["pyenv + pip install"]
+        UV["uv tool install (recommended)"]
         Pipx["pipx install"]
-        Poetry["poetry install (dev)"]
+        UVDev["uv sync (dev)"]
     end
 
     subgraph Interception["Interception Layer"]
@@ -61,9 +61,9 @@ flowchart TB
 
     Monitor["Monitor TUI<br/>safeshell monitor"]
 
-    Pyenv --> Wrapper
+    UV --> Wrapper
     Pipx --> Wrapper
-    Poetry --> Wrapper
+    UVDev --> Wrapper
 
     Human --> Shims
     Claude --> Hook
@@ -129,7 +129,7 @@ flowchart TB
 # From source (recommended during development)
 git clone https://github.com/be-wise-be-kind/safeshell.git
 cd safeshell
-poetry install
+uv sync
 ```
 
 ### 2. Initialize Configuration
@@ -210,36 +210,33 @@ gsettings set org.gnome.desktop.wm.preferences focus-new-windows 'smart'
 
 This changes the setting from `strict` (blocks all focus stealing) to `smart` (allows new windows to take focus when appropriate).
 
-### Option 1: pipx (Recommended for Users)
+### Option 1: uv tool install (Recommended)
+
+```bash
+# Install system-wide into an isolated environment
+uv tool install safeshell
+safeshell init
+```
+
+### Option 2: pipx
 
 ```bash
 pipx install safeshell
 safeshell init
 ```
 
-### Option 2: pyenv + pip
-
-```bash
-# Ensure you have a pyenv Python version active
-pyenv install 3.13.2
-pyenv global 3.13.2
-
-pip install safeshell
-safeshell init
-```
-
-### Option 3: Poetry (Development)
+### Option 3: uv (Development)
 
 ```bash
 git clone https://github.com/be-wise-be-kind/safeshell.git
 cd safeshell
-poetry install --with dev
+uv sync
 
 # Run tests
-poetry run pytest
+uv run pytest
 
 # Run linting
-poetry run ruff check src/
+uv run ruff check src/
 ```
 
 ### Hook Executable Discovery
@@ -248,7 +245,7 @@ The Claude Code hook automatically finds `safeshell-wrapper` in this order:
 1. **PATH** - Searches all directories in `$PATH`
 2. **Common locations** - `~/.local/bin/safeshell-wrapper`, `/usr/local/bin/safeshell-wrapper`
 3. **pyenv versions** - Direct lookup in `~/.pyenv/versions/*/bin/` (handles version mismatch)
-4. **Poetry** - Falls back to `poetry run` for development
+4. **uv** - Falls back to `uv run` for development
 
 ## Configuration
 
@@ -378,7 +375,7 @@ Contributions are welcome! Please follow these steps:
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
-4. Run tests and linting (`poetry run pytest && poetry run ruff check src/`)
+4. Run tests and linting (`uv run pytest && uv run ruff check src/`)
 5. Commit your changes
 6. Push to the branch (`git push origin feature/amazing-feature`)
 7. Open a Pull Request

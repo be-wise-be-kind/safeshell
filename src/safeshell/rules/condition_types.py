@@ -3,7 +3,7 @@ File: src/safeshell/rules/condition_types.py
 Purpose: Pydantic models for structured rule conditions with Python evaluation
 Exports: Condition type union and all condition type classes
 Depends: pydantic, re, os
-Overview: Defines structured conditions that replace bash condition strings for fast evaluation
+Overview: Defines structured conditions that supersede bash condition strings for fast evaluation
 """
 
 from __future__ import annotations

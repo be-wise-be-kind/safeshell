@@ -8,7 +8,7 @@ Overview: Defines all event types used for streaming updates from daemon to conn
 """
 
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from safeshell.models import Decision
 
 
-class EventType(str, Enum):
+class EventType(StrEnum):
     """Types of events emitted by the daemon."""
 
     COMMAND_RECEIVED = "command_received"

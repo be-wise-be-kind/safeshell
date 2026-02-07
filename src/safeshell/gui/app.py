@@ -343,8 +343,7 @@ def run_gui() -> None:
         QMessageBox.critical(
             None,
             "SafeShell",
-            "System tray is not available on this system.\n"
-            "The GUI requires system tray support.",
+            "System tray is not available on this system.\nThe GUI requires system tray support.",
         )
         sys.exit(1)
 

@@ -1,46 +1,53 @@
-[tool.poetry]
+[project]
 name = "safeshell"
-version = "0.1.0"
 description = "A command-line safety layer for AI coding assistants"
-authors = ["Steve Jackson"]
+authors = [{name = "Steve Jackson"}]
 readme = "README.md"
-packages = [{include = "safeshell", from = "src"}]
+requires-python = ">=3.11"
+dynamic = ["version"]
+dependencies = [
+    "typer>=0.15.0",
+    "rich>=14.2.0",
+    "pydantic>=2.0.0",
+    "loguru>=0.7.0",
+    "pyyaml>=6.0.0",
+    "plumbum>=1.9.0",
+    "textual>=6.8.0",
+    "PyQt6>=6.6.0",
+    "qasync>=0.27.1",
+]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-typer = {extras = ["all"], version = "^0.15.0"}
-rich = "^14.2.0"
-pydantic = "^2.0.0"
-loguru = "^0.7.0"
-pyyaml = "^6.0.0"
-plumbum = "^1.9.0"
-textual = "^6.8.0"
-PyQt6 = "^6.6.0"
-qasync = "^0.27.1"
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.3.0"
-pytest-cov = "^6.0.0"
-pytest-xdist = "^3.5.0"
-pytest-asyncio = "^0.24.0"
-ruff = "^0.8.0"
-pylint = "^3.3.0"
-mypy = "^1.13.0"
-bandit = "^1.8.0"
-pre-commit = "^4.0.0"
-thailint = "^0.9.0"
-radon = "^6.0.0"
-pip-audit = "^2.10.0"
-safety = "3.5.1"
-types-pyyaml = "^6.0.0"  # Type stubs for PyYAML
-
-[tool.poetry.scripts]
+[project.scripts]
 safeshell = "safeshell.cli:app"
 safeshell-wrapper = "safeshell.wrapper.shell:main"
 
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-cov>=6.0.0",
+    "pytest-xdist>=3.5.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.8.0",
+    "pylint>=3.3.0",
+    "mypy>=1.13.0",
+    "bandit>=1.8.0",
+    "pre-commit>=4.0.0",
+    "thailint>=0.9.0",
+    "radon>=6.0.0",
+    "pip-audit>=2.10.0",
+    "safety==3.5.1",
+    "types-pyyaml>=6.0.0",
+]
+
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/safeshell/__version__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/safeshell"]
 
 # Ruff configuration
 [tool.ruff]
@@ -148,7 +155,7 @@ skips = [
     "B404",  # subprocess import: Required for shell wrapping functionality
     "B603",  # subprocess without shell: Safe - we control the command list
     "B606",  # start process no shell: Safe - intentional for exec replacement
-    "B607",  # partial path: Safe - using poetry run for development utilities
+    "B607",  # partial path: Safe - using uv run for development utilities
 ]
 
 # Coverage configuration
