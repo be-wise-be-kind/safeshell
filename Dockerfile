@@ -10,21 +10,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
-RUN pip install --no-cache-dir poetry
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Copy project files
-COPY pyproject.toml poetry.lock* ./
+COPY pyproject.toml uv.lock ./
 COPY README.md ./
 COPY src/ ./src/
 COPY tests/ ./tests/
 
 # Install all dependencies (including dev for linting)
-RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi
+RUN uv sync --frozen
 
 # Make files readable by all users (for --user flag support)
 RUN chmod -R a+rX /app
 
 # Default command
-CMD ["safeshell", "--help"]
+CMD ["uv", "run", "safeshell", "--help"]

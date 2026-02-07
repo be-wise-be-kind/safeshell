@@ -1,6 +1,6 @@
 # Pre-commit hooks for SafeShell
-# Install: poetry run pre-commit install
-# Run manually: poetry run pre-commit run --all-files
+# Install: uv run pre-commit install
+# Run manually: uv run pre-commit run --all-files
 
 default_install_hook_types: [pre-commit, pre-push]
 
@@ -17,7 +17,7 @@ repos:
       - id: check-merge-conflict
       - id: detect-private-key
 
-  # Local hooks using Poetry
+  # Local hooks using uv
   - repo: local
     hooks:
       # ========================================================================
@@ -26,21 +26,21 @@ repos:
 
       - id: ruff-check
         name: ruff check
-        entry: poetry run ruff check --fix
+        entry: uv run ruff check --fix
         language: system
         types: [python]
         stages: [pre-commit]
 
       - id: ruff-format
         name: ruff format
-        entry: poetry run ruff format
+        entry: uv run ruff format
         language: system
         types: [python]
         stages: [pre-commit]
 
       - id: thailint-file-header
         name: thailint file header check
-        entry: poetry run thailint file-header
+        entry: uv run thailint file-header
         language: system
         types: [python]
         stages: [pre-commit]
@@ -59,7 +59,7 @@ repos:
 
       - id: mypy
         name: mypy type checking
-        entry: poetry run mypy src/safeshell
+        entry: uv run mypy src/safeshell
         language: system
         types: [python]
         pass_filenames: false
@@ -67,7 +67,7 @@ repos:
 
       - id: bandit
         name: bandit security scan
-        entry: poetry run bandit -r src/safeshell -c pyproject.toml
+        entry: uv run bandit -r src/safeshell -c pyproject.toml
         language: system
         types: [python]
         pass_filenames: false
@@ -75,7 +75,7 @@ repos:
 
       - id: pylint
         name: pylint code quality
-        entry: poetry run pylint src/safeshell
+        entry: uv run pylint src/safeshell
         language: system
         types: [python]
         pass_filenames: false
@@ -83,35 +83,35 @@ repos:
 
       - id: pytest
         name: pytest
-        entry: poetry run pytest tests/ -v --tb=short
+        entry: uv run pytest tests/ -v --tb=short
         language: system
         pass_filenames: false
         stages: [pre-push]
 
       - id: thailint-magic-numbers
         name: thailint magic numbers check
-        entry: bash -c 'poetry run thailint magic-numbers src/ || true'
+        entry: bash -c 'uv run thailint magic-numbers src/ || true'
         language: system
         pass_filenames: false
         stages: [pre-push]
 
       - id: thailint-nesting
         name: thailint nesting check
-        entry: bash -c 'poetry run thailint nesting src/ || true'
+        entry: bash -c 'uv run thailint nesting src/ || true'
         language: system
         pass_filenames: false
         stages: [pre-push]
 
       - id: thailint-srp
         name: thailint SRP check
-        entry: bash -c 'poetry run thailint srp src/ || true'
+        entry: bash -c 'uv run thailint srp src/ || true'
         language: system
         pass_filenames: false
         stages: [pre-push]
 
       - id: thailint-file-header-full
         name: thailint file header (full)
-        entry: poetry run thailint file-header src/
+        entry: uv run thailint file-header src/
         language: system
         pass_filenames: false
         stages: [pre-push]
