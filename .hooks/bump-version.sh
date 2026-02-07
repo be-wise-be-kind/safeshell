@@ -6,7 +6,7 @@ set -e
 VERSION_FILE="src/safeshell/__version__.py"
 
 # Read current version
-current_version=$(grep '__version__' "$VERSION_FILE" | cut -d'"' -f2)
+current_version=$(grep '^__version__' "$VERSION_FILE" | cut -d'"' -f2)
 
 # Split version into major.minor.patch
 IFS='.' read -r major minor patch <<< "$current_version"
