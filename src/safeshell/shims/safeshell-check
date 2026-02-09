@@ -17,6 +17,13 @@ set -uo pipefail
 # Prevent recursion - our internal commands (tail, grep, sed, etc.) should bypass shim interception
 export SAFESHELL_INTERNAL=1
 
+# Detect execution context (human vs AI agent)
+EXEC_CONTEXT="human"
+[[ "${SAFESHELL_CONTEXT:-}" == "ai" ]] && EXEC_CONTEXT="ai"
+[[ "${WARP_AI_AGENT:-}" == "1" ]] && EXEC_CONTEXT="ai"
+[[ -n "${CLAUDECODE:-}" ]] && EXEC_CONTEXT="ai"
+# Add other AI tool detections here
+
 # Parse arguments
 EXECUTE_MODE=0
 COMMAND=""
@@ -84,7 +91,7 @@ else
     REQUEST_TYPE="evaluate"
 fi
 
-REQUEST="{\"type\":\"${REQUEST_TYPE}\",\"command\":\"${CMD_ESCAPED}\",\"working_dir\":\"${DIR_ESCAPED}\",\"env\":{},\"execution_context\":\"human\"}"
+REQUEST="{\"type\":\"${REQUEST_TYPE}\",\"command\":\"${CMD_ESCAPED}\",\"working_dir\":\"${DIR_ESCAPED}\",\"env\":{},\"execution_context\":\"${EXEC_CONTEXT}\"}"
 
 # Send request and get response using timeout + nc/socat
 # Returns empty string on any communication failure (fail-open)

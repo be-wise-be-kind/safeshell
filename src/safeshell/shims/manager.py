@@ -21,6 +21,9 @@ SHIM_DIR = SAFESHELL_DIR / "shims"
 # Name of the universal shim script
 SHIM_SCRIPT_NAME = "safeshell-shim"
 
+# Name of the check script (lightweight daemon client)
+CHECK_SCRIPT_NAME = "safeshell-check"
+
 # Commands that should never be shimmed (shell builtins handled by init.bash)
 BUILTIN_COMMANDS = frozenset({"cd", "source", "eval", ".", "export", "alias", "unalias"})
 
@@ -107,6 +110,30 @@ def install_shim_script() -> Path:
     dest.chmod(dest.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
     logger.debug(f"Installed shim script: {dest}")
+    return dest
+
+
+def install_check_script() -> Path:
+    """Copy the safeshell-check script to the shims directory.
+
+    Returns:
+        Path to the installed check script
+
+    Raises:
+        FileNotFoundError: If the source check script is not found
+    """
+    source = Path(__file__).parent / CHECK_SCRIPT_NAME
+    if not source.exists():
+        raise FileNotFoundError(f"Check script not found: {source}")
+
+    ensure_shim_directory()
+    dest = SHIM_DIR / CHECK_SCRIPT_NAME
+
+    # Copy and make executable
+    shutil.copy2(source, dest)
+    dest.chmod(dest.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+    logger.debug(f"Installed check script: {dest}")
     return dest
 
 
@@ -201,9 +228,10 @@ def refresh_shims(working_dir: str | Path | None = None) -> dict[str, list[str]]
         "unchanged": [],
     }
 
-    # Ensure directory and shim script exist
+    # Ensure directory and shim scripts exist
     ensure_shim_directory()
     install_shim_script()
+    install_check_script()
 
     # Get commands that need shims
     needed_commands = get_commands_from_rules(working_dir)

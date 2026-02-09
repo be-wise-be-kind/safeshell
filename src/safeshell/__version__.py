@@ -6,4 +6,4 @@ Depends: (none)
 Overview: Contains the version string used by pyproject.toml (hatchling) and CLI
 """
 
-__version__ = "0.1.11"
+__version__ = "0.1.12"
